@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/locktivity/epack-collector-github/docs/schema/v1.0.0.json",
+  "title": "GitHub Posture Collector Output",
+  "description": "Security posture metrics for a GitHub organization",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "collected_at",
+    "organization",
+    "scope",
+    "posture",
+    "access_control",
+    "branch_protection_rules",
+    "security_features"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Schema version for this output format"
+    },
+    "collected_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the data was collected"
+    },
+    "organization": {
+      "type": "string",
+      "description": "GitHub organization name"
+    },
+    "scope": {
+      "type": "object",
+      "description": "Filters applied during collection",
+      "required": ["include_patterns", "exclude_patterns", "repositories_coverage"],
+      "properties": {
+        "include_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for repositories to include"
+        },
+        "exclude_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Glob patterns for repositories to exclude"
+        },
+        "repositories_coverage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of organization repositories covered by the assessment"
+        }
+      }
+    },
+    "posture": {
+      "type": "object",
+      "description": "High-level security posture summary",
+      "required": ["branch_protection_coverage", "security_features_coverage"],
+      "properties": {
+        "branch_protection_coverage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories with branch protection enabled"
+        },
+        "security_features_coverage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Average coverage across all 5 security features"
+        }
+      }
+    },
+    "access_control": {
+      "type": "object",
+      "description": "Organization-level access control settings. Note: SSO status is not included because GitHub does not provide a reliable API to detect SAML SSO configuration.",
+      "required": ["two_factor_required"],
+      "properties": {
+        "two_factor_required": {
+          "type": ["boolean", "null"],
+          "description": "Whether 2FA is required for all organization members. Null if insufficient permissions to determine."
+        }
+      }
+    },
+    "branch_protection_rules": {
+      "type": "object",
+      "description": "Per-rule coverage percentages for branch protection",
+      "required": [
+        "pull_request_required",
+        "approving_reviews",
+        "dismiss_stale_reviews",
+        "code_owner_reviews",
+        "status_checks",
+        "signed_commits",
+        "admin_enforcement"
+      ],
+      "properties": {
+        "pull_request_required": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories requiring pull requests"
+        },
+        "approving_reviews": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories requiring approving reviews"
+        },
+        "dismiss_stale_reviews": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories that dismiss stale reviews"
+        },
+        "code_owner_reviews": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories requiring code owner reviews"
+        },
+        "status_checks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories requiring status checks"
+        },
+        "signed_commits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories requiring signed commits"
+        },
+        "admin_enforcement": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories enforcing rules on admins"
+        }
+      }
+    },
+    "security_features": {
+      "type": "object",
+      "description": "Per-feature coverage percentages for security features",
+      "required": [
+        "vulnerability_alerts",
+        "code_scanning",
+        "secret_scanning",
+        "secret_scanning_push_protection",
+        "dependabot_security_updates"
+      ],
+      "properties": {
+        "vulnerability_alerts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories with vulnerability alerts enabled"
+        },
+        "code_scanning": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories with code scanning enabled"
+        },
+        "secret_scanning": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories with secret scanning enabled"
+        },
+        "secret_scanning_push_protection": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories with secret scanning push protection enabled"
+        },
+        "dependabot_security_updates": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of repositories with Dependabot security updates enabled"
+        }
+      }
+    }
+  }
+}
