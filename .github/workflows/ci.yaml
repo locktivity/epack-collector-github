@@ -61,7 +61,10 @@ jobs:
         run: go build -o epack-collector-github ./cmd/epack-collector-github
 
       - name: Install epack-conformance
-        run: go install -tags conformance github.com/locktivity/epack/cmd/epack-conformance@latest
+        run: |
+          EPACK_VERSION="$(go list -m -f '{{.Version}}' github.com/locktivity/epack)"
+          echo "Installing epack-conformance at ${EPACK_VERSION}"
+          go install -tags conformance github.com/locktivity/epack/cmd/epack-conformance@"${EPACK_VERSION}"
 
       - name: Run conformance tests
         run: epack-conformance collector ./epack-collector-github --level standard
