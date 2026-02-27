@@ -34,7 +34,7 @@ jobs:
 
       - name: Run conformance tests
         run: |
-          go install -tags conformance github.com/locktivity/epack/cmd/epack-conformance@v0.1.11
+          go install -tags conformance github.com/locktivity/epack/cmd/epack-conformance@latest
           epack-conformance collector ./epack-collector-github --level standard
 
   # Compute build arguments (version)
