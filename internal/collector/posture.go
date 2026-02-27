@@ -6,6 +6,12 @@ import "time"
 // SchemaVersion is the version of the output schema.
 const SchemaVersion = "1.0.0"
 
+// StatusFunc is called to report indeterminate status updates.
+type StatusFunc func(message string)
+
+// ProgressFunc is called to report determinate progress (current/total).
+type ProgressFunc func(current, total int64, message string)
+
 // Config holds the collector configuration passed via stdin.
 type Config struct {
 	Organization    string   `json:"organization"`
@@ -15,6 +21,10 @@ type Config struct {
 	PrivateKey      string   `json:"private_key"`     // GitHub App private key (PEM)
 	IncludePatterns []string `json:"include_patterns"`
 	ExcludePatterns []string `json:"exclude_patterns"`
+
+	// Progress callbacks (optional, set by main to report status)
+	OnStatus   StatusFunc   `json:"-"`
+	OnProgress ProgressFunc `json:"-"`
 }
 
 // OrgPosture represents the collected security posture of a GitHub organization.

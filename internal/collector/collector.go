@@ -13,6 +13,20 @@ type Collector struct {
 	config Config
 }
 
+// status reports an indeterminate status update.
+func (c *Collector) status(message string) {
+	if c.config.OnStatus != nil {
+		c.config.OnStatus(message)
+	}
+}
+
+// progress reports a determinate progress update.
+func (c *Collector) progress(current, total int64, message string) {
+	if c.config.OnProgress != nil {
+		c.config.OnProgress(current, total, message)
+	}
+}
+
 // New creates a new Collector with the given configuration.
 // It supports two authentication methods:
 //   - GitHub App (recommended): Set AppID, InstallationID, and PrivateKey
@@ -68,17 +82,24 @@ func (c *Collector) Collect(ctx context.Context) (*OrgPosture, error) {
 
 	posture := NewOrgPosture(c.config.Organization)
 
+	c.status(fmt.Sprintf("Connecting to GitHub org %s...", c.config.Organization))
+
 	orgSecurity, err := c.client.FetchOrgSecurity(ctx, c.config.Organization)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch org security: %w", err)
 	}
 
+	c.status("Fetching repositories...")
+
 	metrics := &metricsAggregator{}
+	repoCount := 0
 
 	err = c.client.FetchRepositories(ctx, c.config.Organization, func(repos []github.Repository) error {
 		for _, repo := range repos {
 			metrics.processRepository(repo, includePatterns, c.config.ExcludePatterns)
 		}
+		repoCount += len(repos)
+		c.status(fmt.Sprintf("Found %d repositories...", repoCount))
 		return nil
 	})
 	if err != nil {
@@ -89,12 +110,16 @@ func (c *Collector) Collect(ctx context.Context) (*OrgPosture, error) {
 
 	c.populatePosture(posture, orgSecurity, metrics, includePatterns)
 
+	c.status("Collection complete")
+
 	return posture, nil
 }
 
 // fetchSecuritySettings fetches REST API security settings for all repositories.
 func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsAggregator) {
-	for _, repo := range metrics.repos {
+	total := int64(len(metrics.repos))
+	for i, repo := range metrics.repos {
+		c.progress(int64(i+1), total, fmt.Sprintf("Checking security settings for %s", repo.name))
 		settings, err := c.client.FetchSecuritySettings(ctx, repo.owner, repo.name)
 		if err != nil {
 			continue

@@ -31,6 +31,8 @@ func run(ctx componentsdk.CollectorContext) error {
 		PrivateKey:      ctx.Secret("GITHUB_APP_PRIVATE_KEY"),
 		IncludePatterns: getStringSlice(cfg, "include_patterns"),
 		ExcludePatterns: getStringSlice(cfg, "exclude_patterns"),
+		OnStatus:        ctx.Status,
+		OnProgress:      ctx.Progress,
 	}
 
 	if config.Organization == "" {
