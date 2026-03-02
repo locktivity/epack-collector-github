@@ -44,6 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.ldflags.outputs.version }}
+      commit: ${{ steps.ldflags.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,6 +53,7 @@ jobs:
       - id: ldflags
         run: |
           echo "version=$(git describe --tags --always --dirty | sed 's/^v//')" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   # Build binaries with SLSA Level 3 provenance
   build:
@@ -75,7 +77,7 @@ jobs:
     with:
       go-version-file: go.mod
       config-file: .slsa-goreleaser/epack-collector-github-${{ matrix.os }}-${{ matrix.arch }}.yml
-      evaluated-envs: "VERSION:${{ needs.args.outputs.version }}"
+      evaluated-envs: "VERSION:${{ needs.args.outputs.version }},COMMIT:${{ needs.args.outputs.commit }}"
 
   # Create GitHub Release with all artifacts
   release:

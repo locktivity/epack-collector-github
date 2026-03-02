@@ -9,13 +9,17 @@ import (
 	"github.com/locktivity/epack/componentsdk"
 )
 
-// Version is set at build time via -ldflags
-var Version = "dev"
+// Build-time variables set via -ldflags
+var (
+	Version = "dev"
+	Commit  = "unknown"
+)
 
 func main() {
 	componentsdk.RunCollector(componentsdk.CollectorSpec{
 		Name:        "github",
 		Version:     Version,
+		Commit:      Commit,
 		Description: "Collects GitHub organization security posture metrics",
 	}, run)
 }
