@@ -112,5 +112,6 @@ jobs:
           files: release/*
           generate_release_notes: true
           draft: false
+          target_commitish: ${{ needs.args.outputs.commit }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
