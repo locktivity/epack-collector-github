@@ -787,3 +787,205 @@ func TestCollect_InsufficientPermissions(t *testing.T) {
 		t.Errorf("BranchProtectionCoverage = %d, want 100", posture.Posture.BranchProtectionCoverage)
 	}
 }
+
+func TestToVCSPosture(t *testing.T) {
+	// Test transformation from OrgPosture to normalized VCSPosture
+	orgPosture := &OrgPosture{
+		SchemaVersion: "1.0.0",
+		CollectedAt:   "2024-01-15T10:00:00Z",
+		Organization:  "test-org",
+		Scope: Scope{
+			IncludePatterns:      []string{"*"},
+			ExcludePatterns:      []string{},
+			RepositoriesCoverage: 80,
+		},
+		Posture: Posture{
+			BranchProtectionCoverage: 75,
+			SecurityFeaturesCoverage: 60,
+		},
+		AccessControl: AccessControl{
+			TwoFactorRequired: boolPtr(true),
+		},
+		BranchProtectionRules: BranchProtectionRules{
+			PullRequestRequired: 90,
+			ApprovingReviews:    85,
+			DismissStaleReviews: 40,
+			CodeOwnerReviews:    30,
+			StatusChecks:        70,
+			SignedCommits:       20,
+			AdminEnforcement:    50,
+		},
+		SecurityFeatures: SecurityFeatures{
+			VulnerabilityAlerts:          95,
+			CodeScanning:                 45,
+			SecretScanning:               80,
+			SecretScanningPushProtection: 60,
+			DependabotSecurityUpdates:    70,
+		},
+	}
+
+	vcsPosture := orgPosture.ToVCSPosture()
+
+	// Verify basic fields
+	if vcsPosture.SchemaVersion != "1.0.0" {
+		t.Errorf("SchemaVersion = %q, want %q", vcsPosture.SchemaVersion, "1.0.0")
+	}
+	if vcsPosture.Provider != "github" {
+		t.Errorf("Provider = %q, want %q", vcsPosture.Provider, "github")
+	}
+	if vcsPosture.Organization != "test-org" {
+		t.Errorf("Organization = %q, want %q", vcsPosture.Organization, "test-org")
+	}
+
+	// Verify coverage mapping
+	if vcsPosture.RepoCoveragePct != 80 {
+		t.Errorf("RepoCoveragePct = %v, want 80", vcsPosture.RepoCoveragePct)
+	}
+
+	// Verify org security
+	if !vcsPosture.OrgSecurity.TwoFactorRequired {
+		t.Error("OrgSecurity.TwoFactorRequired = false, want true")
+	}
+
+	// Verify branch protection mappings
+	if vcsPosture.BranchProtection.PRRequiredPct != 90 {
+		t.Errorf("BranchProtection.PRRequiredPct = %v, want 90", vcsPosture.BranchProtection.PRRequiredPct)
+	}
+	if vcsPosture.BranchProtection.ApprovingReviewsPct != 85 {
+		t.Errorf("BranchProtection.ApprovingReviewsPct = %v, want 85", vcsPosture.BranchProtection.ApprovingReviewsPct)
+	}
+	if vcsPosture.BranchProtection.StatusChecksPct != 70 {
+		t.Errorf("BranchProtection.StatusChecksPct = %v, want 70", vcsPosture.BranchProtection.StatusChecksPct)
+	}
+	if vcsPosture.BranchProtection.SignedCommitsPct != 20 {
+		t.Errorf("BranchProtection.SignedCommitsPct = %v, want 20", vcsPosture.BranchProtection.SignedCommitsPct)
+	}
+
+	// Verify security features mappings
+	if vcsPosture.SecurityFeatures.VulnAlertsPct != 95 {
+		t.Errorf("SecurityFeatures.VulnAlertsPct = %v, want 95", vcsPosture.SecurityFeatures.VulnAlertsPct)
+	}
+	if vcsPosture.SecurityFeatures.SecretScanningPct != 80 {
+		t.Errorf("SecurityFeatures.SecretScanningPct = %v, want 80", vcsPosture.SecurityFeatures.SecretScanningPct)
+	}
+	if vcsPosture.SecurityFeatures.CodeScanningPct != 45 {
+		t.Errorf("SecurityFeatures.CodeScanningPct = %v, want 45", vcsPosture.SecurityFeatures.CodeScanningPct)
+	}
+}
+
+func TestToVCSPosture_NilTwoFactor(t *testing.T) {
+	// Test that nil TwoFactorRequired (insufficient permissions) maps to false
+	orgPosture := &OrgPosture{
+		Organization: "test-org",
+		AccessControl: AccessControl{
+			TwoFactorRequired: nil,
+		},
+	}
+
+	vcsPosture := orgPosture.ToVCSPosture()
+
+	if vcsPosture.OrgSecurity.TwoFactorRequired {
+		t.Error("OrgSecurity.TwoFactorRequired = true, want false (when nil)")
+	}
+}
+
+func TestToVCSPosture_FalseTwoFactor(t *testing.T) {
+	// Test that explicit false TwoFactorRequired maps to false
+	orgPosture := &OrgPosture{
+		Organization: "test-org",
+		AccessControl: AccessControl{
+			TwoFactorRequired: boolPtr(false),
+		},
+	}
+
+	vcsPosture := orgPosture.ToVCSPosture()
+
+	if vcsPosture.OrgSecurity.TwoFactorRequired {
+		t.Error("OrgSecurity.TwoFactorRequired = true, want false")
+	}
+}
+
+func TestVCSPostureJSONStructure(t *testing.T) {
+	// Test that VCSPosture JSON output matches vcs-posture@v1 schema
+	orgPosture := &OrgPosture{
+		Organization: "test-org",
+		Scope: Scope{
+			RepositoriesCoverage: 100,
+		},
+		AccessControl: AccessControl{
+			TwoFactorRequired: boolPtr(true),
+		},
+		BranchProtectionRules: BranchProtectionRules{
+			PullRequestRequired: 80,
+			ApprovingReviews:    75,
+			StatusChecks:        60,
+			SignedCommits:       10,
+		},
+		SecurityFeatures: SecurityFeatures{
+			VulnerabilityAlerts: 90,
+			SecretScanning:      85,
+			CodeScanning:        50,
+		},
+	}
+
+	vcsPosture := orgPosture.ToVCSPosture()
+
+	// Marshal to JSON and unmarshal to map to verify structure
+	jsonBytes, err := json.Marshal(vcsPosture)
+	if err != nil {
+		t.Fatalf("failed to marshal VCSPosture: %v", err)
+	}
+
+	var data map[string]interface{}
+	if err := json.Unmarshal(jsonBytes, &data); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	// Check top-level required fields per vcs-posture@v1 schema
+	topLevelRequired := []string{
+		"schema_version", "collected_at", "provider", "organization",
+		"org_security", "repo_coverage_pct", "branch_protection", "security_features",
+	}
+	for _, field := range topLevelRequired {
+		if _, ok := data[field]; !ok {
+			t.Errorf("missing required field: %s", field)
+		}
+	}
+
+	// Check org_security fields
+	orgSecurity, ok := data["org_security"].(map[string]interface{})
+	if !ok {
+		t.Fatal("org_security is not an object")
+	}
+	if _, ok := orgSecurity["two_factor_required"]; !ok {
+		t.Error("org_security missing required field: two_factor_required")
+	}
+
+	// Check branch_protection fields
+	branchProtection, ok := data["branch_protection"].(map[string]interface{})
+	if !ok {
+		t.Fatal("branch_protection is not an object")
+	}
+	bpFields := []string{
+		"pr_required_pct", "approving_reviews_pct", "status_checks_pct", "signed_commits_pct",
+	}
+	for _, field := range bpFields {
+		if _, ok := branchProtection[field]; !ok {
+			t.Errorf("branch_protection missing required field: %s", field)
+		}
+	}
+
+	// Check security_features fields
+	securityFeatures, ok := data["security_features"].(map[string]interface{})
+	if !ok {
+		t.Fatal("security_features is not an object")
+	}
+	sfFields := []string{
+		"vuln_alerts_pct", "secret_scanning_pct", "code_scanning_pct",
+	}
+	for _, field := range sfFields {
+		if _, ok := securityFeatures[field]; !ok {
+			t.Errorf("security_features missing required field: %s", field)
+		}
+	}
+}

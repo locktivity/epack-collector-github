@@ -60,8 +60,23 @@ func run(ctx componentsdk.CollectorContext) error {
 		return componentsdk.NewNetworkError("collecting posture: %v", err)
 	}
 
-	// Emit the collected data (SDK handles protocol envelope)
-	return ctx.Emit(posture)
+	// Transform to normalized vcs-posture format
+	normalized := posture.ToVCSPosture()
+
+	// Emit both detailed and normalized artifacts
+	return ctx.Emit([]componentsdk.CollectedArtifact{
+		{
+			// Detailed GitHub-specific output
+			Data: posture,
+			Path: "artifacts/github.json",
+		},
+		{
+			// Normalized VCS posture for profile evaluation
+			Data:   normalized,
+			Schema: "evidencepack/vcs-posture@v1",
+			Path:   "artifacts/github.vcs-posture.json",
+		},
+	})
 }
 
 // getString safely extracts a string from config map
