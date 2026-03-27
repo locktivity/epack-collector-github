@@ -22,7 +22,9 @@ All metrics are expressed as coverage percentages (0-100) rather than raw counts
 
 ## How It Works
 
-1. The collector authenticates to GitHub using a GitHub App (recommended) or personal access token
+1. The collector authenticates to GitHub using either:
+   - a GitHub App private key flow, or
+   - a `GITHUB_TOKEN` supplied by the runtime
 2. It queries the GitHub GraphQL API to fetch repository metadata and branch protection rules
 3. It queries the GitHub REST API to fetch security settings (secret scanning, push protection, Dependabot)
 4. Metrics are aggregated into coverage percentages
@@ -30,10 +32,12 @@ All metrics are expressed as coverage percentages (0-100) rather than raw counts
 
 ## Authentication
 
-**GitHub App authentication is recommended** for better security:
+**GitHub App authentication is recommended** for manual setups:
 - Not tied to a user account
 - Better audit logging
 - Higher rate limits
 - Recommended by GitHub for org-level integrations
+
+When the collector runs under a managed or brokered runtime, `GITHUB_TOKEN` may be a short-lived installation token instead of a user PAT.
 
 See [Configuration](configuration.md) for setup instructions.

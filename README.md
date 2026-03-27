@@ -38,7 +38,7 @@ epack collect
 
 See [docs/configuration.md](docs/configuration.md) for GitHub App setup instructions.
 
-### Using Classic PAT (Legacy)
+### Using `GITHUB_TOKEN` (Brokered Token or PAT)
 
 ```yaml
 stream: myorg/github-posture
@@ -56,6 +56,10 @@ collectors:
 export GITHUB_TOKEN=ghp_xxxx
 epack collect
 ```
+
+`GITHUB_TOKEN` can be either:
+- a short-lived GitHub installation token injected by a trusted runtime or broker
+- a classic personal access token for manual setups
 
 ## Binary Download
 
@@ -120,7 +124,7 @@ E2E tests make real HTTP requests to the GitHub API. They are excluded from norm
 
 ```bash
 # Set required environment variables
-export GITHUB_TOKEN=ghp_xxxx          # Personal access token with repo scope (add admin:org for 2FA)
+export GITHUB_TOKEN=ghp_xxxx          # GitHub API token (classic PAT or short-lived installation token)
 export GITHUB_ORG=your-org-name       # Organization to test against
 
 # Run e2e tests (no build step needed - tests run directly)

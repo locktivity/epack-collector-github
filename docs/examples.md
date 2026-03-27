@@ -27,7 +27,7 @@ epack collect
 
 See [Configuration](configuration.md) for GitHub App setup instructions.
 
-### Using Classic PAT (Legacy)
+### Using `GITHUB_TOKEN` (Brokered Token or PAT)
 
 ```yaml
 stream: myorg/github-posture
@@ -47,6 +47,8 @@ Then run:
 export GITHUB_TOKEN=ghp_xxxx
 epack collect
 ```
+
+`GITHUB_TOKEN` can be a short-lived installation token injected by the runtime, or a classic PAT for manual use.
 
 ## Filtering Repositories
 

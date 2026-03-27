@@ -2,7 +2,7 @@
 
 ## Authentication
 
-The collector supports two authentication methods. **GitHub App is recommended** for better security and audit capabilities.
+The collector supports two authentication methods. **GitHub App is recommended** for manual setups because it provides better security and audit capabilities. For managed or brokered runtimes, the collector can also consume a short-lived `GITHUB_TOKEN`.
 
 ### GitHub App (Recommended)
 
@@ -55,9 +55,13 @@ export GITHUB_APP_PRIVATE_KEY="$(cat /path/to/private-key.pem)"
 epack collect
 ```
 
-### Classic Personal Access Token (Legacy)
+### `GITHUB_TOKEN` (Brokered Token or PAT)
 
-Classic PATs still work but are not recommended for security-focused tools.
+The collector accepts a `GITHUB_TOKEN` for GitHub API access. In practice this can be:
+- a short-lived GitHub installation token injected by a trusted runtime or broker
+- a classic PAT for manual setups
+
+Classic PATs still work, but they are not recommended when a short-lived or GitHub App-based flow is available.
 
 ```yaml
 collectors:
@@ -92,7 +96,7 @@ Create a classic token with these scopes:
 | Name | Required | Description |
 |------|----------|-------------|
 | `GITHUB_APP_PRIVATE_KEY` | For App auth | GitHub App private key (PEM format) |
-| `GITHUB_TOKEN` | For PAT auth | Classic personal access token |
+| `GITHUB_TOKEN` | For token auth | GitHub API token (short-lived installation token or classic PAT) |
 
 ## Pattern Syntax
 
@@ -149,7 +153,7 @@ config:
 **"authentication required"**
 
 You must provide either:
-- `GITHUB_TOKEN` secret (for PAT auth), or
+- `GITHUB_TOKEN` secret (for brokered token or PAT auth), or
 - `app_id` in config + `GITHUB_APP_PRIVATE_KEY` secret (for App auth)
 
 **"401 Unauthorized"**
