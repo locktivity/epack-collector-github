@@ -165,4 +165,8 @@ Your credentials are invalid or expired. For GitHub Apps, ensure the private key
 
 **"403 Forbidden"**
 
-The authenticated user or app doesn't have the required permissions. See [Required GitHub App Permissions](#required-github-app-permissions) above.
+This can occur for two reasons:
+
+1. **Missing permissions**: The authenticated user or app doesn't have the required permissions. See [Required GitHub App Permissions](#required-github-app-permissions) above.
+
+2. **GitHub Advanced Security not enabled**: For code scanning checks, GitHub returns 403 if Advanced Security is not enabled on the repository. The error message will show: "Advanced Security must be enabled for this repository to use code scanning."

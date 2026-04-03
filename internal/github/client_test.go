@@ -175,6 +175,7 @@ func TestCheckCodeScanning(t *testing.T) {
 		status             int
 		want               bool
 		wantPermissionDeny bool
+		wantErrorMessage   string
 	}{
 		{
 			name:               "configured",
@@ -203,6 +204,15 @@ func TestCheckCodeScanning(t *testing.T) {
 			status:             http.StatusForbidden,
 			want:               false,
 			wantPermissionDeny: true,
+			wantErrorMessage:   "Must have admin rights to Repository",
+		},
+		{
+			name:               "403 GHAS not enabled",
+			response:           `{"message": "Advanced Security must be enabled for this repository to use code scanning."}`,
+			status:             http.StatusForbidden,
+			want:               false,
+			wantPermissionDeny: true,
+			wantErrorMessage:   "Advanced Security must be enabled for this repository to use code scanning.",
 		},
 		{
 			name:               "invalid json",
@@ -225,13 +235,16 @@ func TestCheckCodeScanning(t *testing.T) {
 			defer server.Close()
 
 			client := NewClientWithHTTP(server.Client(), server.URL)
-			got, permissionDenied := client.checkCodeScanning(context.Background(), "owner", "repo")
+			result := client.checkCodeScanning(context.Background(), "owner", "repo")
 
-			if got != tt.want {
-				t.Errorf("checkCodeScanning() enabled = %v, want %v", got, tt.want)
+			if result.enabled != tt.want {
+				t.Errorf("checkCodeScanning() enabled = %v, want %v", result.enabled, tt.want)
 			}
-			if permissionDenied != tt.wantPermissionDeny {
-				t.Errorf("checkCodeScanning() permissionDenied = %v, want %v", permissionDenied, tt.wantPermissionDeny)
+			if result.permissionDenied != tt.wantPermissionDeny {
+				t.Errorf("checkCodeScanning() permissionDenied = %v, want %v", result.permissionDenied, tt.wantPermissionDeny)
+			}
+			if result.errorMessage != tt.wantErrorMessage {
+				t.Errorf("checkCodeScanning() errorMessage = %q, want %q", result.errorMessage, tt.wantErrorMessage)
 			}
 		})
 	}

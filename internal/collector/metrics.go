@@ -39,6 +39,7 @@ type metricsAggregator struct {
 	// Permission error tracking
 	securitySettingsPermissionDenied int
 	codeScanningPermissionDenied     int
+	codeScanningErrorMessages        map[string]int // Track unique error messages and their counts
 }
 
 // processRepository processes a single repository and updates metrics.
@@ -95,6 +96,7 @@ func (m *metricsAggregator) countSecuritySettings(settings *github.SecuritySetti
 	}
 	if settings.CodeScanningPermissionDenied {
 		m.codeScanningPermissionDenied++
+		m.trackCodeScanningError(settings.CodeScanningErrorMessage)
 	}
 	if settings.SecretScanning {
 		m.secretScanningEnabled++
@@ -110,6 +112,32 @@ func (m *metricsAggregator) countSecuritySettings(settings *github.SecuritySetti
 // trackSecuritySettingsPermissionDenied increments the permission denied counter.
 func (m *metricsAggregator) trackSecuritySettingsPermissionDenied() {
 	m.securitySettingsPermissionDenied++
+}
+
+// trackCodeScanningError records a code scanning error message.
+func (m *metricsAggregator) trackCodeScanningError(msg string) {
+	if msg == "" {
+		return
+	}
+	if m.codeScanningErrorMessages == nil {
+		m.codeScanningErrorMessages = make(map[string]int)
+	}
+	m.codeScanningErrorMessages[msg]++
+}
+
+// codeScanningErrors returns diagnostic error messages for code scanning 403s.
+func (m *metricsAggregator) codeScanningErrors() []string {
+	if m.codeScanningPermissionDenied == 0 {
+		return nil
+	}
+	if len(m.codeScanningErrorMessages) == 0 {
+		return []string{fmt.Sprintf("code scanning 403 on %d/%d repos (unknown reason)", m.codeScanningPermissionDenied, m.totalRepos)}
+	}
+	var errors []string
+	for msg, count := range m.codeScanningErrorMessages {
+		errors = append(errors, fmt.Sprintf("code scanning 403 on %d/%d repos: %s", count, m.totalRepos, msg))
+	}
+	return errors
 }
 
 // securityFeaturesCoverage calculates the average coverage across all security features.
@@ -159,12 +187,7 @@ func (m *metricsAggregator) toDiagnostics() *Diagnostics {
 		))
 	}
 
-	if m.codeScanningPermissionDenied > 0 {
-		errors = append(errors, fmt.Sprintf(
-			"security_events permission required: got 403 on %d/%d repos when fetching code scanning status",
-			m.codeScanningPermissionDenied, m.totalRepos,
-		))
-	}
+	errors = append(errors, m.codeScanningErrors()...)
 
 	if len(errors) == 0 {
 		return nil

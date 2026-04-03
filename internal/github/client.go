@@ -191,6 +191,7 @@ type SecuritySettings struct {
 	DependabotSecurityUpdates    bool
 	CodeScanningEnabled          bool
 	CodeScanningPermissionDenied bool
+	CodeScanningErrorMessage     string // Actual error message from GitHub API
 }
 
 // FetchSecuritySettings fetches security settings for a repository via REST API.
@@ -250,34 +251,50 @@ func (c *Client) FetchSecuritySettings(ctx context.Context, owner, repo string) 
 	}
 
 	// Check code scanning status
-	settings.CodeScanningEnabled, settings.CodeScanningPermissionDenied = c.checkCodeScanning(ctx, owner, repo)
+	csResult := c.checkCodeScanning(ctx, owner, repo)
+	settings.CodeScanningEnabled = csResult.enabled
+	settings.CodeScanningPermissionDenied = csResult.permissionDenied
+	settings.CodeScanningErrorMessage = csResult.errorMessage
 
 	return settings, nil
 }
 
+// codeScanningResult holds the result of checking code scanning status.
+type codeScanningResult struct {
+	enabled          bool
+	permissionDenied bool
+	errorMessage     string
+}
+
 // checkCodeScanning checks if code scanning is enabled for a repository.
-// Returns (enabled, permissionDenied).
-func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) (bool, bool) {
+func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) codeScanningResult {
 	url := fmt.Sprintf("%s/repos/%s/%s/code-scanning/default-setup", c.baseURL, owner, repo)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return false, false
+		return codeScanningResult{}
 	}
 
 	setAPIHeaders(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return false, false
+		return codeScanningResult{}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusForbidden {
-		return false, true
+		// Capture the actual error message from GitHub
+		var errResp struct {
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err == nil && errResp.Message != "" {
+			return codeScanningResult{permissionDenied: true, errorMessage: errResp.Message}
+		}
+		return codeScanningResult{permissionDenied: true, errorMessage: "403 Forbidden"}
 	}
 	if resp.StatusCode != http.StatusOK {
-		return false, false
+		return codeScanningResult{}
 	}
 
 	var result struct {
@@ -285,10 +302,10 @@ func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) (boo
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false, false
+		return codeScanningResult{}
 	}
 
-	return result.State == StateConfigured, false
+	return codeScanningResult{enabled: result.State == StateConfigured}
 }
 
 // setAPIHeaders sets the standard GitHub API headers on a request.
