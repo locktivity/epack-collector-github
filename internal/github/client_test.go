@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -149,36 +150,66 @@ func TestFetchSecuritySettings(t *testing.T) {
 	}
 }
 
+func TestFetchSecuritySettings_PermissionDenied(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"message": "Must have admin rights to Repository"}`))
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+	_, err := client.FetchSecuritySettings(context.Background(), "owner", "repo")
+
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !errors.Is(err, ErrPermissionDenied) {
+		t.Errorf("expected ErrPermissionDenied, got %v", err)
+	}
+}
+
 func TestCheckCodeScanning(t *testing.T) {
 	tests := []struct {
-		name     string
-		response string
-		status   int
-		want     bool
+		name               string
+		response           string
+		status             int
+		want               bool
+		wantPermissionDeny bool
 	}{
 		{
-			name:     "configured",
-			response: `{"state": "configured"}`,
-			status:   http.StatusOK,
-			want:     true,
+			name:               "configured",
+			response:           `{"state": "configured"}`,
+			status:             http.StatusOK,
+			want:               true,
+			wantPermissionDeny: false,
 		},
 		{
-			name:     "not configured",
-			response: `{"state": "not-configured"}`,
-			status:   http.StatusOK,
-			want:     false,
+			name:               "not configured",
+			response:           `{"state": "not-configured"}`,
+			status:             http.StatusOK,
+			want:               false,
+			wantPermissionDeny: false,
 		},
 		{
-			name:     "404 error",
-			response: `{"message": "Not Found"}`,
-			status:   http.StatusNotFound,
-			want:     false,
+			name:               "404 error",
+			response:           `{"message": "Not Found"}`,
+			status:             http.StatusNotFound,
+			want:               false,
+			wantPermissionDeny: false,
 		},
 		{
-			name:     "invalid json",
-			response: `not json`,
-			status:   http.StatusOK,
-			want:     false,
+			name:               "403 permission denied",
+			response:           `{"message": "Must have admin rights to Repository"}`,
+			status:             http.StatusForbidden,
+			want:               false,
+			wantPermissionDeny: true,
+		},
+		{
+			name:               "invalid json",
+			response:           `not json`,
+			status:             http.StatusOK,
+			want:               false,
+			wantPermissionDeny: false,
 		},
 	}
 
@@ -194,10 +225,13 @@ func TestCheckCodeScanning(t *testing.T) {
 			defer server.Close()
 
 			client := NewClientWithHTTP(server.Client(), server.URL)
-			got := client.checkCodeScanning(context.Background(), "owner", "repo")
+			got, permissionDenied := client.checkCodeScanning(context.Background(), "owner", "repo")
 
 			if got != tt.want {
-				t.Errorf("checkCodeScanning() = %v, want %v", got, tt.want)
+				t.Errorf("checkCodeScanning() enabled = %v, want %v", got, tt.want)
+			}
+			if permissionDenied != tt.wantPermissionDeny {
+				t.Errorf("checkCodeScanning() permissionDenied = %v, want %v", permissionDenied, tt.wantPermissionDeny)
 			}
 		})
 	}

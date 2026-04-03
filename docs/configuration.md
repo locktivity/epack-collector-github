@@ -127,9 +127,12 @@ exclude_patterns: ["test-*", "experiment-*", "sandbox-*"]
 For GitHub App authentication, the app needs:
 
 **Repository permissions:**
-- Administration: Read-only (for security settings)
+- Administration: Read-only (for security settings and `security_and_analysis` field)
 - Contents: Read-only (for repository metadata)
 - Metadata: Read-only (always required)
+- Code scanning alerts: Read-only (for code scanning status)
+- Secret scanning alerts: Read-only (for secret scanning status)
+- Dependabot alerts: Read-only (for dependabot status)
 
 **Organization permissions:**
 - Administration: Read-only (for 2FA settings)

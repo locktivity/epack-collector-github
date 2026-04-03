@@ -1,6 +1,10 @@
 package collector
 
-import "github.com/locktivity/epack-collector-github/internal/github"
+import (
+	"fmt"
+
+	"github.com/locktivity/epack-collector-github/internal/github"
+)
 
 // repoInfo holds repository identification for API calls.
 type repoInfo struct {
@@ -31,6 +35,10 @@ type metricsAggregator struct {
 	secretScanningEnabled            int
 	secretScanningPushProtection     int
 	dependabotSecurityUpdatesEnabled int
+
+	// Permission error tracking
+	securitySettingsPermissionDenied int
+	codeScanningPermissionDenied     int
 }
 
 // processRepository processes a single repository and updates metrics.
@@ -85,6 +93,9 @@ func (m *metricsAggregator) countSecuritySettings(settings *github.SecuritySetti
 	if settings.CodeScanningEnabled {
 		m.codeScanningEnabled++
 	}
+	if settings.CodeScanningPermissionDenied {
+		m.codeScanningPermissionDenied++
+	}
 	if settings.SecretScanning {
 		m.secretScanningEnabled++
 	}
@@ -94,6 +105,11 @@ func (m *metricsAggregator) countSecuritySettings(settings *github.SecuritySetti
 	if settings.DependabotSecurityUpdates {
 		m.dependabotSecurityUpdatesEnabled++
 	}
+}
+
+// trackSecuritySettingsPermissionDenied increments the permission denied counter.
+func (m *metricsAggregator) trackSecuritySettingsPermissionDenied() {
+	m.securitySettingsPermissionDenied++
 }
 
 // securityFeaturesCoverage calculates the average coverage across all security features.
@@ -128,5 +144,33 @@ func (m *metricsAggregator) toSecurityFeatures() SecurityFeatures {
 		SecretScanning:               percent(m.secretScanningEnabled, m.totalRepos),
 		SecretScanningPushProtection: percent(m.secretScanningPushProtection, m.totalRepos),
 		DependabotSecurityUpdates:    percent(m.dependabotSecurityUpdatesEnabled, m.totalRepos),
+	}
+}
+
+// toDiagnostics generates diagnostics from permission error counts.
+// Returns nil if there are no issues to report.
+func (m *metricsAggregator) toDiagnostics() *Diagnostics {
+	var errors []string
+
+	if m.securitySettingsPermissionDenied > 0 {
+		errors = append(errors, fmt.Sprintf(
+			"security_events permission required: got 403 on %d/%d repos when fetching security settings (secret scanning, dependabot)",
+			m.securitySettingsPermissionDenied, m.totalRepos,
+		))
+	}
+
+	if m.codeScanningPermissionDenied > 0 {
+		errors = append(errors, fmt.Sprintf(
+			"security_events permission required: got 403 on %d/%d repos when fetching code scanning status",
+			m.codeScanningPermissionDenied, m.totalRepos,
+		))
+	}
+
+	if len(errors) == 0 {
+		return nil
+	}
+
+	return &Diagnostics{
+		PermissionErrors: errors,
 	}
 }

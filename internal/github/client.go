@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -10,6 +11,10 @@ import (
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
 )
+
+// ErrPermissionDenied is returned when the API returns 403 Forbidden.
+// This typically indicates missing permissions on the GitHub App or token.
+var ErrPermissionDenied = errors.New("permission denied")
 
 // GitHubClient defines the interface for GitHub API operations.
 // This interface allows for easy mocking in tests.
@@ -185,6 +190,7 @@ type SecuritySettings struct {
 	SecretScanningPushProtection bool
 	DependabotSecurityUpdates    bool
 	CodeScanningEnabled          bool
+	CodeScanningPermissionDenied bool
 }
 
 // FetchSecuritySettings fetches security settings for a repository via REST API.
@@ -204,8 +210,11 @@ func (c *Client) FetchSecuritySettings(ctx context.Context, owner, repo string) 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == http.StatusForbidden {
+		return nil, fmt.Errorf("%w: security settings for %s/%s (status 403)", ErrPermissionDenied, owner, repo)
+	}
 	if resp.StatusCode != http.StatusOK {
-		// Return empty settings on error (might not have access)
+		// Return empty settings on other errors (repo might not support these features)
 		return &SecuritySettings{}, nil
 	}
 
@@ -241,30 +250,34 @@ func (c *Client) FetchSecuritySettings(ctx context.Context, owner, repo string) 
 	}
 
 	// Check code scanning status
-	settings.CodeScanningEnabled = c.checkCodeScanning(ctx, owner, repo)
+	settings.CodeScanningEnabled, settings.CodeScanningPermissionDenied = c.checkCodeScanning(ctx, owner, repo)
 
 	return settings, nil
 }
 
 // checkCodeScanning checks if code scanning is enabled for a repository.
-func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) bool {
+// Returns (enabled, permissionDenied).
+func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) (bool, bool) {
 	url := fmt.Sprintf("%s/repos/%s/%s/code-scanning/default-setup", c.baseURL, owner, repo)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return false
+		return false, false
 	}
 
 	setAPIHeaders(req)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return false
+		return false, false
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode == http.StatusForbidden {
+		return false, true
+	}
 	if resp.StatusCode != http.StatusOK {
-		return false
+		return false, false
 	}
 
 	var result struct {
@@ -272,10 +285,10 @@ func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) bool
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false
+		return false, false
 	}
 
-	return result.State == StateConfigured
+	return result.State == StateConfigured, false
 }
 
 // setAPIHeaders sets the standard GitHub API headers on a request.

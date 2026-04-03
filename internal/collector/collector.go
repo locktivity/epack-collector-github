@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/locktivity/epack-collector-github/internal/github"
@@ -122,6 +123,9 @@ func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsA
 		c.progress(int64(i+1), total, fmt.Sprintf("Checking security settings for %s", repo.name))
 		settings, err := c.client.FetchSecuritySettings(ctx, repo.owner, repo.name)
 		if err != nil {
+			if errors.Is(err, github.ErrPermissionDenied) {
+				metrics.trackSecuritySettingsPermissionDenied()
+			}
 			continue
 		}
 		metrics.countSecuritySettings(settings)
@@ -154,6 +158,7 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 
 	posture.BranchProtectionRules = metrics.toBranchProtectionRules()
 	posture.SecurityFeatures = metrics.toSecurityFeatures()
+	posture.Diagnostics = metrics.toDiagnostics()
 }
 
 // percent calculates the percentage of count over total, returning 0 if total is 0.

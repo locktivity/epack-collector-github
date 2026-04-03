@@ -37,6 +37,14 @@ type OrgPosture struct {
 	AccessControl         AccessControl         `json:"access_control"`
 	BranchProtectionRules BranchProtectionRules `json:"branch_protection_rules"`
 	SecurityFeatures      SecurityFeatures      `json:"security_features"`
+	Diagnostics           *Diagnostics          `json:"diagnostics,omitempty"`
+}
+
+// Diagnostics contains warnings and errors encountered during collection.
+// This helps identify permission issues vs features that are genuinely disabled.
+type Diagnostics struct {
+	PermissionErrors []string `json:"permission_errors,omitempty"`
+	Warnings         []string `json:"warnings,omitempty"`
 }
 
 // Scope describes what was included and excluded from collection.
