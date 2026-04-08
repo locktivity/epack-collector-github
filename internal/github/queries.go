@@ -23,6 +23,7 @@ type Repository struct {
 	Owner struct {
 		Login string
 	}
+	IsArchived       bool
 	Visibility       string // PUBLIC, PRIVATE, INTERNAL
 	DefaultBranchRef struct {
 		Name                 string

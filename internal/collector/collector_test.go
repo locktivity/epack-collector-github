@@ -280,6 +280,7 @@ type mockGitHubClient struct {
 	repositories     []github.Repository
 	repositoriesErr  error
 	securitySettings map[string]*github.SecuritySettings // key: "owner/repo"
+	requestedRepos   []string
 }
 
 func (m *mockGitHubClient) FetchOrgSecurity(ctx context.Context, org string) (*github.OrgSecurity, error) {
@@ -298,6 +299,7 @@ func (m *mockGitHubClient) FetchRepositories(ctx context.Context, org string, ca
 
 func (m *mockGitHubClient) FetchSecuritySettings(ctx context.Context, owner, repo string) (*github.SecuritySettings, error) {
 	key := owner + "/" + repo
+	m.requestedRepos = append(m.requestedRepos, key)
 	if settings, ok := m.securitySettings[key]; ok {
 		return settings, nil
 	}
@@ -589,6 +591,84 @@ func TestCollect_ExcludePatterns(t *testing.T) {
 	// Only "app" should be counted (1 of 3 repos = 33% coverage)
 	if posture.Scope.RepositoriesCoverage != 33 {
 		t.Errorf("RepositoriesCoverage = %d, want 33", posture.Scope.RepositoriesCoverage)
+	}
+}
+
+func TestCollect_SkipsArchivedRepositories(t *testing.T) {
+	mock := &mockGitHubClient{
+		orgSecurity: &github.OrgSecurity{
+			TwoFactorRequired: boolPtr(true),
+		},
+		repositories: []github.Repository{
+			{
+				Name:       "active-app",
+				Owner:      struct{ Login string }{Login: "test-org"},
+				IsArchived: false,
+				DefaultBranchRef: struct {
+					Name                 string
+					BranchProtectionRule *github.BranchProtectionRule
+				}{
+					Name:                 "main",
+					BranchProtectionRule: &github.BranchProtectionRule{RequiresApprovingReviews: true},
+				},
+				HasVulnerabilityAlertsEnabled: true,
+			},
+			{
+				Name:       "archived-app",
+				Owner:      struct{ Login string }{Login: "test-org"},
+				IsArchived: true,
+				DefaultBranchRef: struct {
+					Name                 string
+					BranchProtectionRule *github.BranchProtectionRule
+				}{
+					Name:                 "main",
+					BranchProtectionRule: nil,
+				},
+				HasVulnerabilityAlertsEnabled: false,
+			},
+		},
+		securitySettings: map[string]*github.SecuritySettings{
+			"test-org/active-app": {
+				SecretScanning:               true,
+				SecretScanningPushProtection: true,
+				DependabotSecurityUpdates:    true,
+				CodeScanningEnabled:          true,
+			},
+			"test-org/archived-app": {
+				CodeScanningPermissionDenied: true,
+				CodeScanningErrorMessage:     "Advanced Security must be enabled for this repository to use code scanning.",
+			},
+		},
+	}
+
+	config := Config{
+		Organization:    "test-org",
+		GitHubToken:     "test-token",
+		IncludePatterns: []string{"*"},
+		ExcludePatterns: []string{},
+	}
+
+	collector := NewWithClient(config, mock)
+	posture, err := collector.Collect(context.Background())
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if posture.Scope.RepositoriesCoverage != 50 {
+		t.Errorf("RepositoriesCoverage = %d, want 50", posture.Scope.RepositoriesCoverage)
+	}
+	if posture.Posture.BranchProtectionCoverage != 100 {
+		t.Errorf("BranchProtectionCoverage = %d, want 100", posture.Posture.BranchProtectionCoverage)
+	}
+	if posture.SecurityFeatures.CodeScanning != 100 {
+		t.Errorf("CodeScanning = %d, want 100", posture.SecurityFeatures.CodeScanning)
+	}
+	if posture.Diagnostics != nil {
+		t.Errorf("Diagnostics = %+v, want nil", posture.Diagnostics)
+	}
+	if len(mock.requestedRepos) != 1 || mock.requestedRepos[0] != "test-org/active-app" {
+		t.Errorf("requestedRepos = %v, want [test-org/active-app]", mock.requestedRepos)
 	}
 }
 

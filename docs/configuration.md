@@ -108,10 +108,12 @@ The include and exclude patterns use glob syntax:
 
 ### Examples
 
+Archived repositories are skipped automatically and are not assessed for security settings or code scanning status.
+
 ```yaml
-# Include all repos except archived ones
+# Include all non-archived repos, but exclude deprecated repos by name
 include_patterns: ["*"]
-exclude_patterns: ["*-archived", "*-deprecated"]
+exclude_patterns: ["*-deprecated"]
 
 # Only include production repos
 include_patterns: ["prod-*", "platform-*"]

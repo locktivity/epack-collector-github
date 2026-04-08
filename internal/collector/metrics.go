@@ -44,6 +44,11 @@ type metricsAggregator struct {
 
 // processRepository processes a single repository and updates metrics.
 func (m *metricsAggregator) processRepository(repo github.Repository, includePatterns, excludePatterns []string) {
+	if repo.IsArchived {
+		m.excludedRepos++
+		return
+	}
+
 	if !ShouldIncludeRepo(repo.Name, includePatterns, excludePatterns) {
 		m.excludedRepos++
 		return

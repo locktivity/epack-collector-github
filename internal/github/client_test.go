@@ -497,6 +497,7 @@ func TestFetchRepositories_BranchProtection(t *testing.T) {
 		expectedFields := []string{
 			"defaultBranchRef",
 			"branchProtectionRule",
+			"isArchived",
 			"requiresApprovingReviews",
 			"dismissesStaleReviews",
 			"requiresStatusChecks",
@@ -515,8 +516,9 @@ func TestFetchRepositories_BranchProtection(t *testing.T) {
 					"repositories": map[string]interface{}{
 						"nodes": []map[string]interface{}{
 							{
-								"name":  "protected-repo",
-								"owner": map[string]interface{}{"login": "org"},
+								"name":       "protected-repo",
+								"owner":      map[string]interface{}{"login": "org"},
+								"isArchived": false,
 								"defaultBranchRef": map[string]interface{}{
 									"name": "main",
 									"branchProtectionRule": map[string]interface{}{
@@ -564,6 +566,9 @@ func TestFetchRepositories_BranchProtection(t *testing.T) {
 	repo := repos[0]
 	if repo.Name != "protected-repo" {
 		t.Errorf("Name = %q, want %q", repo.Name, "protected-repo")
+	}
+	if repo.IsArchived {
+		t.Error("IsArchived = true, want false")
 	}
 	if repo.DefaultBranchRef.BranchProtectionRule == nil {
 		t.Fatal("BranchProtectionRule is nil")
