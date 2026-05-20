@@ -21,6 +21,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/locktivity/epack/componentsdk"
 )
 
 func TestE2E_RealGitHubCollection(t *testing.T) {
@@ -45,7 +47,7 @@ func TestE2E_RealGitHubCollection(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	posture, err := collector.Collect(ctx)
+	posture, err := collector.Collect(ctx, componentsdk.LevelInternal)
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -103,7 +105,7 @@ func TestE2E_RealGitHubWithFilters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	posture, err := collector.Collect(ctx)
+	posture, err := collector.Collect(ctx, componentsdk.LevelInternal)
 	if err != nil {
 		t.Fatalf("Collect() error: %v", err)
 	}
@@ -148,7 +150,7 @@ func TestE2E_RealGitHubAppAuth(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	posture, err := collector.Collect(ctx)
+	posture, err := collector.Collect(ctx, componentsdk.LevelInternal)
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -198,7 +200,7 @@ func TestE2E_RealGitHubRateLimiting(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 
 		start := time.Now()
-		posture, err := collector.Collect(ctx)
+		posture, err := collector.Collect(ctx, componentsdk.LevelInternal)
 		elapsed := time.Since(start)
 
 		cancel()
@@ -234,7 +236,7 @@ func TestE2E_RealGitHubTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
 
-	_, err = collector.Collect(ctx)
+	_, err = collector.Collect(ctx, componentsdk.LevelInternal)
 	if err == nil {
 		t.Log("Collection succeeded despite very short timeout (fast API response)")
 	} else {

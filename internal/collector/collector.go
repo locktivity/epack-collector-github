@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/locktivity/epack-collector-github/internal/github"
+	"github.com/locktivity/epack/componentsdk"
 )
 
 // Collector collects GitHub organization security posture.
@@ -71,7 +72,12 @@ func NewWithClient(config Config, client github.GitHubClient) *Collector {
 }
 
 // Collect fetches and aggregates security posture metrics for the organization.
-func (c *Collector) Collect(ctx context.Context) (*OrgPosture, error) {
+//
+// level controls collection depth: trust emits org-level aggregates only;
+// audit adds per-repo configs and member/repo inventories; internal adds
+// per-user activity, findings inventories, and the audit-log slice. Levels are
+// cumulative.
+func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*OrgPosture, error) {
 	if c.config.Organization == "" {
 		return nil, fmt.Errorf("organization is required")
 	}
@@ -82,19 +88,24 @@ func (c *Collector) Collect(ctx context.Context) (*OrgPosture, error) {
 	}
 
 	posture := NewOrgPosture(c.config.Organization)
+	posture.CollectedAtLevel = string(level)
+
+	metrics := &metricsAggregator{}
 
 	c.status(fmt.Sprintf("Connecting to GitHub org %s...", c.config.Organization))
 
+	// Core surfaces degrade rather than fail the whole run: a permission gap or
+	// transient error on org security or the repo list records a diagnostic and
+	// the collector emits whatever else it can.
 	orgSecurity, err := c.client.FetchOrgSecurity(ctx, c.config.Organization)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch org security: %w", err)
+		c.degradeCore(metrics, "organization_security", "organization administration: read", err)
+		orgSecurity = &github.OrgSecurity{}
 	}
 
 	c.status("Fetching repositories...")
 
-	metrics := &metricsAggregator{}
 	repoCount := 0
-
 	err = c.client.FetchRepositories(ctx, c.config.Organization, func(repos []github.Repository) error {
 		for _, repo := range repos {
 			metrics.processRepository(repo, includePatterns, c.config.ExcludePatterns)
@@ -104,24 +115,114 @@ func (c *Collector) Collect(ctx context.Context) (*OrgPosture, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch repositories: %w", err)
+		c.degradeCore(metrics, "repositories", "metadata: read", err)
 	}
 
 	c.fetchSecuritySettings(ctx, metrics)
 
 	c.populatePosture(posture, orgSecurity, metrics, includePatterns)
 
+	c.collectSurfaces(ctx, posture, metrics, level)
+
+	// Diagnostics are assembled last so surface-collector permission errors and
+	// feature-unavailable warnings are included alongside the core ones.
+	posture.Diagnostics = metrics.toDiagnostics()
+
 	c.status("Collection complete")
 
 	return posture, nil
 }
 
+// degradeCore records a diagnostic for a failed core-surface fetch instead of
+// failing the run. A permission denial names the missing permission; any other
+// error becomes an informational warning. The caller proceeds with zeroed data.
+func (c *Collector) degradeCore(metrics *metricsAggregator, surface, missingPerm string, err error) {
+	if errors.Is(err, github.ErrPermissionDenied) {
+		metrics.diag.surfacePermissionDenied(surface, missingPerm)
+		return
+	}
+	metrics.diag.surfaceUnavailable(surface, fmt.Sprintf("fetch failed: %v", err))
+}
+
+// collectionPass carries the shared state for one audit/internal surface pass.
+type collectionPass struct {
+	ctx     context.Context
+	posture *OrgPosture
+	metrics *metricsAggregator
+	level   componentsdk.Level
+	org     string
+}
+
+// internal reports whether the pass is collecting at internal level.
+func (p *collectionPass) internal() bool {
+	return p.level.AtLeast(componentsdk.LevelInternal)
+}
+
+// isDenied reports whether err is (or wraps) a permission denial.
+func isDenied(err error) bool {
+	return err != nil && errors.Is(err, github.ErrPermissionDenied)
+}
+
+// isFeatureUnavailable reports whether err signals a missing org feature
+// (e.g. Enterprise-only audit log, fine-grained-token policy).
+func isFeatureUnavailable(err error) bool {
+	return err != nil && errors.Is(err, github.ErrFeatureUnavailable)
+}
+
+// collectSurfaces runs the audit- and internal-gated surface collectors. At
+// trust it is a no-op, so trust output is unchanged. augment* methods extend
+// structs that already exist at trust (access control, security features);
+// collect* methods populate the audit/internal-only surfaces.
+func (c *Collector) collectSurfaces(ctx context.Context, posture *OrgPosture, metrics *metricsAggregator, level componentsdk.Level) {
+	if !level.AtLeast(componentsdk.LevelAudit) {
+		return
+	}
+
+	p := &collectionPass{
+		ctx:     ctx,
+		posture: posture,
+		metrics: metrics,
+		level:   level,
+		org:     c.config.Organization,
+	}
+
+	c.augmentAccessControl(p)
+	c.augmentSecurityFeatures(p)
+	c.collectRepositories(p)
+	c.collectCodeowners(p)
+	c.collectWebhooks(p)
+	c.collectDeployKeys(p)
+	c.collectActions(p)
+	// Per-member last-activity comes from the audit log, so it runs before the
+	// member inventory and feeds it the actor→last-activity map.
+	activity := c.collectAuditLog(p)
+	c.collectApps(p)
+	c.collectTokens(p)
+	c.collectMembers(p, activity)
+}
+
+// augmentAccessControl adds audit-level org access-control fields (default repo
+// permission, members-can-create-repositories) from GET /orgs/{org}. On a
+// permission denial the fields stay zero/nil and a diagnostic is recorded.
+func (c *Collector) augmentAccessControl(p *collectionPass) {
+	settings, err := c.client.GetOrgSettings(p.ctx, p.org)
+	if err != nil {
+		if isDenied(err) {
+			p.metrics.diag.surfacePermissionDenied("access_control", "organization_administration:read")
+		}
+		return
+	}
+	p.posture.AccessControl.DefaultRepositoryPermission = settings.DefaultRepositoryPermission
+	p.posture.AccessControl.MembersCanCreateRepositories = settings.MembersCanCreateRepositories
+}
+
 // fetchSecuritySettings fetches REST API security settings for all repositories.
 func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsAggregator) {
-	total := int64(len(metrics.repos))
-	for i, repo := range metrics.repos {
-		c.progress(int64(i+1), total, fmt.Sprintf("Checking security settings for %s", repo.name))
-		settings, err := c.client.FetchSecuritySettings(ctx, repo.owner, repo.name)
+	total := int64(len(metrics.repos.included))
+	for i, repo := range metrics.repos.included {
+		owner, name := repo.Owner.Login, repo.Name
+		c.progress(int64(i+1), total, fmt.Sprintf("Checking security settings for %s", name))
+		settings, err := c.client.FetchSecuritySettings(ctx, owner, name)
 		if err != nil {
 			if errors.Is(err, github.ErrPermissionDenied) {
 				metrics.trackSecuritySettingsPermissionDenied()
@@ -129,6 +230,7 @@ func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsA
 			continue
 		}
 		metrics.countSecuritySettings(settings)
+		metrics.repos.recordSettings(owner, name, settings)
 	}
 }
 
@@ -158,7 +260,6 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 
 	posture.BranchProtectionRules = metrics.toBranchProtectionRules()
 	posture.SecurityFeatures = metrics.toSecurityFeatures()
-	posture.Diagnostics = metrics.toDiagnostics()
 }
 
 // percent calculates the percentage of count over total, returning 0 if total is 0.

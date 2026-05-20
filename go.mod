@@ -4,9 +4,9 @@ go 1.26.0
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0
-	github.com/locktivity/epack v0.1.27
+	github.com/locktivity/epack v0.1.34
 	github.com/shurcooL/githubv4 v0.0.0-20260209031235-2402fdf4a9ed
-	golang.org/x/oauth2 v0.35.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (

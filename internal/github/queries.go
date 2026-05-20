@@ -18,27 +18,55 @@ type RepositoriesQuery struct {
 }
 
 // Repository represents a GitHub repository with security-relevant fields.
+// The inventory fields (timestamps, language, size, etc.) are used only by the
+// audit/internal Repositories surface; trust collection ignores them.
 type Repository struct {
 	Name  string
 	Owner struct {
 		Login string
 	}
 	IsArchived       bool
+	IsTemplate       bool
 	Visibility       string // PUBLIC, PRIVATE, INTERNAL
 	DefaultBranchRef struct {
 		Name                 string
 		BranchProtectionRule *BranchProtectionRule
 	}
 	HasVulnerabilityAlertsEnabled bool
+
+	// Inventory metadata (audit / internal).
+	CreatedAt       githubv4.DateTime
+	UpdatedAt       githubv4.DateTime
+	PushedAt        githubv4.DateTime
+	DiskUsage       int
+	StargazerCount  int
+	Description     string
+	PrimaryLanguage *struct {
+		Name string
+	}
+	LicenseInfo *struct {
+		SpdxID string `graphql:"spdxId"`
+	}
+	RepositoryTopics struct {
+		Nodes []struct {
+			Topic struct {
+				Name string
+			}
+		}
+	} `graphql:"repositoryTopics(first: 20)"`
 }
 
 // BranchProtectionRule represents branch protection settings.
 type BranchProtectionRule struct {
-	RequiresApprovingReviews     bool
-	RequiredApprovingReviewCount int
-	DismissesStaleReviews        bool
-	RequiresCodeOwnerReviews     bool
-	RequiresStatusChecks         bool
-	RequiresCommitSignatures     bool
-	IsAdminEnforced              bool
+	RequiresApprovingReviews       bool
+	RequiredApprovingReviewCount   int
+	DismissesStaleReviews          bool
+	RequiresCodeOwnerReviews       bool
+	RequiresStatusChecks           bool
+	RequiresCommitSignatures       bool
+	IsAdminEnforced                bool
+	RequiresLinearHistory          bool
+	AllowsForcePushes              bool
+	AllowsDeletions                bool
+	RequiresConversationResolution bool
 }

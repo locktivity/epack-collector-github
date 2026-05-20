@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/locktivity/epack-collector-github/internal/github"
+	"github.com/locktivity/epack/componentsdk"
 )
 
 // boolPtr returns a pointer to the given bool value.
@@ -63,7 +64,7 @@ func TestOutputJSONStructure(t *testing.T) {
 		client: mock,
 	}
 
-	posture, err := c.Collect(context.Background())
+	posture, err := c.Collect(context.Background(), componentsdk.LevelTrust)
 	if err != nil {
 		t.Fatalf("Collect() error: %v", err)
 	}
@@ -263,7 +264,7 @@ func TestCollect_ValidationErrors(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	_, err := collector.Collect(context.Background())
+	_, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -281,6 +282,44 @@ type mockGitHubClient struct {
 	repositoriesErr  error
 	securitySettings map[string]*github.SecuritySettings // key: "owner/repo"
 	requestedRepos   []string
+
+	// Audit / internal surface fixtures.
+	orgSettings    *github.OrgSettings
+	orgSettingsErr error
+
+	alertCounts      map[string]*github.AlertCounts // key: "owner/repo"
+	alertCountsErr   error
+	secretAlerts     map[string][]github.SecretScanningAlert
+	codeAlerts       map[string][]github.CodeScanningAlert
+	dependabotAlerts map[string][]github.DependabotAlert
+	alertListErr     error
+
+	membership      *github.OrgMembership
+	membershipErr   error
+	codeowners      map[string]codeownersFixture // key: "owner/repo"
+	codeownersErr   error
+	orgHooks        []github.Hook
+	repoHooks       map[string][]github.Hook
+	hooksErr        error
+	deployKeys      map[string][]github.DeployKey
+	deployKeysErr   error
+	orgRunners      []github.Runner
+	repoRunners     map[string][]github.Runner
+	actionsErr      error
+	secretNames     []string
+	auditEvents     []github.AuditEvent
+	auditMore       bool
+	auditErr        error
+	installations   []github.Installation
+	installationErr error
+	pats            []github.PATGrant
+	patsErr         error
+}
+
+type codeownersFixture struct {
+	present bool
+	path    string
+	hash    string
 }
 
 func (m *mockGitHubClient) FetchOrgSecurity(ctx context.Context, org string) (*github.OrgSecurity, error) {
@@ -306,6 +345,131 @@ func (m *mockGitHubClient) FetchSecuritySettings(ctx context.Context, owner, rep
 	return &github.SecuritySettings{}, nil
 }
 
+func (m *mockGitHubClient) GetOrgSettings(ctx context.Context, org string) (*github.OrgSettings, error) {
+	if m.orgSettingsErr != nil {
+		return nil, m.orgSettingsErr
+	}
+	if m.orgSettings != nil {
+		return m.orgSettings, nil
+	}
+	return &github.OrgSettings{}, nil
+}
+
+func (m *mockGitHubClient) GetOpenAlertCounts(ctx context.Context, owner, repo string) (*github.AlertCounts, error) {
+	if m.alertCountsErr != nil {
+		return &github.AlertCounts{}, m.alertCountsErr
+	}
+	if c, ok := m.alertCounts[owner+"/"+repo]; ok {
+		return c, nil
+	}
+	return &github.AlertCounts{}, nil
+}
+
+func (m *mockGitHubClient) ListSecretScanningAlerts(ctx context.Context, owner, repo string) ([]github.SecretScanningAlert, bool, error) {
+	if m.alertListErr != nil {
+		return nil, false, m.alertListErr
+	}
+	return m.secretAlerts[owner+"/"+repo], false, nil
+}
+
+func (m *mockGitHubClient) ListCodeScanningAlerts(ctx context.Context, owner, repo string) ([]github.CodeScanningAlert, bool, error) {
+	if m.alertListErr != nil {
+		return nil, false, m.alertListErr
+	}
+	return m.codeAlerts[owner+"/"+repo], false, nil
+}
+
+func (m *mockGitHubClient) ListDependabotAlerts(ctx context.Context, owner, repo string) ([]github.DependabotAlert, bool, error) {
+	if m.alertListErr != nil {
+		return nil, false, m.alertListErr
+	}
+	return m.dependabotAlerts[owner+"/"+repo], false, nil
+}
+
+func (m *mockGitHubClient) GetOrgMembership(ctx context.Context, org string) (*github.OrgMembership, error) {
+	if m.membershipErr != nil {
+		return nil, m.membershipErr
+	}
+	if m.membership != nil {
+		return m.membership, nil
+	}
+	return &github.OrgMembership{}, nil
+}
+
+func (m *mockGitHubClient) GetCodeownersInfo(ctx context.Context, owner, repo string, wantHash bool) (bool, string, string, error) {
+	if m.codeownersErr != nil {
+		return false, "", "", m.codeownersErr
+	}
+	f := m.codeowners[owner+"/"+repo]
+	if !wantHash {
+		return f.present, f.path, "", nil
+	}
+	return f.present, f.path, f.hash, nil
+}
+
+func (m *mockGitHubClient) ListOrgHooks(ctx context.Context, org string) ([]github.Hook, error) {
+	if m.hooksErr != nil {
+		return nil, m.hooksErr
+	}
+	return m.orgHooks, nil
+}
+
+func (m *mockGitHubClient) ListRepoHooks(ctx context.Context, owner, repo string) ([]github.Hook, error) {
+	if m.hooksErr != nil {
+		return nil, m.hooksErr
+	}
+	return m.repoHooks[owner+"/"+repo], nil
+}
+
+func (m *mockGitHubClient) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]github.DeployKey, error) {
+	if m.deployKeysErr != nil {
+		return nil, m.deployKeysErr
+	}
+	return m.deployKeys[owner+"/"+repo], nil
+}
+
+func (m *mockGitHubClient) ListOrgRunners(ctx context.Context, org string) ([]github.Runner, error) {
+	if m.actionsErr != nil {
+		return nil, m.actionsErr
+	}
+	return m.orgRunners, nil
+}
+
+func (m *mockGitHubClient) ListRepoRunners(ctx context.Context, owner, repo string) ([]github.Runner, error) {
+	if m.actionsErr != nil {
+		return nil, m.actionsErr
+	}
+	return m.repoRunners[owner+"/"+repo], nil
+}
+
+func (m *mockGitHubClient) ListOrgActionsSecretNames(ctx context.Context, org string) ([]string, error) {
+	if m.actionsErr != nil {
+		return nil, m.actionsErr
+	}
+	return m.secretNames, nil
+}
+
+func (m *mockGitHubClient) GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEvents int) ([]github.AuditEvent, bool, error) {
+	if m.auditErr != nil {
+		return nil, false, m.auditErr
+	}
+	return m.auditEvents, m.auditMore, nil
+}
+
+func (m *mockGitHubClient) ListOrgInstallations(ctx context.Context, org string) ([]github.Installation, error) {
+	if m.installationErr != nil {
+		return nil, m.installationErr
+	}
+	return m.installations, nil
+}
+
+func (m *mockGitHubClient) ListOrgPATs(ctx context.Context, org string) ([]github.PATGrant, bool, error) {
+	if m.patsErr != nil {
+		return nil, false, m.patsErr
+	}
+	return m.pats, false, nil
+}
+
 func TestCollect_EmptyOrganization(t *testing.T) {
 	mock := &mockGitHubClient{
 		orgSecurity: &github.OrgSecurity{
@@ -320,7 +484,7 @@ func TestCollect_EmptyOrganization(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -416,7 +580,7 @@ func TestCollect_FullOrganization(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -514,7 +678,7 @@ func TestCollect_WithFilters(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -582,7 +746,7 @@ func TestCollect_ExcludePatterns(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -649,7 +813,7 @@ func TestCollect_SkipsArchivedRepositories(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -673,6 +837,8 @@ func TestCollect_SkipsArchivedRepositories(t *testing.T) {
 }
 
 func TestCollect_OrgSecurityError(t *testing.T) {
+	// A non-permission error on the org-security fetch degrades to a warning; the
+	// run still succeeds with org security zeroed.
 	mock := &mockGitHubClient{
 		orgSecurityErr: errors.New("API rate limit exceeded"),
 	}
@@ -683,17 +849,22 @@ func TestCollect_OrgSecurityError(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	_, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if err != nil {
+		t.Fatalf("expected degraded success, got error: %v", err)
 	}
-	if err.Error() != "failed to fetch org security: API rate limit exceeded" {
-		t.Errorf("error = %q, want %q", err.Error(), "failed to fetch org security: API rate limit exceeded")
+	if posture.AccessControl.TwoFactorRequired != nil {
+		t.Error("expected org security zeroed after fetch failure")
+	}
+	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "organization_security") {
+		t.Errorf("expected an organization_security warning, got %+v", posture.Diagnostics)
 	}
 }
 
 func TestCollect_RepositoriesError(t *testing.T) {
+	// A non-permission error on the repo list degrades to a warning rather than
+	// aborting the run.
 	mock := &mockGitHubClient{
 		orgSecurity: &github.OrgSecurity{
 			TwoFactorRequired: boolPtr(true),
@@ -707,13 +878,36 @@ func TestCollect_RepositoriesError(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	_, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if err != nil {
+		t.Fatalf("expected degraded success, got error: %v", err)
 	}
-	if err.Error() != "failed to fetch repositories: network timeout" {
-		t.Errorf("error = %q, want %q", err.Error(), "failed to fetch repositories: network timeout")
+	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "repositories") {
+		t.Errorf("expected a repositories warning, got %+v", posture.Diagnostics)
+	}
+}
+
+func TestCollect_CoreSurfacePermissionDenied(t *testing.T) {
+	// A permission denial on a core surface records a permission error (naming the
+	// scope to grant) and still produces an artifact.
+	mock := &mockGitHubClient{
+		orgSecurityErr: github.ErrPermissionDenied,
+	}
+
+	config := Config{
+		Organization: "test-org",
+		GitHubToken:  "test-token",
+	}
+
+	collector := NewWithClient(config, mock)
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
+
+	if err != nil {
+		t.Fatalf("expected degraded success, got error: %v", err)
+	}
+	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.PermissionErrors, "organization_security") {
+		t.Errorf("expected an organization_security permission error, got %+v", posture.Diagnostics)
 	}
 }
 
@@ -742,7 +936,7 @@ func TestCollect_DefaultIncludePatterns(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -805,7 +999,7 @@ func TestCollect_SecurityFeaturesCoverage(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -848,7 +1042,7 @@ func TestCollect_InsufficientPermissions(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background())
+	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

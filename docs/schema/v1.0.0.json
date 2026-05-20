@@ -7,6 +7,7 @@
   "required": [
     "schema_version",
     "collected_at",
+    "collected_at_level",
     "organization",
     "scope",
     "posture",
@@ -18,12 +19,17 @@
     "schema_version": {
       "type": "string",
       "const": "1.0.0",
-      "description": "Schema version for this output format"
+      "description": "Schema version for this output format. Audit and internal fields are optional and additive."
     },
     "collected_at": {
       "type": "string",
       "format": "date-time",
       "description": "ISO 8601 timestamp of when the data was collected"
+    },
+    "collected_at_level": {
+      "type": "string",
+      "enum": ["trust", "audit", "internal"],
+      "description": "The collection level this artifact was gathered at. trust = org-level aggregates only; audit = per-repo configs + member/repo inventories + alert counts; internal = per-user activity, findings inventories, and the audit-log slice. Levels are cumulative."
     },
     "organization": {
       "type": "string",
@@ -79,6 +85,14 @@
         "two_factor_required": {
           "type": ["boolean", "null"],
           "description": "Whether 2FA is required for all organization members. Null if insufficient permissions to determine."
+        },
+        "default_repository_permission": {
+          "type": "string",
+          "description": "Audit level and above. Org-wide base permission granted to members (read/triage/write/admin/none)."
+        },
+        "members_can_create_repositories": {
+          "type": ["boolean", "null"],
+          "description": "Audit level and above. Whether members can create repositories."
         }
       }
     },
@@ -179,7 +193,60 @@
           "minimum": 0,
           "maximum": 100,
           "description": "Percentage of repositories with Dependabot security updates enabled"
+        },
+        "per_repo": {
+          "type": "array",
+          "description": "Audit level and above. Per-repo security-feature flags plus open-alert counts by type.",
+          "items": { "type": "object" }
+        },
+        "findings": {
+          "type": "object",
+          "description": "Internal level only. Open secret-scanning, code-scanning, and Dependabot alert inventories (no secret values, no CVE description text). Capped at 5,000 per type per repo with a truncation flag."
         }
+      }
+    },
+    "members": {
+      "type": "object",
+      "description": "Audit level and above. Org member inventory: counts plus per-member login/role at audit; per-member 2FA-enabled flag and last-activity (from the audit log) at internal. Capped at 10,000 members."
+    },
+    "repositories": {
+      "type": "object",
+      "description": "Audit level and above. Repository inventory: counts/visibility split plus per-repo metadata and default-branch protection detail at audit; description/topics/license/stargazers at internal. Capped at 5,000 repos."
+    },
+    "codeowners": {
+      "type": "object",
+      "description": "Audit level and above. Per-repo CODEOWNERS presence and path at audit; SHA-256 content hash at internal. File contents are never emitted."
+    },
+    "webhooks": {
+      "type": "object",
+      "description": "Audit level and above. Org and repo webhook counts and by-event breakdown at audit; per-hook rows (URL host only, never path/query/secret) at internal."
+    },
+    "deploy_keys": {
+      "type": "object",
+      "description": "Audit level and above. Per-repo deploy-key counts at audit; per-key rows with public-key fingerprint (never the key) at internal."
+    },
+    "actions": {
+      "type": "object",
+      "description": "Audit level and above. Self-hosted runner and org Actions-secret counts at audit; per-runner rows and secret names (never values) at internal."
+    },
+    "audit_log": {
+      "type": "object",
+      "description": "Internal level (counts at audit). Security-relevant org audit-log events over a 7-day window. GitHub Enterprise Cloud only; degrades to a diagnostic warning otherwise. Capped at 5,000 events."
+    },
+    "apps": {
+      "type": "object",
+      "description": "Audit level and above. GitHub Apps installed in the org: count and per-installation permissions summary at audit; timestamps, repo selection, and subscribed events at internal."
+    },
+    "tokens": {
+      "type": "object",
+      "description": "Audit level and above. Fine-grained PAT grants: count at audit; per-token owner/name/permissions/last-used/expiration at internal (never token values). Requires a fine-grained-token policy; degrades to a diagnostic otherwise."
+    },
+    "diagnostics": {
+      "type": "object",
+      "description": "Permission errors and feature-unavailable warnings encountered during collection. A surface that hits a permission denial or a missing org feature is skipped (its field omitted) and explained here.",
+      "properties": {
+        "permission_errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
       }
     }
   }

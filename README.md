@@ -11,6 +11,81 @@ See [docs/](docs/) for detailed documentation.
 - **Branch Protection Rules**: Per-rule coverage (PR requirements, reviews, status checks, signed commits, admin enforcement)
 - **Security Features**: Per-feature coverage (vulnerability alerts, code scanning, secret scanning, push protection, Dependabot)
 
+At `audit` and `internal` levels the collector also gathers per-repo
+configuration, member and repository inventories, security-finding inventories,
+CODEOWNERS, webhooks, deploy keys, Actions runners, installed GitHub Apps,
+fine-grained token grants, and a security-relevant audit-log slice. See
+[Collection levels](#collection-levels).
+
+## Collection levels
+
+The collector reads the `level` config key (`trust`, `audit`, or `internal`,
+default `trust`) and gathers more detail at higher levels. Levels are
+cumulative. The level it ran at is stamped on the output as
+`collected_at_level`.
+
+- **trust**: organization-level pass/fail and percentage signals only. No repo
+  names, member names, configurations, or findings.
+- **audit**: adds per-repo configuration and rule details, member and repository
+  inventories, open security-finding counts, CODEOWNERS presence, and webhook /
+  deploy-key / runner / installed-App / token counts.
+- **internal**: adds per-user 2FA and last activity, full security-finding
+  inventories, CODEOWNERS content hashes, per-webhook / per-key / per-runner /
+  per-token detail, and a seven-day audit-log slice.
+
+The collector never emits repository contents, pull request or issue bodies,
+webhook secrets, or token values at any level.
+
+See [docs/levels.md](docs/levels.md) for the full per-surface breakdown.
+
+```yaml
+collectors:
+  github:
+    source: locktivity/epack-collector-github@^0.2
+    config:
+      organization: myorg
+      level: audit
+```
+
+> **Upgrading to v0.2.x:** the `audit` and `internal` levels require additional
+> GitHub App permissions (see below). Bumping the collector version without
+> granting them results in diagnostic warnings on the affected surfaces, not a
+> failed run. The surfaces that need new permissions are simply skipped until
+> the App is re-authorized.
+
+## Required GitHub App permissions
+
+`trust`-level collection needs only the permissions the collector has always
+required. `audit` and `internal` add the surfaces below. A missing permission
+skips just that surface (with a diagnostic), so you can grant incrementally.
+
+| Surface | Gating permission | Needed for |
+|---------|-------------------|------------|
+| Org access control, installed Apps, audit log | `organization_administration: read` | audit / internal |
+| Member inventory, per-user 2FA | `members: read` | audit / internal |
+| Branch-protection detail, deploy keys | `administration: read` | audit / internal |
+| Repository inventory | `metadata: read` | audit / internal |
+| CODEOWNERS | `contents: read` | audit / internal |
+| Security-finding counts and inventories | `secret_scanning_alerts: read`, `code_scanning_alerts: read`, `dependabot_alerts: read` | audit / internal |
+| Repository webhooks | `repository_hooks: read` | audit / internal |
+| Organization webhooks | `organization_hooks: read` | audit / internal |
+| Actions runners + workflow summaries (repo) | `actions: read` | audit / internal |
+| Self-hosted runners (org) | `organization_self_hosted_runners: read` | audit / internal |
+| Actions secret names (org, never values) | `organization_secrets: read` | audit / internal |
+| Fine-grained PAT grants | `organization_personal_access_tokens: read` | audit / internal |
+
+Some surfaces degrade to a diagnostic warning (rather than a permission error)
+when the underlying feature simply isn't available: the **audit log** requires
+GitHub Enterprise Cloud, the **fine-grained token** inventory requires a
+fine-grained personal-access-token policy, and the **security-finding counts and
+inventories** stay empty on repositories that don't have code scanning, secret
+scanning, or Dependabot alerts enabled. A genuinely missing permission is
+reported as a permission error instead, so you can tell the two apart.
+
+For the legacy classic-PAT auth path, the equivalent scopes are `read:org`,
+`repo`, `admin:org_hook`, `admin:repo_hook`, and `read:audit_log` (Enterprise
+only). The PAT path is fading; migrate to a GitHub App where possible.
+
 ## Quick Start
 
 ### Using GitHub App (Recommended)
@@ -22,7 +97,7 @@ stream: myorg/github-posture
 
 collectors:
   github:
-    source: locktivity/epack-collector-github@^0.1
+    source: locktivity/epack-collector-github@^0.2
     config:
       organization: myorg
       app_id: 123456
@@ -45,7 +120,7 @@ stream: myorg/github-posture
 
 collectors:
   github:
-    source: locktivity/epack-collector-github@^0.1
+    source: locktivity/epack-collector-github@^0.2
     config:
       organization: myorg
     secrets:

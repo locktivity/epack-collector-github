@@ -22,6 +22,24 @@ type GitHubClient interface {
 	FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity, error)
 	FetchRepositories(ctx context.Context, org string, callback func([]Repository) error) error
 	FetchSecuritySettings(ctx context.Context, owner, repo string) (*SecuritySettings, error)
+
+	// Audit / internal surfaces.
+	GetOrgSettings(ctx context.Context, org string) (*OrgSettings, error)
+	GetOpenAlertCounts(ctx context.Context, owner, repo string) (*AlertCounts, error)
+	ListSecretScanningAlerts(ctx context.Context, owner, repo string) ([]SecretScanningAlert, bool, error)
+	ListCodeScanningAlerts(ctx context.Context, owner, repo string) ([]CodeScanningAlert, bool, error)
+	ListDependabotAlerts(ctx context.Context, owner, repo string) ([]DependabotAlert, bool, error)
+	GetOrgMembership(ctx context.Context, org string) (*OrgMembership, error)
+	GetCodeownersInfo(ctx context.Context, owner, repo string, wantHash bool) (present bool, path string, hash string, err error)
+	ListOrgHooks(ctx context.Context, org string) ([]Hook, error)
+	ListRepoHooks(ctx context.Context, owner, repo string) ([]Hook, error)
+	ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]DeployKey, error)
+	ListOrgRunners(ctx context.Context, org string) ([]Runner, error)
+	ListRepoRunners(ctx context.Context, owner, repo string) ([]Runner, error)
+	ListOrgActionsSecretNames(ctx context.Context, org string) ([]string, error)
+	GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEvents int) ([]AuditEvent, bool, error)
+	ListOrgInstallations(ctx context.Context, org string) ([]Installation, error)
+	ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool, error)
 }
 
 // Client wraps the GitHub GraphQL and REST clients.

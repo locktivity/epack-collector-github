@@ -6,18 +6,15 @@ import (
 	"github.com/locktivity/epack-collector-github/internal/github"
 )
 
-// repoInfo holds repository identification for API calls.
-type repoInfo struct {
-	owner string
-	name  string
-}
-
 // metricsAggregator collects repository metrics during iteration.
 type metricsAggregator struct {
 	// Scope tracking
 	totalRepos    int
 	excludedRepos int
-	repos         []repoInfo
+
+	// repos holds the included repositories and their REST security settings,
+	// captured for the audit/internal surface pass.
+	repos repoCache
 
 	// Branch protection counts
 	branchProtectionEnabled int
@@ -40,6 +37,10 @@ type metricsAggregator struct {
 	securitySettingsPermissionDenied int
 	codeScanningPermissionDenied     int
 	codeScanningErrorMessages        map[string]int // Track unique error messages and their counts
+
+	// diag accumulates surface-level permission errors and feature-unavailable
+	// warnings recorded during the surface pass.
+	diag diagnostics
 }
 
 // processRepository processes a single repository and updates metrics.
@@ -55,7 +56,7 @@ func (m *metricsAggregator) processRepository(repo github.Repository, includePat
 	}
 
 	m.totalRepos++
-	m.repos = append(m.repos, repoInfo{owner: repo.Owner.Login, name: repo.Name})
+	m.repos.add(repo)
 
 	m.countBranchProtection(repo)
 
@@ -180,25 +181,25 @@ func (m *metricsAggregator) toSecurityFeatures() SecurityFeatures {
 	}
 }
 
-// toDiagnostics generates diagnostics from permission error counts.
-// Returns nil if there are no issues to report.
+// toDiagnostics combines the trust-pass permission counters (security settings,
+// code scanning) with the accumulated surface diagnostics. Trust-pass errors
+// come first to preserve their original ordering. Returns nil if there's
+// nothing to report.
 func (m *metricsAggregator) toDiagnostics() *Diagnostics {
-	var errors []string
+	out := &diagnostics{}
 
 	if m.securitySettingsPermissionDenied > 0 {
-		errors = append(errors, fmt.Sprintf(
+		out.addPermissionError(fmt.Sprintf(
 			"security_events permission required: got 403 on %d/%d repos when fetching security settings (secret scanning, dependabot)",
 			m.securitySettingsPermissionDenied, m.totalRepos,
 		))
 	}
-
-	errors = append(errors, m.codeScanningErrors()...)
-
-	if len(errors) == 0 {
-		return nil
+	for _, e := range m.codeScanningErrors() {
+		out.addPermissionError(e)
 	}
 
-	return &Diagnostics{
-		PermissionErrors: errors,
-	}
+	out.permissionErrors = append(out.permissionErrors, m.diag.permissionErrors...)
+	out.warnings = append(out.warnings, m.diag.warnings...)
+
+	return out.build()
 }
