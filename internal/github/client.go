@@ -284,8 +284,22 @@ type codeScanningResult struct {
 	errorMessage     string
 }
 
-// checkCodeScanning checks if code scanning is enabled for a repository.
+// checkCodeScanning checks if code scanning is enabled for a repository. The
+// default-setup endpoint only reports GitHub's one-click setup, so a repo
+// scanning via a CodeQL or third-party workflow (advanced setup) reads as
+// not-configured there. When default setup is off and we weren't denied, fall
+// back to the analyses surface, which sees both setups.
 func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) codeScanningResult {
+	result := c.checkDefaultSetup(ctx, owner, repo)
+	if !result.enabled && !result.permissionDenied && c.hasCodeScanningAnalyses(ctx, owner, repo) {
+		result.enabled = true
+	}
+	return result
+}
+
+// checkDefaultSetup reports whether GitHub's one-click default code scanning
+// setup is configured for the repository.
+func (c *Client) checkDefaultSetup(ctx context.Context, owner, repo string) codeScanningResult {
 	url := fmt.Sprintf("%s/repos/%s/%s/code-scanning/default-setup", c.baseURL, owner, repo)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -324,6 +338,37 @@ func (c *Client) checkCodeScanning(ctx context.Context, owner, repo string) code
 	}
 
 	return codeScanningResult{enabled: result.State == StateConfigured}
+}
+
+// hasCodeScanningAnalyses reports whether the repo has at least one code
+// scanning analysis, which is how advanced (workflow-based) setup surfaces. Any
+// non-200 (404 not enabled, 403 missing scope, transport error) is treated as
+// "can't confirm" and returns false, leaving the default-setup answer intact.
+func (c *Client) hasCodeScanningAnalyses(ctx context.Context, owner, repo string) bool {
+	url := fmt.Sprintf("%s/repos/%s/%s/code-scanning/analyses?per_page=1", c.baseURL, owner, repo)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return false
+	}
+
+	setAPIHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+
+	var analyses []json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&analyses); err != nil {
+		return false
+	}
+	return len(analyses) > 0
 }
 
 // setAPIHeaders sets the standard GitHub API headers on a request.

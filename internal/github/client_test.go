@@ -14,12 +14,14 @@ import (
 
 func TestFetchSecuritySettings(t *testing.T) {
 	tests := []struct {
-		name         string
-		repoResponse string
-		repoStatus   int
-		codeResponse string
-		codeStatus   int
-		wantSettings SecuritySettings
+		name             string
+		repoResponse     string
+		repoStatus       int
+		codeResponse     string
+		codeStatus       int
+		analysesResponse string
+		analysesStatus   int
+		wantSettings     SecuritySettings
 	}{
 		{
 			name: "all features enabled",
@@ -78,6 +80,22 @@ func TestFetchSecuritySettings(t *testing.T) {
 			},
 		},
 		{
+			name: "advanced setup detected via analyses",
+			repoResponse: `{
+				"security_and_analysis": {
+					"secret_scanning": {"status": "disabled"}
+				}
+			}`,
+			repoStatus:       http.StatusOK,
+			codeResponse:     `{"state": "not-configured"}`,
+			codeStatus:       http.StatusOK,
+			analysesResponse: `[{"ref": "refs/heads/main"}]`,
+			analysesStatus:   http.StatusOK,
+			wantSettings: SecuritySettings{
+				CodeScanningEnabled: true,
+			},
+		},
+		{
 			name:         "repo not found",
 			repoResponse: `{"message": "Not Found"}`,
 			repoStatus:   http.StatusNotFound,
@@ -120,6 +138,13 @@ func TestFetchSecuritySettings(t *testing.T) {
 				case "/repos/owner/repo/code-scanning/default-setup":
 					w.WriteHeader(tt.codeStatus)
 					_, _ = w.Write([]byte(tt.codeResponse))
+				case "/repos/owner/repo/code-scanning/analyses":
+					status := tt.analysesStatus
+					if status == 0 {
+						status = http.StatusNotFound
+					}
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(tt.analysesResponse))
 				default:
 					t.Errorf("unexpected path: %s", r.URL.Path)
 					w.WriteHeader(http.StatusNotFound)
@@ -173,6 +198,8 @@ func TestCheckCodeScanning(t *testing.T) {
 		name               string
 		response           string
 		status             int
+		analysesResponse   string
+		analysesStatus     int
 		want               bool
 		wantPermissionDeny bool
 		wantErrorMessage   string
@@ -181,6 +208,15 @@ func TestCheckCodeScanning(t *testing.T) {
 			name:               "configured",
 			response:           `{"state": "configured"}`,
 			status:             http.StatusOK,
+			want:               true,
+			wantPermissionDeny: false,
+		},
+		{
+			name:               "advanced setup detected via analyses",
+			response:           `{"state": "not-configured"}`,
+			status:             http.StatusOK,
+			analysesResponse:   `[{"ref": "refs/heads/main"}]`,
+			analysesStatus:     http.StatusOK,
 			want:               true,
 			wantPermissionDeny: false,
 		},
@@ -226,11 +262,20 @@ func TestCheckCodeScanning(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path != "/repos/owner/repo/code-scanning/default-setup" {
+				switch r.URL.Path {
+				case "/repos/owner/repo/code-scanning/default-setup":
+					w.WriteHeader(tt.status)
+					_, _ = w.Write([]byte(tt.response))
+				case "/repos/owner/repo/code-scanning/analyses":
+					status := tt.analysesStatus
+					if status == 0 {
+						status = http.StatusNotFound
+					}
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(tt.analysesResponse))
+				default:
 					t.Errorf("unexpected path: %s", r.URL.Path)
 				}
-				w.WriteHeader(tt.status)
-				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 
