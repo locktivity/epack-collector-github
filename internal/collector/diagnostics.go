@@ -30,6 +30,13 @@ func (d *diagnostics) surfaceUnavailable(surface, requirement string) {
 	d.warnings = append(d.warnings, fmt.Sprintf("surface %s skipped: %s", surface, requirement))
 }
 
+// memberNamesIncomplete records that display names are missing from some
+// member rows for a reason other than the user not setting one, so consumers
+// don't read an absent name as "not set".
+func (d *diagnostics) memberNamesIncomplete(reason string) {
+	d.warnings = append(d.warnings, "members: display names incomplete: "+reason)
+}
+
 // build returns the output Diagnostics, or nil when there's nothing to report.
 func (d *diagnostics) build() *Diagnostics {
 	if len(d.permissionErrors) == 0 && len(d.warnings) == 0 {

@@ -144,8 +144,14 @@ type Members struct {
 
 // MemberRow is one member. TwoFactorEnabled is a pointer: nil means the 2FA
 // signal was unavailable (caller not an org owner), not "2FA off".
+//
+// Name is the public-profile display name. Other collectors emit logins only,
+// but GitHub logins are pseudonyms that reviewers cannot map to people, and
+// the display name is already world-readable on github.com, unlike IdP
+// profile attributes. Empty when the member has not set one.
 type MemberRow struct {
 	Login            string `json:"login"`
+	Name             string `json:"name,omitempty"`
 	Role             string `json:"role"`
 	TwoFactorEnabled *bool  `json:"two_factor_enabled,omitempty"`
 	LastActivity     string `json:"last_activity,omitempty"`

@@ -207,7 +207,7 @@
     },
     "members": {
       "type": "object",
-      "description": "Audit level and above. Org member inventory: counts plus per-member login/role at audit; per-member 2FA-enabled flag and last-activity (from the audit log) at internal. Capped at 10,000 members."
+      "description": "Audit level and above. Org member inventory: counts plus per-member login/name/role at audit (name is the public profile display name, absent when unset); per-member 2FA-enabled flag and last-activity (from the audit log) at internal. Capped at 10,000 members."
     },
     "repositories": {
       "type": "object",

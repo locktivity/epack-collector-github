@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -631,5 +632,162 @@ func TestFetchRepositories_BranchProtection(t *testing.T) {
 	}
 	if !rule.IsAdminEnforced {
 		t.Error("IsAdminEnforced should be true")
+	}
+}
+
+func TestGetOrgMembership_IncludesDisplayNames(t *testing.T) {
+	graphqlCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.URL.Path == "/graphql" {
+			graphqlCalls++
+			body, _ := io.ReadAll(r.Body)
+			var response map[string]interface{}
+			if graphqlCalls == 1 {
+				response = map[string]interface{}{
+					"data": map[string]interface{}{
+						"organization": map[string]interface{}{
+							"membersWithRole": map[string]interface{}{
+								"nodes": []map[string]interface{}{
+									{"login": "alice", "name": "Alice Adams"},
+								},
+								"pageInfo": map[string]interface{}{"hasNextPage": true, "endCursor": "cursor-a"},
+							},
+						},
+					},
+				}
+			} else {
+				if !strings.Contains(string(body), "cursor-a") {
+					t.Error("second GraphQL request should carry the first page's cursor")
+				}
+				response = map[string]interface{}{
+					"data": map[string]interface{}{
+						"organization": map[string]interface{}{
+							"membersWithRole": map[string]interface{}{
+								"nodes": []map[string]interface{}{
+									{"login": "bob", "name": nil},
+									{"login": "dana", "name": ""},
+								},
+								"pageInfo": map[string]interface{}{"hasNextPage": false, "endCursor": ""},
+							},
+						},
+					},
+				}
+			}
+			_ = json.NewEncoder(w).Encode(response)
+			return
+		}
+
+		switch {
+		case r.URL.Path == "/orgs/test-org/members" && r.URL.Query().Get("role") == "admin":
+			_, _ = w.Write([]byte(`[{"login":"alice"}]`))
+		case r.URL.Path == "/orgs/test-org/members" && r.URL.Query().Get("filter") == "2fa_disabled":
+			_, _ = w.Write([]byte(`[{"login":"bob"}]`))
+		case r.URL.Path == "/orgs/test-org/members":
+			_, _ = w.Write([]byte(`[{"login":"alice"},{"login":"bob"},{"login":"dana"}]`))
+		case r.URL.Path == "/orgs/test-org/outside_collaborators":
+			_, _ = w.Write([]byte(`[{"login":"carol"},{"login":"eve"}]`))
+		case r.URL.Path == "/orgs/test-org/invitations":
+			_, _ = w.Write([]byte(`[{}]`))
+		case r.URL.Path == "/users/carol":
+			_, _ = w.Write([]byte(`{"login":"carol","name":"Carol Chen"}`))
+		case r.URL.Path == "/users/eve":
+			_, _ = w.Write([]byte(`{"login":"eve","name":null}`))
+		default:
+			t.Errorf("unexpected request: %s", r.URL.String())
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientWithGraphQL(server.Client(), server.URL, server.URL+"/graphql")
+
+	membership, err := client.GetOrgMembership(context.Background(), "test-org")
+	if err != nil {
+		t.Fatalf("GetOrgMembership() error: %v", err)
+	}
+
+	if graphqlCalls != 2 {
+		t.Errorf("Expected 2 GraphQL calls, got %d", graphqlCalls)
+	}
+	if len(membership.Members) != 3 {
+		t.Fatalf("Members = %v, want 3 logins", membership.Members)
+	}
+	if membership.PendingInvitations != 1 {
+		t.Errorf("PendingInvitations = %d, want 1", membership.PendingInvitations)
+	}
+	if len(membership.Names) != 2 || membership.Names["alice"] != "Alice Adams" || membership.Names["carol"] != "Carol Chen" {
+		t.Errorf(`Names = %v, want map[alice:Alice Adams carol:Carol Chen]`, membership.Names)
+	}
+	if len(membership.NamesIncomplete) != 0 {
+		t.Errorf("NamesIncomplete = %v, want none", membership.NamesIncomplete)
+	}
+}
+
+func TestGetOrgMembership_NoGraphQLLeavesNamesNil(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+
+	membership, err := client.GetOrgMembership(context.Background(), "test-org")
+	if err != nil {
+		t.Fatalf("GetOrgMembership() error: %v", err)
+	}
+	if membership.Names != nil {
+		t.Errorf("Names = %v, want nil when GraphQL is unavailable", membership.Names)
+	}
+	if len(membership.NamesIncomplete) != 1 {
+		t.Errorf("NamesIncomplete = %v, want the bulk-query failure recorded", membership.NamesIncomplete)
+	}
+}
+
+func TestCollaboratorNames_CapAndAbort(t *testing.T) {
+	userCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		userCalls++
+		switch r.URL.Path {
+		case "/users/ghost":
+			w.WriteHeader(http.StatusNotFound)
+		case "/users/boom":
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			_, _ = w.Write([]byte(`{"name":"Someone"}`))
+		}
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+
+	names, incomplete := client.collaboratorNames(context.Background(), []string{"ghost", "ok", "boom", "never"})
+	if userCalls != 3 {
+		t.Errorf("lookup calls = %d, want 3 (404 skipped, abort on 500)", userCalls)
+	}
+	if len(names) != 1 || names["ok"] != "Someone" {
+		t.Errorf("names = %v, want map[ok:Someone]", names)
+	}
+	if len(incomplete) != 1 || !strings.Contains(incomplete[0], "aborted") {
+		t.Errorf("incomplete = %v, want one abort reason", incomplete)
+	}
+
+	many := make([]string, CollaboratorNameLookupCap+5)
+	for i := range many {
+		many[i] = fmt.Sprintf("user%d", i)
+	}
+	userCalls = 0
+	names, incomplete = client.collaboratorNames(context.Background(), many)
+	if userCalls != CollaboratorNameLookupCap {
+		t.Errorf("lookup calls = %d, want cap %d", userCalls, CollaboratorNameLookupCap)
+	}
+	if len(names) != CollaboratorNameLookupCap {
+		t.Errorf("names len = %d, want %d", len(names), CollaboratorNameLookupCap)
+	}
+	if len(incomplete) != 1 || !strings.Contains(incomplete[0], "capped") {
+		t.Errorf("incomplete = %v, want one cap reason", incomplete)
 	}
 }

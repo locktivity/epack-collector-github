@@ -78,7 +78,12 @@ above, so a trust run stays minimal.
 
 - **trust**: omitted.
 - **audit**: member / admin / outside-collaborator counts, pending-invitations
-  flag, and `per_member[]` rows (login, role).
+  flag, and `per_member[]` rows (login, name, role). `name` is the public
+  GitHub profile display name: user-set, so it is empty for anyone who has not
+  set one. Member names arrive in one bulk query; outside-collaborator names
+  are looked up per login, capped at 200 lookups per run. When name coverage
+  is partial for any reason other than an unset profile, a diagnostic warning
+  says so.
 - **internal**: each member row gains two-factor status and last activity.
 
 ### Repositories (`repositories`)

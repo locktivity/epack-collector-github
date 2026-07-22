@@ -387,7 +387,7 @@ func (c *Collector) collectTokens(p *collectionPass) {
 }
 
 // collectMembers builds the member inventory. Audit emits counts + per-member
-// login/role; internal adds per-member 2FA + last-activity. The activity map
+// login/name/role; internal adds per-member 2FA + last-activity. The activity map
 // (login → most recent audit-log event unix time) comes from collectAuditLog;
 // it may be nil when the audit-log surface was skipped.
 func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64) {
@@ -397,6 +397,10 @@ func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64)
 			p.metrics.diag.surfacePermissionDenied("members", "members:read")
 		}
 		return
+	}
+
+	for _, reason := range membership.NamesIncomplete {
+		p.metrics.diag.memberNamesIncomplete(reason)
 	}
 
 	adminSet := toSet(membership.Admins)
@@ -419,7 +423,7 @@ func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64)
 
 	rows := make([]MemberRow, 0, len(logins))
 	for _, login := range logins {
-		row := MemberRow{Login: login, Role: roleFor(login, adminSet, ocSet)}
+		row := MemberRow{Login: login, Name: membership.Names[login], Role: roleFor(login, adminSet, ocSet)}
 		if p.internal() {
 			if membership.TwoFADisabled != nil {
 				enabled := !membership.TwoFADisabled[login]

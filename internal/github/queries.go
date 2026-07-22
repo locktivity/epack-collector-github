@@ -56,6 +56,23 @@ type Repository struct {
 	} `graphql:"repositoryTopics(first: 20)"`
 }
 
+// MembersWithRoleQuery is the GraphQL query for fetching member display
+// names, which GitHub's REST member list endpoints do not return.
+type MembersWithRoleQuery struct {
+	Organization struct {
+		MembersWithRole struct {
+			Nodes []struct {
+				Login string
+				Name  string
+			}
+			PageInfo struct {
+				HasNextPage bool
+				EndCursor   githubv4.String
+			}
+		} `graphql:"membersWithRole(first: 100, after: $cursor)"`
+	} `graphql:"organization(login: $org)"`
+}
+
 // BranchProtectionRule represents branch protection settings.
 type BranchProtectionRule struct {
 	RequiresApprovingReviews       bool

@@ -47,6 +47,7 @@ func richMock() *mockGitHubClient {
 			OutsideCollaborators: []string{"carol"},
 			TwoFADisabled:        map[string]bool{"bob": true},
 			PendingInvitations:   1,
+			Names:                map[string]string{"alice": "Alice Adams", "carol": "Carol Chen"},
 		},
 		codeowners: map[string]codeownersFixture{
 			"test-org/repo1": {present: true, path: ".github/CODEOWNERS", hash: "abc123"},
@@ -112,11 +113,16 @@ func TestSurfaces_AuditPopulatesNoInternalDetail(t *testing.T) {
 	if p.Members == nil || p.Members.MemberCount != 2 || p.Members.AdminCount != 1 {
 		t.Fatalf("members audit counts wrong: %+v", p.Members)
 	}
-	// Audit has per-member login/role but no 2FA flag.
+	// Audit has per-member login/name/role but no 2FA flag.
+	names := map[string]string{}
 	for _, m := range p.Members.PerMember {
 		if m.TwoFactorEnabled != nil {
 			t.Error("audit must not include per-member 2FA")
 		}
+		names[m.Login] = m.Name
+	}
+	if names["alice"] != "Alice Adams" || names["bob"] != "" || names["carol"] != "Carol Chen" {
+		t.Errorf("per-member names wrong: %v", names)
 	}
 	if p.Repositories == nil || p.Repositories.TotalCount != 2 || p.Repositories.PrivateCount != 1 {
 		t.Fatalf("repositories audit wrong: %+v", p.Repositories)
@@ -325,6 +331,17 @@ func TestSurfaces_MembersPermissionDenied(t *testing.T) {
 	}
 	if p.Diagnostics == nil || !anyContains(p.Diagnostics.PermissionErrors, "members") {
 		t.Errorf("expected a members permission diagnostic, got %+v", p.Diagnostics)
+	}
+}
+
+func TestSurfaces_MemberNameGapsRecordWarning(t *testing.T) {
+	mock := richMock()
+	mock.membership.NamesIncomplete = []string{"outside-collaborator name lookups capped at 200 of 205"}
+
+	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
+	p, _ := c.Collect(context.Background(), componentsdk.LevelAudit)
+	if p.Diagnostics == nil || !anyContains(p.Diagnostics.Warnings, "display names incomplete") {
+		t.Errorf("expected a member-names warning, got %+v", p.Diagnostics)
 	}
 }
 

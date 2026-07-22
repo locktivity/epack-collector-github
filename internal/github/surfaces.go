@@ -14,6 +14,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/shurcooL/githubv4"
 )
 
 // ErrNotFound is returned when the API returns 404 Not Found. Surfaces use it
@@ -474,6 +476,13 @@ type OrgMembership struct {
 	// 2FA flags stay unknown rather than wrongly reporting "enabled").
 	TwoFADisabled      map[string]bool
 	PendingInvitations int
+	// Names maps login to public-profile display name. Logins whose profile has
+	// no name set are absent; nil means the lookup itself was unavailable.
+	Names map[string]string
+	// NamesIncomplete lists reasons name coverage is partial for causes other
+	// than users not setting a name (bulk query failed, lookup cap, lookup
+	// error), so consumers don't read an absent name as "not set".
+	NamesIncomplete []string
 }
 
 // GetOrgMembership fetches member rosters. Requires members:read.
@@ -484,11 +493,25 @@ func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembersh
 	}
 	result := &OrgMembership{Members: members}
 
+	if names, nerr := c.getMemberNames(ctx, org); nerr == nil {
+		result.Names = names
+	} else {
+		result.NamesIncomplete = append(result.NamesIncomplete, "bulk member name query failed")
+	}
+
 	if admins, aerr := c.getAllLogins(ctx, fmt.Sprintf("/orgs/%s/members?role=admin&per_page=100", org)); aerr == nil {
 		result.Admins = admins
 	}
 	if oc, oerr := c.getAllLogins(ctx, fmt.Sprintf("/orgs/%s/outside_collaborators?per_page=100", org)); oerr == nil {
 		result.OutsideCollaborators = oc
+		names, incomplete := c.collaboratorNames(ctx, oc)
+		for l, n := range names {
+			if result.Names == nil {
+				result.Names = make(map[string]string, len(names))
+			}
+			result.Names[l] = n
+		}
+		result.NamesIncomplete = append(result.NamesIncomplete, incomplete...)
 	}
 	if disabled, derr := c.getAllLogins(ctx, fmt.Sprintf("/orgs/%s/members?filter=2fa_disabled&per_page=100", org)); derr == nil {
 		set := make(map[string]bool, len(disabled))
@@ -502,6 +525,85 @@ func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembersh
 	}
 
 	return result, nil
+}
+
+// getMemberNames fetches member display names via GraphQL, the only API that
+// returns them in bulk (REST member lists carry logins only). Names are public
+// profile data, so this needs no permissions beyond members:read. Outside
+// collaborators are absent from membersWithRole; collaboratorNames covers them.
+func (c *Client) getMemberNames(ctx context.Context, org string) (map[string]string, error) {
+	if c.graphql == nil {
+		return nil, errors.New("graphql client not configured")
+	}
+
+	names := make(map[string]string)
+	var cursor *githubv4.String
+
+	for pages := 0; pages < MemberFetchCap/100; pages++ {
+		var query MembersWithRoleQuery
+		variables := map[string]interface{}{
+			"org":    githubv4.String(org),
+			"cursor": cursor,
+		}
+		if err := c.graphql.Query(ctx, &query, variables); err != nil {
+			return nil, err
+		}
+		for _, n := range query.Organization.MembersWithRole.Nodes {
+			if n.Login != "" && n.Name != "" {
+				names[n.Login] = n.Name
+			}
+		}
+		if !query.Organization.MembersWithRole.PageInfo.HasNextPage {
+			break
+		}
+		cursor = &query.Organization.MembersWithRole.PageInfo.EndCursor
+	}
+
+	return names, nil
+}
+
+// CollaboratorNameLookupCap bounds per-login name lookups for outside
+// collaborators, who have no bulk name API.
+const CollaboratorNameLookupCap = 200
+
+// collaboratorNames resolves display names for outside collaborators one login
+// at a time. A failed lookup aborts the pass: one failure usually means rate
+// limiting, so pressing on would just fail the rest too. Deleted users (404)
+// are skipped. Returned reasons describe any resulting coverage gap.
+func (c *Client) collaboratorNames(ctx context.Context, logins []string) (map[string]string, []string) {
+	var incomplete []string
+	if len(logins) > CollaboratorNameLookupCap {
+		incomplete = append(incomplete, fmt.Sprintf("outside-collaborator name lookups capped at %d of %d", CollaboratorNameLookupCap, len(logins)))
+		logins = logins[:CollaboratorNameLookupCap]
+	}
+
+	names := make(map[string]string, len(logins))
+	for _, login := range logins {
+		name, err := c.getUserName(ctx, login)
+		if err != nil {
+			incomplete = append(incomplete, "outside-collaborator name lookups aborted: "+err.Error())
+			break
+		}
+		if name != "" {
+			names[login] = name
+		}
+	}
+	return names, incomplete
+}
+
+// getUserName fetches one user's public-profile display name. A 404 (deleted
+// or suspended user) is "no name", not an error.
+func (c *Client) getUserName(ctx context.Context, login string) (string, error) {
+	var user struct {
+		Name string `json:"name"`
+	}
+	if err := c.getJSON(ctx, "/users/"+login, &user); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	return user.Name, nil
 }
 
 // GetCodeownersInfo reports whether a CODEOWNERS file exists (and its path) and,
