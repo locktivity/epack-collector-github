@@ -13,9 +13,9 @@ See [docs/](docs/) for detailed documentation.
 
 At `audit` and `internal` levels the collector also gathers per-repo
 configuration, member and repository inventories, security-finding inventories,
-CODEOWNERS, webhooks, deploy keys, Actions runners, installed GitHub Apps,
-fine-grained token grants, and a security-relevant audit-log slice. See
-[Collection levels](#collection-levels).
+CODEOWNERS, webhooks, deploy keys, Actions runners, deployment environments,
+installed GitHub Apps, fine-grained token grants, and a security-relevant
+audit-log slice. See [Collection levels](#collection-levels).
 
 ## Collection levels
 
@@ -27,8 +27,9 @@ cumulative. The level it ran at is stamped on the output as
 - **trust**: organization-level pass/fail and percentage signals only. No repo
   names, member names, configurations, or findings.
 - **audit**: adds per-repo configuration and rule details, member and repository
-  inventories, open security-finding counts, CODEOWNERS presence, and webhook /
-  deploy-key / runner / installed-App / token counts.
+  inventories, open security-finding counts, CODEOWNERS presence,
+  deployment-environment protection detail, and webhook / deploy-key / runner /
+  installed-App / token counts.
 - **internal**: adds per-user 2FA and last activity, full security-finding
   inventories, CODEOWNERS content hashes, per-webhook / per-key / per-runner /
   per-token detail, and a seven-day audit-log slice.
@@ -56,35 +57,13 @@ collectors:
 ## Required GitHub App permissions
 
 `trust`-level collection needs only the permissions the collector has always
-required. `audit` and `internal` add the surfaces below. A missing permission
-skips just that surface (with a diagnostic), so you can grant incrementally.
+required. `audit` and `internal` add more surfaces, each gated by its own
+read-only permission. A missing permission skips just that surface (with a
+diagnostic), so you can grant incrementally.
 
-| Surface | Gating permission | Needed for |
-|---------|-------------------|------------|
-| Org access control, installed Apps, audit log | `organization_administration: read` | audit / internal |
-| Member inventory, per-user 2FA | `members: read` | audit / internal |
-| Branch-protection detail, deploy keys | `administration: read` | audit / internal |
-| Repository inventory | `metadata: read` | audit / internal |
-| CODEOWNERS | `contents: read` | audit / internal |
-| Security-finding counts and inventories | `secret_scanning_alerts: read`, `code_scanning_alerts: read`, `dependabot_alerts: read` | audit / internal |
-| Repository webhooks | `repository_hooks: read` | audit / internal |
-| Organization webhooks | `organization_hooks: read` | audit / internal |
-| Actions runners + workflow summaries (repo) | `actions: read` | audit / internal |
-| Self-hosted runners (org) | `organization_self_hosted_runners: read` | audit / internal |
-| Actions secret names (org, never values) | `organization_secrets: read` | audit / internal |
-| Fine-grained PAT grants | `organization_personal_access_tokens: read` | audit / internal |
-
-Some surfaces degrade to a diagnostic warning (rather than a permission error)
-when the underlying feature simply isn't available: the **audit log** requires
-GitHub Enterprise Cloud, the **fine-grained token** inventory requires a
-fine-grained personal-access-token policy, and the **security-finding counts and
-inventories** stay empty on repositories that don't have code scanning, secret
-scanning, or Dependabot alerts enabled. A genuinely missing permission is
-reported as a permission error instead, so you can tell the two apart.
-
-For the legacy classic-PAT auth path, the equivalent scopes are `read:org`,
-`repo`, `admin:org_hook`, `admin:repo_hook`, and `read:audit_log` (Enterprise
-only). The PAT path is fading; migrate to a GitHub App where possible.
+See [docs/configuration.md](docs/configuration.md#required-github-app-permissions)
+for the full reference: the per-surface permission table, which surfaces degrade
+to warnings when an org feature is unavailable, and the classic-PAT equivalents.
 
 ## Quick Start
 

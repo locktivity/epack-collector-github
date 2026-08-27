@@ -201,9 +201,6 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() returned error: %v", err)
 	}
-	if collector == nil {
-		t.Fatal("New() returned nil")
-	}
 	if collector.config.Organization != "test-org" {
 		t.Errorf("config.Organization = %q, want %q", collector.config.Organization, "test-org")
 	}
@@ -307,6 +304,12 @@ type mockGitHubClient struct {
 	repoRunners     map[string][]github.Runner
 	actionsErr      error
 	secretNames     []string
+	environments      map[string][]github.Environment // key: "owner/repo"
+	environmentTotals map[string]int                  // reported total override; default len(fixture)
+	environmentsErr   error
+	envPatterns       map[string][]github.BranchPolicyPattern // key: "owner/repo#env"
+	envApps           map[string][]string                     // key: "owner/repo#env"
+	envSubErr         error
 	auditEvents     []github.AuditEvent
 	auditMore       bool
 	auditErr        error
@@ -447,6 +450,32 @@ func (m *mockGitHubClient) ListOrgActionsSecretNames(ctx context.Context, org st
 		return nil, m.actionsErr
 	}
 	return m.secretNames, nil
+}
+
+func (m *mockGitHubClient) ListRepoEnvironments(ctx context.Context, owner, repo string) ([]github.Environment, int, error) {
+	if m.environmentsErr != nil {
+		return nil, 0, m.environmentsErr
+	}
+	envs := m.environments[owner+"/"+repo]
+	total := len(envs)
+	if t, ok := m.environmentTotals[owner+"/"+repo]; ok {
+		total = t
+	}
+	return envs, total, nil
+}
+
+func (m *mockGitHubClient) ListEnvironmentBranchPolicies(ctx context.Context, owner, repo, environment string) ([]github.BranchPolicyPattern, error) {
+	if m.envSubErr != nil {
+		return nil, m.envSubErr
+	}
+	return m.envPatterns[owner+"/"+repo+"#"+environment], nil
+}
+
+func (m *mockGitHubClient) ListEnvironmentProtectionApps(ctx context.Context, owner, repo, environment string) ([]string, error) {
+	if m.envSubErr != nil {
+		return nil, m.envSubErr
+	}
+	return m.envApps[owner+"/"+repo+"#"+environment], nil
 }
 
 func (m *mockGitHubClient) GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEvents int) ([]github.AuditEvent, bool, error) {

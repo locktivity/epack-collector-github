@@ -193,6 +193,7 @@ func (c *Collector) collectSurfaces(ctx context.Context, posture *OrgPosture, me
 	c.collectWebhooks(p)
 	c.collectDeployKeys(p)
 	c.collectActions(p)
+	c.collectEnvironments(p)
 	// Per-member last-activity comes from the audit log, so it runs before the
 	// member inventory and feeds it the actor→last-activity map.
 	activity := c.collectAuditLog(p)

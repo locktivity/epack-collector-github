@@ -62,6 +62,30 @@ func richMock() *mockGitHubClient {
 		orgRunners:  []github.Runner{{ID: 10, Name: "runner-1", OS: "linux", Status: "online"}},
 		repoRunners: map[string][]github.Runner{"test-org/repo1": {{ID: 11, Name: "repo-runner", OS: "linux"}}},
 		secretNames: []string{"DEPLOY_TOKEN"},
+		environments: map[string][]github.Environment{
+			"test-org/repo1": {
+				{
+					Name:                 "production",
+					HasRequiredReviewers: true,
+					PreventSelfReview:    true,
+					Reviewers: []github.EnvironmentReviewer{
+						{Type: "Team", Slug: "release-approvers", Name: "Release Approvers"},
+						{Type: "User", Login: "alice"},
+					},
+					WaitTimerMinutes: 30,
+					BranchPolicy:     github.BranchPolicyProtected,
+					CanAdminsBypass:  boolPtr(true),
+					CreatedAt:        "2026-02-01T00:00:00Z",
+				},
+				{Name: "staging", BranchPolicy: github.BranchPolicyCustom},
+			},
+		},
+		envPatterns: map[string][]github.BranchPolicyPattern{
+			"test-org/repo1#staging": {{Name: "release/*", Type: "branch"}},
+		},
+		envApps: map[string][]string{
+			"test-org/repo1#production": {"deploy-gate"},
+		},
 		auditEvents: []github.AuditEvent{
 			{Action: "repo.create", Actor: "alice", Repo: "test-org/repo1", CreatedAt: 1700000000},
 			{Action: "member_add", Actor: "bob", CreatedAt: 1700000100},
@@ -93,7 +117,7 @@ func TestSurfaces_TrustOmitsAllNewSurfaces(t *testing.T) {
 	}
 	if p.Members != nil || p.Repositories != nil || p.Codeowners != nil ||
 		p.Webhooks != nil || p.DeployKeys != nil || p.Actions != nil ||
-		p.AuditLog != nil || p.Apps != nil || p.Tokens != nil {
+		p.Environments != nil || p.AuditLog != nil || p.Apps != nil || p.Tokens != nil {
 		t.Error("trust must not populate any new surface")
 	}
 	if p.SecurityFeatures.PerRepo != nil || p.SecurityFeatures.Findings != nil {
@@ -150,6 +174,30 @@ func TestSurfaces_AuditPopulatesNoInternalDetail(t *testing.T) {
 	}
 	if p.Tokens == nil || p.Tokens.GrantCount != 1 || len(p.Tokens.PerToken) != 0 {
 		t.Errorf("audit tokens should have count but no rows: %+v", p.Tokens)
+	}
+	if p.Environments == nil || p.Environments.TotalCount != 2 || p.Environments.WithRequiredReviewersCount != 1 {
+		t.Fatalf("environments audit counts wrong: %+v", p.Environments)
+	}
+	envs := map[string]EnvironmentRow{}
+	for _, row := range p.Environments.PerEnvironment {
+		envs[row.Name] = row
+	}
+	prod := envs["production"]
+	if !prod.RequiresReviewers || !prod.PreventSelfReview || prod.WaitTimerMinutes != 30 {
+		t.Errorf("production gate config wrong: %+v", prod)
+	}
+	if len(prod.Reviewers) != 2 || prod.Reviewers[0].Slug != "release-approvers" || prod.Reviewers[1].Login != "alice" {
+		t.Errorf("production reviewers wrong: %+v", prod.Reviewers)
+	}
+	if prod.BranchPolicy != "protected_branches" || prod.CanAdminsBypass == nil || !*prod.CanAdminsBypass {
+		t.Errorf("production branch policy / bypass wrong: %+v", prod)
+	}
+	if len(prod.ProtectionApps) != 1 || prod.ProtectionApps[0] != "deploy-gate" {
+		t.Errorf("production protection apps wrong: %+v", prod.ProtectionApps)
+	}
+	staging := envs["staging"]
+	if staging.BranchPolicy != "custom" || len(staging.BranchPolicyPatterns) != 1 || staging.BranchPolicyPatterns[0].Name != "release/*" {
+		t.Errorf("staging custom branch patterns wrong: %+v", staging)
 	}
 }
 
@@ -363,6 +411,63 @@ func TestSurfaces_MembersTruncation(t *testing.T) {
 	}
 	if len(p.Members.PerMember) != MembersCap {
 		t.Errorf("per-member len = %d, want %d", len(p.Members.PerMember), MembersCap)
+	}
+}
+
+func TestSurfaces_EnvironmentsPermissionDenied(t *testing.T) {
+	mock := richMock()
+	mock.environmentsErr = github.ErrPermissionDenied
+
+	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
+	p, _ := c.Collect(context.Background(), componentsdk.LevelAudit)
+	if p.Environments == nil || p.Environments.TotalCount != 0 || len(p.Environments.PerEnvironment) != 0 {
+		t.Errorf("denied environments should emit zero counts: %+v", p.Environments)
+	}
+	if p.Diagnostics == nil || !anyContains(p.Diagnostics.PermissionErrors, "environments") {
+		t.Errorf("expected an environments permission diagnostic, got %+v", p.Diagnostics)
+	}
+}
+
+func TestSurfaces_EnvironmentsFetchCapCountsDropped(t *testing.T) {
+	// A repo whose environment fetch was capped reports the full total and
+	// flags the gap, so a partial list never reads as complete.
+	mock := richMock()
+	mock.environmentTotals = map[string]int{"test-org/repo1": 5}
+
+	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
+	p, _ := c.Collect(context.Background(), componentsdk.LevelAudit)
+	if p.Environments.TotalCount != 5 {
+		t.Errorf("TotalCount = %d, want 5 (the reported total)", p.Environments.TotalCount)
+	}
+	if !p.Environments.Truncated || p.Environments.TruncatedDropped != 3 {
+		t.Errorf("truncation = %v/%d, want true/3", p.Environments.Truncated, p.Environments.TruncatedDropped)
+	}
+	if len(p.Environments.PerEnvironment) != 2 {
+		t.Errorf("row count = %d, want 2", len(p.Environments.PerEnvironment))
+	}
+}
+
+func TestSurfaces_EnvironmentsCapKeepsReviewerGated(t *testing.T) {
+	// Build more environments than the org-wide cap, with the single
+	// reviewer-gated one sorted last alphabetically. The cap must keep it.
+	mock := richMock()
+	envs := make([]github.Environment, 0, EnvironmentsCap+2)
+	for i := 0; i < EnvironmentsCap+1; i++ {
+		envs = append(envs, github.Environment{Name: fmt.Sprintf("preview-%05d", i), BranchPolicy: github.BranchPolicyAny})
+	}
+	envs = append(envs, github.Environment{Name: "zz-production", HasRequiredReviewers: true, BranchPolicy: github.BranchPolicyProtected})
+	mock.environments = map[string][]github.Environment{"test-org/repo1": envs}
+
+	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
+	p, _ := c.Collect(context.Background(), componentsdk.LevelAudit)
+	if !p.Environments.Truncated || p.Environments.TruncatedDropped != 2 {
+		t.Fatalf("truncation = %v/%d, want true/2", p.Environments.Truncated, p.Environments.TruncatedDropped)
+	}
+	if len(p.Environments.PerEnvironment) != EnvironmentsCap {
+		t.Fatalf("row count = %d, want %d", len(p.Environments.PerEnvironment), EnvironmentsCap)
+	}
+	if p.Environments.PerEnvironment[0].Name != "zz-production" {
+		t.Errorf("first kept row = %q, want the reviewer-gated environment", p.Environments.PerEnvironment[0].Name)
 	}
 }
 

@@ -126,7 +126,7 @@ exclude_patterns: ["test-*", "experiment-*", "sandbox-*"]
 
 ## Required GitHub App Permissions
 
-For GitHub App authentication, the app needs:
+For `trust`-level collection (the default), the app needs:
 
 **Repository permissions:**
 - Administration: Read-only (for security settings and `security_and_analysis` field)
@@ -139,6 +139,40 @@ For GitHub App authentication, the app needs:
 **Organization permissions:**
 - Administration: Read-only (for 2FA settings)
 - Members: Read-only (for organization membership)
+
+### Additional permissions for audit and internal levels
+
+The `audit` and `internal` [collection levels](levels.md) add the surfaces
+below. A missing permission skips just that surface (with a diagnostic), so
+you can grant incrementally.
+
+| Surface | Gating permission | Needed for |
+|---------|-------------------|------------|
+| Org access control, installed Apps, audit log | `organization_administration: read` | audit / internal |
+| Member inventory, per-user 2FA | `members: read` | audit / internal |
+| Branch-protection detail, deploy keys | `administration: read` | audit / internal |
+| Repository inventory | `metadata: read` | audit / internal |
+| CODEOWNERS | `contents: read` | audit / internal |
+| Security-finding counts and inventories | `secret_scanning_alerts: read`, `code_scanning_alerts: read`, `dependabot_alerts: read` | audit / internal |
+| Repository webhooks | `repository_hooks: read` | audit / internal |
+| Organization webhooks | `organization_hooks: read` | audit / internal |
+| Actions runners + workflow summaries (repo) | `actions: read` | audit / internal |
+| Deployment environments + protection rules (repo) | `actions: read` | audit / internal |
+| Self-hosted runners (org) | `organization_self_hosted_runners: read` | audit / internal |
+| Actions secret names (org, never values) | `organization_secrets: read` | audit / internal |
+| Fine-grained PAT grants | `organization_personal_access_tokens: read` | audit / internal |
+
+Some surfaces degrade to a diagnostic warning (rather than a permission error)
+when the underlying feature simply isn't available: the **audit log** requires
+GitHub Enterprise Cloud, the **fine-grained token** inventory requires a
+fine-grained personal-access-token policy, and the **security-finding counts and
+inventories** stay empty on repositories that don't have code scanning, secret
+scanning, or Dependabot alerts enabled. A genuinely missing permission is
+reported as a permission error instead, so you can tell the two apart.
+
+For the legacy classic-PAT auth path, the equivalent scopes are `read:org`,
+`repo`, `admin:org_hook`, `admin:repo_hook`, and `read:audit_log` (Enterprise
+only). The PAT path is fading; migrate to a GitHub App where possible.
 
 ### Note on Security Features
 

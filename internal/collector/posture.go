@@ -48,6 +48,7 @@ type OrgPosture struct {
 	Webhooks     *Webhooks     `json:"webhooks,omitempty"`
 	DeployKeys   *DeployKeys   `json:"deploy_keys,omitempty"`
 	Actions      *Actions      `json:"actions,omitempty"`
+	Environments *Environments `json:"environments,omitempty"`
 	AuditLog     *AuditLog     `json:"audit_log,omitempty"`
 	Apps         *Apps         `json:"apps,omitempty"`
 	Tokens       *Tokens       `json:"tokens,omitempty"`
@@ -279,6 +280,51 @@ type RunnerRow struct {
 	Status     string   `json:"status,omitempty"`
 	Busy       bool     `json:"busy"`
 	Labels     []string `json:"labels,omitempty"`
+}
+
+// Environments is the deployment-environment inventory (audit+): which
+// environments gate deployments and what each gate requires. Release-control
+// evidence: who can approve a deployment and from which branches it may run.
+type Environments struct {
+	TotalCount                 int              `json:"total_count"`
+	WithRequiredReviewersCount int              `json:"with_required_reviewers_count"`
+	PerEnvironment             []EnvironmentRow `json:"per_environment,omitempty"`
+	Truncated                  bool             `json:"truncated,omitempty"`
+	TruncatedDropped           int              `json:"truncated_dropped,omitempty"`
+}
+
+// EnvironmentRow is one deployment environment's protection configuration.
+// CanAdminsBypass is a pointer: nil means the API did not report the setting,
+// not "bypass disabled".
+type EnvironmentRow struct {
+	Repository           string                     `json:"repository"`
+	Name                 string                     `json:"name"`
+	RequiresReviewers    bool                       `json:"requires_reviewers"`
+	Reviewers            []EnvironmentReviewerRow   `json:"reviewers,omitempty"`
+	PreventSelfReview    bool                       `json:"prevent_self_review"`
+	WaitTimerMinutes     int                        `json:"wait_timer_minutes,omitempty"`
+	BranchPolicy         string                     `json:"branch_policy"`
+	BranchPolicyPatterns []EnvironmentBranchPattern `json:"branch_policy_patterns,omitempty"`
+	CanAdminsBypass      *bool                      `json:"can_admins_bypass,omitempty"`
+	ProtectionApps       []string                   `json:"protection_apps,omitempty"`
+	CreatedAt            string                     `json:"created_at,omitempty"`
+	UpdatedAt            string                     `json:"updated_at,omitempty"`
+}
+
+// EnvironmentReviewerRow is one required reviewer: a user (login) or a team
+// (slug + display name), matching the member-inventory identity policy.
+type EnvironmentReviewerRow struct {
+	Type  string `json:"type"`
+	Login string `json:"login,omitempty"`
+	Slug  string `json:"slug,omitempty"`
+	Name  string `json:"name,omitempty"`
+}
+
+// EnvironmentBranchPattern is one branch / tag name pattern allowed to deploy
+// to an environment with a custom deployment branch policy.
+type EnvironmentBranchPattern struct {
+	Name string `json:"name"`
+	Type string `json:"type,omitempty"`
 }
 
 // AuditLog is the security-relevant audit-log surface (audit counts, internal

@@ -940,6 +940,194 @@ func (c *Client) ListOrgInstallations(ctx context.Context, org string) ([]Instal
 	return out, nil
 }
 
+// Deployment branch policy modes for an environment. "any" means no
+// restriction, "protected_branches" limits deployments to branches with
+// protection rules, "custom" limits them to named branch / tag patterns.
+const (
+	BranchPolicyAny       = "any"
+	BranchPolicyProtected = "protected_branches"
+	BranchPolicyCustom    = "custom"
+)
+
+// Environment is one repository deployment environment and its protection
+// configuration. CanAdminsBypass is a pointer: nil means the API did not
+// return the field, not "bypass disabled".
+type Environment struct {
+	Name                 string
+	CreatedAt            string
+	UpdatedAt            string
+	HasRequiredReviewers bool
+	PreventSelfReview    bool
+	Reviewers            []EnvironmentReviewer
+	WaitTimerMinutes     int
+	BranchPolicy         string
+	CanAdminsBypass      *bool
+}
+
+// EnvironmentReviewer is one required reviewer on an environment: a user
+// (login) or a team (slug + display name).
+type EnvironmentReviewer struct {
+	Type  string
+	Login string
+	Slug  string
+	Name  string
+}
+
+// BranchPolicyPattern is one branch / tag name pattern allowed to deploy to
+// an environment with a custom deployment branch policy.
+type BranchPolicyPattern struct {
+	Name string
+	Type string
+}
+
+// EnvironmentFetchCap bounds per-repo environment pagination defensively
+// (repos that create per-preview environments can accumulate hundreds).
+const EnvironmentFetchCap = 1000
+
+// ListRepoEnvironments returns a repo's deployment environments with their
+// protection configuration. total is the repo's full environment count, which
+// can exceed len(envs) when the fetch cap truncates. Requires actions:read.
+func (c *Client) ListRepoEnvironments(ctx context.Context, owner, repo string) (envs []Environment, total int, err error) {
+	for page := 1; page <= EnvironmentFetchCap/100; page++ {
+		var body struct {
+			TotalCount   int               `json:"total_count"`
+			Environments []json.RawMessage `json:"environments"`
+		}
+		path := fmt.Sprintf("/repos/%s/%s/environments?per_page=100&page=%d", owner, repo, page)
+		if err := c.getJSON(ctx, path, &body); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return nil, 0, nil
+			}
+			return nil, 0, err
+		}
+		total = body.TotalCount
+		for _, raw := range body.Environments {
+			if e, ok := parseEnvironment(raw); ok {
+				envs = append(envs, e)
+			}
+		}
+		if len(body.Environments) < 100 {
+			break
+		}
+	}
+	return envs, total, nil
+}
+
+func parseEnvironment(raw json.RawMessage) (Environment, bool) {
+	var e struct {
+		Name            string `json:"name"`
+		CreatedAt       string `json:"created_at"`
+		UpdatedAt       string `json:"updated_at"`
+		CanAdminsBypass *bool  `json:"can_admins_bypass"`
+		ProtectionRules []struct {
+			Type              string `json:"type"`
+			WaitTimer         int    `json:"wait_timer"`
+			PreventSelfReview bool   `json:"prevent_self_review"`
+			Reviewers         []struct {
+				Type     string `json:"type"`
+				Reviewer struct {
+					Login string `json:"login"`
+					Slug  string `json:"slug"`
+					Name  string `json:"name"`
+				} `json:"reviewer"`
+			} `json:"reviewers"`
+		} `json:"protection_rules"`
+		DeploymentBranchPolicy *struct {
+			ProtectedBranches    bool `json:"protected_branches"`
+			CustomBranchPolicies bool `json:"custom_branch_policies"`
+		} `json:"deployment_branch_policy"`
+	}
+	if json.Unmarshal(raw, &e) != nil {
+		return Environment{}, false
+	}
+
+	env := Environment{
+		Name:            e.Name,
+		CreatedAt:       e.CreatedAt,
+		UpdatedAt:       e.UpdatedAt,
+		CanAdminsBypass: e.CanAdminsBypass,
+		BranchPolicy:    BranchPolicyAny,
+	}
+	if e.DeploymentBranchPolicy != nil {
+		switch {
+		case e.DeploymentBranchPolicy.CustomBranchPolicies:
+			env.BranchPolicy = BranchPolicyCustom
+		case e.DeploymentBranchPolicy.ProtectedBranches:
+			env.BranchPolicy = BranchPolicyProtected
+		}
+	}
+	for _, rule := range e.ProtectionRules {
+		switch rule.Type {
+		case "required_reviewers":
+			env.HasRequiredReviewers = true
+			env.PreventSelfReview = rule.PreventSelfReview
+			for _, rv := range rule.Reviewers {
+				env.Reviewers = append(env.Reviewers, EnvironmentReviewer{
+					Type:  rv.Type,
+					Login: rv.Reviewer.Login,
+					Slug:  rv.Reviewer.Slug,
+					Name:  rv.Reviewer.Name,
+				})
+			}
+		case "wait_timer":
+			env.WaitTimerMinutes = rule.WaitTimer
+		}
+	}
+	return env, true
+}
+
+// ListEnvironmentBranchPolicies returns the branch / tag name patterns allowed
+// to deploy to an environment with a custom deployment branch policy.
+// Requires actions:read.
+func (c *Client) ListEnvironmentBranchPolicies(ctx context.Context, owner, repo, environment string) ([]BranchPolicyPattern, error) {
+	var body struct {
+		BranchPolicies []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"branch_policies"`
+	}
+	path := fmt.Sprintf("/repos/%s/%s/environments/%s/deployment-branch-policies?per_page=100", owner, repo, url.PathEscape(environment))
+	if err := c.getJSON(ctx, path, &body); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	out := make([]BranchPolicyPattern, 0, len(body.BranchPolicies))
+	for _, p := range body.BranchPolicies {
+		out = append(out, BranchPolicyPattern{Name: p.Name, Type: p.Type})
+	}
+	return out, nil
+}
+
+// ListEnvironmentProtectionApps returns the slugs of GitHub Apps enforcing
+// enabled custom deployment protection rules on an environment. Requires
+// actions:read.
+func (c *Client) ListEnvironmentProtectionApps(ctx context.Context, owner, repo, environment string) ([]string, error) {
+	var body struct {
+		Rules []struct {
+			Enabled bool `json:"enabled"`
+			App     struct {
+				Slug string `json:"slug"`
+			} `json:"app"`
+		} `json:"custom_deployment_protection_rules"`
+	}
+	path := fmt.Sprintf("/repos/%s/%s/environments/%s/deployment_protection_rules?per_page=100", owner, repo, url.PathEscape(environment))
+	if err := c.getJSON(ctx, path, &body); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var slugs []string
+	for _, r := range body.Rules {
+		if r.Enabled && r.App.Slug != "" {
+			slugs = append(slugs, r.App.Slug)
+		}
+	}
+	return slugs, nil
+}
+
 // PATGrant is a fine-grained PAT granted access to org resources (internal).
 type PATGrant struct {
 	ID          int64    `json:"id"`

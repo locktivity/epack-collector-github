@@ -9,9 +9,10 @@ import (
 
 // Per-surface truncation caps bounding output size and pagination.
 const (
-	MembersCap  = 10000
-	ReposCap    = 5000
-	AuditLogCap = 5000
+	MembersCap      = 10000
+	ReposCap        = 5000
+	AuditLogCap     = 5000
+	EnvironmentsCap = 5000
 )
 
 // AuditLogWindowDays bounds the audit-log lookback.
@@ -278,6 +279,100 @@ func toRunnerRow(repo string, r github.Runner) RunnerRow {
 		Busy:       r.Busy,
 		Labels:     r.Labels,
 	}
+}
+
+// collectEnvironments gathers per-repo deployment environments and their
+// protection configuration: required reviewers, self-review prevention, wait
+// timers, deployment branch policies, admin bypass, and protection-rule Apps.
+// Everything emits at audit; internal adds nothing.
+func (c *Collector) collectEnvironments(p *collectionPass) {
+	e := &Environments{}
+	permissionDenied := false
+	var rows []EnvironmentRow
+	fetchDropped := 0
+
+	for _, r := range p.metrics.repos.included {
+		envs, total, err := c.client.ListRepoEnvironments(p.ctx, r.Owner.Login, r.Name)
+		if err != nil {
+			permissionDenied = permissionDenied || isDenied(err)
+			continue
+		}
+		e.TotalCount += total
+		if total > len(envs) {
+			fetchDropped += total - len(envs)
+		}
+		repoKey := r.Owner.Login + "/" + r.Name
+		for _, env := range envs {
+			if env.HasRequiredReviewers {
+				e.WithRequiredReviewersCount++
+			}
+			rows = append(rows, toEnvironmentRow(repoKey, env))
+		}
+	}
+
+	kept, dropped, truncated := Truncate(rows, EnvironmentsCap, func(a, b EnvironmentRow) bool {
+		// Reviewer-gated environments first: on cap-hit the release gates stick.
+		if a.RequiresReviewers != b.RequiresReviewers {
+			return a.RequiresReviewers
+		}
+		if a.Repository != b.Repository {
+			return a.Repository < b.Repository
+		}
+		return a.Name < b.Name
+	})
+
+	// Per-environment sub-resources are fetched only for kept rows, bounding
+	// the extra API calls at the truncation cap.
+	for i := range kept {
+		owner, repo, _ := strings.Cut(kept[i].Repository, "/")
+		if kept[i].BranchPolicy == github.BranchPolicyCustom {
+			patterns, err := c.client.ListEnvironmentBranchPolicies(p.ctx, owner, repo, kept[i].Name)
+			if err != nil {
+				permissionDenied = permissionDenied || isDenied(err)
+			}
+			for _, pat := range patterns {
+				kept[i].BranchPolicyPatterns = append(kept[i].BranchPolicyPatterns,
+					EnvironmentBranchPattern{Name: pat.Name, Type: pat.Type})
+			}
+		}
+		apps, err := c.client.ListEnvironmentProtectionApps(p.ctx, owner, repo, kept[i].Name)
+		if err != nil {
+			permissionDenied = permissionDenied || isDenied(err)
+			continue
+		}
+		kept[i].ProtectionApps = apps
+	}
+
+	e.PerEnvironment = kept
+	e.Truncated = truncated || fetchDropped > 0
+	e.TruncatedDropped = dropped + fetchDropped
+	if permissionDenied {
+		p.metrics.diag.surfacePermissionDenied("environments", "actions:read")
+	}
+	p.posture.Environments = e
+}
+
+func toEnvironmentRow(repo string, env github.Environment) EnvironmentRow {
+	row := EnvironmentRow{
+		Repository:        repo,
+		Name:              env.Name,
+		RequiresReviewers: env.HasRequiredReviewers,
+		PreventSelfReview: env.PreventSelfReview,
+		WaitTimerMinutes:  env.WaitTimerMinutes,
+		BranchPolicy:      env.BranchPolicy,
+		CanAdminsBypass:   env.CanAdminsBypass,
+		CreatedAt:         env.CreatedAt,
+		UpdatedAt:         env.UpdatedAt,
+	}
+	for _, rv := range env.Reviewers {
+		row.Reviewers = append(row.Reviewers, EnvironmentReviewerRow{
+			Type:  rv.Type,
+			Login: rv.Login,
+			Slug:  rv.Slug,
+			Name:  rv.Name,
+		})
+	}
+	return row
 }
 
 // collectAuditLog fetches security-relevant audit events (Enterprise Cloud

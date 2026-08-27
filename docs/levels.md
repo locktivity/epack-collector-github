@@ -10,7 +10,7 @@ much detail it gathers. There are three levels, and they are cumulative:
 | Level | Question it answers | What's in the artifact |
 |---|---|---|
 | `trust` (default) | Do they pass? | Organization-level pass/fail and percentage signals only. No repository names, member names, configurations, or findings. |
-| `audit` | Where is the gap? | Per-repo configuration and rule detail, member and repository inventories, open security-finding counts, organization access-control settings, CODEOWNERS presence, and webhook / deploy-key / runner / installed-App / token counts. |
+| `audit` | Where is the gap? | Per-repo configuration and rule detail, member and repository inventories, open security-finding counts, organization access-control settings, CODEOWNERS presence, deployment-environment protection detail, and webhook / deploy-key / runner / installed-App / token counts. |
 | `internal` | Who or what specifically? | Per-user two-factor status and last activity, full security-finding inventories, CODEOWNERS content hashes, per-webhook / per-key / per-runner / per-token detail, and a seven-day audit-log slice. |
 
 ## Configuration
@@ -30,7 +30,7 @@ Default is `trust` when the key is absent or empty. The active level appears in
 the output artifact as the top-level `collected_at_level` field.
 
 `audit` and `internal` require additional GitHub App permissions beyond `trust`.
-See [Required GitHub App permissions](../README.md#required-github-app-permissions).
+See [Required GitHub App permissions](configuration.md#required-github-app-permissions).
 When a permission is missing or an organization feature is not available, the
 affected surface is skipped and a diagnostic is recorded under
 `diagnostics.permission_errors` or `diagnostics.warnings` rather than failing the
@@ -123,6 +123,17 @@ above, so a trust run stays minimal.
 - **internal**: per-runner rows (id, name, OS, status, busy, labels) and org
   Actions secret names (names only, never values).
 
+### Environments (`environments`)
+
+- **trust**: omitted.
+- **audit**: environment count, count of environments gated by required
+  reviewers, and `per_environment[]` rows: repository, name, required
+  reviewers (team slugs and user logins), self-review prevention, wait timer,
+  deployment branch policy (any / protected branches / custom, with the custom
+  branch and tag patterns), administrator bypass, GitHub Apps enforcing custom
+  deployment protection rules, and timestamps.
+- **internal**: no additions.
+
 ### Apps (`apps`)
 
 - **trust**: omitted.
@@ -159,6 +170,7 @@ within the per-collector size limit:
 |---|---|---|
 | Repositories | 5,000 | private first, then most-recently-pushed |
 | Members | 10,000 | role rank (owner first), then login ascending |
+| Environments | 5,000 | reviewer-gated first, then repository, then name |
 | Security findings | 5,000 per type, per repo | severity descending, then created-at |
 | Audit log | 5,000 events | API order, most recent first |
 
