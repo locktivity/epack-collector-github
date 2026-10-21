@@ -632,13 +632,15 @@
       "description": "Audit level and above. Members and outside collaborators: counts, plus each person's login, display name, and role at audit; two-factor status and last activity at internal. A count is null, and per_member is left out, when the roster it needs could not be read.",
       "properties": {
         "member_count": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "The member list reached the 50,000 logins the collector reads, so the organization may have more members and the count is not given",
           "description": "Organization members, owners included. Outside collaborators are counted separately."
         },
         "admin_count": {
           "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "The owner list reached the 50,000 logins the collector reads, so the organization may have more owners and the count is not given",
           "x-epack-rollup": {
             "rows": "per_member",
             "where": "/role",
@@ -651,6 +653,7 @@
         "outside_collaborator_count": {
           "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "The outside collaborator list reached the 50,000 logins the collector reads, so there may be more outside collaborators and the count is not given",
           "x-epack-rollup": {
             "rows": "per_member",
             "where": "/role",
@@ -666,7 +669,7 @@
         },
         "truncated": {
           "type": "boolean",
-          "description": "Present and true when per_member was cut short at 10,000 rows."
+          "description": "Present and true when per_member was cut short at 10,000 rows, or when the member or outside collaborator list reached the 50,000 logins the collector reads."
         },
         "per_member": {
           "type": "array",
@@ -691,7 +694,7 @@
               "two_factor_enabled": {
                 "type": "boolean",
                 "x-epack-level": "internal",
-                "description": "Internal level only. Whether the member has two-factor authentication on, from GitHub's roster of members without it, which GitHub returns only to organization owners. Absent for outside collaborators, whom that roster does not cover."
+                "description": "Internal level only. Whether the member has two-factor authentication on, from GitHub's roster of members without it, which GitHub returns only to organization owners. Absent for outside collaborators, whom that roster does not cover, and for every member when the roster reaches the 50,000 logins the collector reads."
               },
               "last_activity": {
                 "type": "string",
@@ -704,7 +707,7 @@
         "truncated_dropped": {
           "type": "integer",
           "minimum": 0,
-          "description": "Rows left out when per_member was cut short."
+          "description": "Rows left out when per_member was cut short. The collector reads at most 50,000 logins per list, so when the member or outside collaborator list reaches that, more rows were left out than this counts."
         }
       }
     },
@@ -758,13 +761,7 @@
         "archived_count": {
           "type": "integer",
           "minimum": 0,
-          "x-epack-rollup": {
-            "rows": "per_repo",
-            "where": "/archived",
-            "as": "count",
-            "truncated": "truncated"
-          },
-          "description": "In-scope repositories that are archived. Archived repositories are out of scope, so this is 0."
+          "description": "Archived repositories in the organization, whether or not they match the include and exclude patterns. Archived repositories are out of scope, so none has a row in per_repo or counts toward total_count."
         },
         "default_branch_protected_count": {
           "type": ["integer", "null"],
@@ -1073,18 +1070,20 @@
         "org_count": {
           "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "The organization's webhook list reached the 200 webhooks the collector reads, so it may have more and the count is not given",
           "x-epack-rollup": { "rows": "org", "as": "count" },
           "description": "Organization webhooks. Null when they could not be listed."
         },
         "repo_count": {
           "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "A repository's webhook list reached the 200 webhooks the collector reads per repository, so it may have more and the count is not given",
           "x-epack-rollup": { "rows": "repo", "as": "count" },
           "description": "Webhooks on in-scope repositories. Null when any repository's could not be listed."
         },
         "count_by_event": {
           "type": "object",
-          "description": "Webhooks subscribed to each event, organization and repository webhooks together. Absent when no webhook subscribes to an event, or when any list could not be read.",
+          "description": "Webhooks subscribed to each event, organization and repository webhooks together. Absent when no webhook subscribes to an event, when any list could not be read, or when any list reached the 200 webhooks the collector reads.",
           "additionalProperties": { "type": "integer" }
         },
         "org": {
@@ -1098,6 +1097,11 @@
           "x-epack-level": "internal",
           "description": "Internal level only. Webhooks on in-scope repositories. Left out when any repository's could not be listed.",
           "items": { "$ref": "#/$defs/webhook" }
+        },
+        "truncated": {
+          "type": "boolean",
+          "x-epack-level": "internal",
+          "description": "Internal level only. Present and true when the organization's or a repository's webhook list reached the 200 webhooks the collector reads, so org or repo may hold fewer rows than there are webhooks."
         }
       }
     },
@@ -1109,12 +1113,14 @@
         "total_count": {
           "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "A repository's deploy key list reached the 1,000 keys the collector reads per repository, so it may have more and the count is not given",
           "x-epack-rollup": { "rows": "per_key", "as": "count" },
           "description": "Deploy keys on in-scope repositories. Null when any repository's could not be listed."
         },
         "read_write_count": {
           "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "A repository's deploy key list reached the 1,000 keys the collector reads per repository, so it may have more and the count is not given",
           "x-epack-rollup": {
             "rows": "per_key",
             "where": "/read_only",
@@ -1161,6 +1167,11 @@
               }
             }
           }
+        },
+        "truncated": {
+          "type": "boolean",
+          "x-epack-level": "internal",
+          "description": "Internal level only. Present and true when a repository's deploy key list reached the 1,000 keys the collector reads, so per_key may hold fewer rows than there are keys."
         }
       }
     },
@@ -1466,15 +1477,16 @@
       "description": "Audit level and above. Fine-grained personal access tokens granted access to the organization: the count at audit, a row per token at internal. Token values are never read. Needs a fine-grained personal access token policy, and is left out with a not_licensed gap otherwise.",
       "properties": {
         "grant_count": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
+          "x-epack-null": "The token list reached the 5,000 grants the collector reads, so the organization may have more and the count is not given",
           "x-epack-rollup": { "rows": "per_token", "as": "count" },
           "description": "Fine-grained personal access tokens with access to the organization's resources."
         },
         "per_token": {
           "type": "array",
           "x-epack-level": "internal",
-          "description": "Internal level only. One row per token.",
+          "description": "Internal level only. One row per token, up to 5,000.",
           "items": {
             "type": "object",
             "required": ["id"],
@@ -1493,7 +1505,7 @@
               },
               "permissions": {
                 "type": "array",
-                "description": "What the token may reach, as scope:permission, such as repository:contents. The access level is not included.",
+                "description": "The token's permissions, each as name:level, such as contents:write or members:read, the form the collector result's signed_in_as.scopes uses for a GitHub App's permissions.",
                 "items": { "type": "string" }
               },
               "last_used": {
@@ -1506,6 +1518,11 @@
               }
             }
           }
+        },
+        "truncated": {
+          "type": "boolean",
+          "x-epack-level": "internal",
+          "description": "Internal level only. Present and true when the token list reached the 5,000 grants the collector reads, so per_token may hold fewer rows than there are tokens."
         }
       }
     },

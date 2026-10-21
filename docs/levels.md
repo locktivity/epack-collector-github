@@ -113,7 +113,8 @@ above, so a trust run stays minimal.
 ### Repositories (`repositories`)
 
 - **trust**: omitted.
-- **audit**: counts by visibility and archived / default-branch-protected, and
+- **audit**: counts by visibility and default-branch protection, the
+  organization's count of archived repositories (which are never in scope), and
   `per_repo[]` rows (name, visibility, archived, default branch, timestamps,
   primary language, size) with per-repo branch-protection detail: the classic
   branch protection rule, the effective protection (each rule as true, false,
@@ -175,8 +176,8 @@ above, so a trust run stays minimal.
 
 - **trust**: omitted.
 - **audit**: grant count.
-- **internal**: per-token rows (id, owner, token name, permissions, last-used,
-  expires-at; token values are never emitted).
+- **internal**: per-token rows (id, owner, token name, permissions with their
+  access levels, last-used, expires-at; token values are never emitted).
 
 Requires a fine-grained personal-access-token policy on the organization; on an
 unavailable feature the surface is omitted and a diagnostic is recorded.
@@ -209,6 +210,23 @@ within the per-collector size limit:
 When a cap fires, the surface sets a `truncated` flag and a dropped-row count.
 The Actions and Apps counts are GitHub's totals, so they stay whole when the
 rows stop at the cap, and those surfaces set only the flag.
+
+Some lists are also read only up to a cap. A list that reaches its cap may
+hold more than was read, so the counts taken from it are null, with the
+schema's `x-epack-null` saying why, and the rows read are flagged `truncated`:
+
+| List | Read cap |
+|---|---|
+| Members, owners, outside collaborators, members without two-factor authentication | 50,000 logins per list |
+| Webhooks | 200 per list: the organization's, and each repository's |
+| Deploy keys | 1,000 per repository |
+| Fine-grained token grants | 5,000 |
+| Security alerts | 5,001 per type, per repo |
+
+Webhooks also leave `count_by_event` out when a list reaches its cap. When the
+list of members without two-factor authentication reaches its cap, two-factor
+status is left out for every member, since members past the cap would read as
+having it on.
 
 ## Never emitted, at any level
 

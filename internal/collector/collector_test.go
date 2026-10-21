@@ -306,8 +306,10 @@ type mockGitHubClient struct {
 	codeownersErr     error
 	orgHooks          []github.Hook
 	repoHooks         map[string][]github.Hook
+	hooksMore         bool // every webhook list reached the fetch cap
 	hooksErr          error
 	deployKeys        map[string][]github.DeployKey
+	deployKeysMore    bool // every deploy key list reached the fetch cap
 	deployKeysErr     error
 	orgRunners        []github.Runner
 	orgRunnerTotal    int // reported total override; default len(orgRunners)
@@ -327,6 +329,7 @@ type mockGitHubClient struct {
 	installationTotal int // reported total override; default len(installations)
 	installationErr   error
 	pats              []github.PATGrant
+	patsMore          bool // the token list reached the fetch cap
 	patsErr           error
 
 	branchRules     map[string][]github.BranchRule // key: "owner/repo"
@@ -439,25 +442,25 @@ func (m *mockGitHubClient) GetCodeownersInfo(ctx context.Context, owner, repo st
 	return f.present, f.path, f.hash, nil
 }
 
-func (m *mockGitHubClient) ListOrgHooks(ctx context.Context, org string) ([]github.Hook, error) {
+func (m *mockGitHubClient) ListOrgHooks(ctx context.Context, org string) ([]github.Hook, bool, error) {
 	if m.hooksErr != nil {
-		return nil, m.hooksErr
+		return nil, false, m.hooksErr
 	}
-	return m.orgHooks, nil
+	return m.orgHooks, m.hooksMore, nil
 }
 
-func (m *mockGitHubClient) ListRepoHooks(ctx context.Context, owner, repo string) ([]github.Hook, error) {
+func (m *mockGitHubClient) ListRepoHooks(ctx context.Context, owner, repo string) ([]github.Hook, bool, error) {
 	if m.hooksErr != nil {
-		return nil, m.hooksErr
+		return nil, false, m.hooksErr
 	}
-	return m.repoHooks[owner+"/"+repo], nil
+	return m.repoHooks[owner+"/"+repo], m.hooksMore, nil
 }
 
-func (m *mockGitHubClient) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]github.DeployKey, error) {
+func (m *mockGitHubClient) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]github.DeployKey, bool, error) {
 	if m.deployKeysErr != nil {
-		return nil, m.deployKeysErr
+		return nil, false, m.deployKeysErr
 	}
-	return m.deployKeys[owner+"/"+repo], nil
+	return m.deployKeys[owner+"/"+repo], m.deployKeysMore, nil
 }
 
 func (m *mockGitHubClient) ListOrgRunners(ctx context.Context, org string) ([]github.Runner, int, error) {
@@ -526,7 +529,7 @@ func (m *mockGitHubClient) ListOrgPATs(ctx context.Context, org string) ([]githu
 	if m.patsErr != nil {
 		return nil, false, m.patsErr
 	}
-	return m.pats, false, nil
+	return m.pats, m.patsMore, nil
 }
 
 func TestCollect_EmptyOrganization(t *testing.T) {

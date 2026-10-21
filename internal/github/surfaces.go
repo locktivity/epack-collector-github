@@ -354,14 +354,16 @@ func (c *Client) ListDependabotAlerts(ctx context.Context, owner, repo string) (
 	return out, more, nil
 }
 
-// MemberFetchCap bounds login pagination defensively.
+// MemberFetchCap bounds how many logins one roster reads. A roster that
+// reaches it comes back marked as possibly holding more.
 const MemberFetchCap = 50000
 
 // getAllLogins pages a members-style endpoint and extracts the "login" field.
-func (c *Client) getAllLogins(ctx context.Context, op, firstPath string) ([]string, error) {
-	raw, _, err := c.getPagedRaw(ctx, op, firstPath, MemberFetchCap)
+// The returned bool reports that the roster reached MemberFetchCap.
+func (c *Client) getAllLogins(ctx context.Context, op, firstPath string) ([]string, bool, error) {
+	raw, more, err := c.getPagedRaw(ctx, op, firstPath, MemberFetchCap)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	logins := make([]string, 0, len(raw))
 	for _, r := range raw {
@@ -372,21 +374,27 @@ func (c *Client) getAllLogins(ctx context.Context, op, firstPath string) ([]stri
 			logins = append(logins, u.Login)
 		}
 	}
-	return logins, nil
+	return logins, more, nil
 }
 
 // OrgMembership holds the member rosters needed for the Members surface. Each
-// roster beyond the member list keeps the error that stopped its read.
+// roster beyond the member list keeps the error that stopped its read, and
+// each More flag marks a roster that reached MemberFetchCap, so it may hold
+// more logins.
 type OrgMembership struct {
-	Members                 []string
-	Admins                  []string
-	AdminsErr               error
-	OutsideCollaborators    []string
-	OutsideCollaboratorsErr error
+	Members                  []string
+	MembersMore              bool
+	Admins                   []string
+	AdminsMore               bool
+	AdminsErr                error
+	OutsideCollaborators     []string
+	OutsideCollaboratorsMore bool
+	OutsideCollaboratorsErr  error
 	// TwoFADisabled is the set of members without 2FA, populated only when the
 	// caller is an org owner; nil means the signal was unavailable (so per-user
 	// 2FA flags stay unknown rather than wrongly reporting "enabled"), and
-	// TwoFAErr says why.
+	// TwoFAErr says why. It is nil with no TwoFAErr when the roster reached
+	// MemberFetchCap, since members past the cap would read as enabled.
 	TwoFADisabled      map[string]bool
 	TwoFAErr           error
 	PendingInvitations int
@@ -410,11 +418,11 @@ type OrgMembership struct {
 // GetOrgMembership fetches member rosters. Requires members:read. It returns
 // an error only when the member list itself could not be read.
 func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembership, error) {
-	members, err := c.getAllLogins(ctx, "github.org_members.list", fmt.Sprintf("/orgs/%s/members?per_page=100", org))
+	members, membersMore, err := c.getAllLogins(ctx, "github.org_members.list", fmt.Sprintf("/orgs/%s/members?per_page=100", org))
 	if err != nil {
 		return nil, err
 	}
-	result := &OrgMembership{Members: members}
+	result := &OrgMembership{Members: members, MembersMore: membersMore}
 
 	if names, nerr := c.getMemberNames(ctx, org); nerr == nil {
 		result.Names = names
@@ -423,8 +431,8 @@ func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembersh
 		result.NamesIncomplete = append(result.NamesIncomplete, "bulk member name query failed")
 	}
 
-	result.Admins, result.AdminsErr = c.getAllLogins(ctx, "github.org_admins.list", fmt.Sprintf("/orgs/%s/members?role=admin&per_page=100", org))
-	result.OutsideCollaborators, result.OutsideCollaboratorsErr = c.getAllLogins(ctx, "github.outside_collaborators.list", fmt.Sprintf("/orgs/%s/outside_collaborators?per_page=100", org))
+	result.Admins, result.AdminsMore, result.AdminsErr = c.getAllLogins(ctx, "github.org_admins.list", fmt.Sprintf("/orgs/%s/members?role=admin&per_page=100", org))
+	result.OutsideCollaborators, result.OutsideCollaboratorsMore, result.OutsideCollaboratorsErr = c.getAllLogins(ctx, "github.outside_collaborators.list", fmt.Sprintf("/orgs/%s/outside_collaborators?per_page=100", org))
 	if result.OutsideCollaboratorsErr == nil {
 		lookup := c.collaboratorNames(ctx, result.OutsideCollaborators)
 		for l, n := range lookup.names {
@@ -437,14 +445,16 @@ func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembersh
 		result.UnnamedCollaborators = lookup.unread
 		result.NameLookupErr = lookup.err
 	}
-	if disabled, derr := c.getAllLogins(ctx, "github.org_members_2fa_disabled.list", fmt.Sprintf("/orgs/%s/members?filter=2fa_disabled&per_page=100", org)); derr == nil {
+	disabled, disabledMore, derr := c.getAllLogins(ctx, "github.org_members_2fa_disabled.list", fmt.Sprintf("/orgs/%s/members?filter=2fa_disabled&per_page=100", org))
+	switch {
+	case derr != nil:
+		result.TwoFAErr = derr
+	case !disabledMore:
 		set := make(map[string]bool, len(disabled))
 		for _, l := range disabled {
 			set[l] = true
 		}
 		result.TwoFADisabled = set
-	} else {
-		result.TwoFAErr = derr
 	}
 	if inv, _, ierr := c.getPagedRaw(ctx, "github.org_invitations.list", fmt.Sprintf("/orgs/%s/invitations?per_page=100", org), MemberFetchCap); ierr == nil {
 		result.PendingInvitations = len(inv)
@@ -624,10 +634,14 @@ type Hook struct {
 	LastResponseStatus string   `json:"last_response_status,omitempty"`
 }
 
-func (c *Client) listHooks(ctx context.Context, op, path string) ([]Hook, error) {
-	raw, _, err := c.getPagedRaw(ctx, op, path, 200)
+// HookFetchCap bounds how many webhooks one list reads. A list that reaches
+// it comes back marked as possibly holding more.
+const HookFetchCap = 200
+
+func (c *Client) listHooks(ctx context.Context, op, path string) ([]Hook, bool, error) {
+	raw, more, err := c.getPagedRaw(ctx, op, path, HookFetchCap)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	out := make([]Hook, 0, len(raw))
 	for _, r := range raw {
@@ -645,7 +659,7 @@ func (c *Client) listHooks(ctx context.Context, op, path string) ([]Hook, error)
 			} `json:"last_response"`
 		}
 		if err := json.Unmarshal(r, &h); err != nil {
-			return nil, fmt.Errorf("%s: decoding hook: %w", trimQuery(path), err)
+			return nil, false, fmt.Errorf("%s: decoding hook: %w", trimQuery(path), err)
 		}
 		out = append(out, Hook{
 			ID:                 h.ID,
@@ -657,16 +671,18 @@ func (c *Client) listHooks(ctx context.Context, op, path string) ([]Hook, error)
 			LastResponseStatus: h.LastResponse.Status,
 		})
 	}
-	return out, nil
+	return out, more, nil
 }
 
-// ListOrgHooks returns org-level webhooks. Requires organization_hooks:read.
-func (c *Client) ListOrgHooks(ctx context.Context, org string) ([]Hook, error) {
+// ListOrgHooks returns org-level webhooks, up to HookFetchCap, and whether
+// the list reached it. Requires organization_hooks:read.
+func (c *Client) ListOrgHooks(ctx context.Context, org string) ([]Hook, bool, error) {
 	return c.listHooks(ctx, "github.org_hooks.list", fmt.Sprintf("/orgs/%s/hooks?per_page=100", org))
 }
 
-// ListRepoHooks returns repo-level webhooks. Requires repository_hooks:read.
-func (c *Client) ListRepoHooks(ctx context.Context, owner, repo string) ([]Hook, error) {
+// ListRepoHooks returns repo-level webhooks, up to HookFetchCap, and whether
+// the list reached it. Requires repository_hooks:read.
+func (c *Client) ListRepoHooks(ctx context.Context, owner, repo string) ([]Hook, bool, error) {
 	return c.listHooks(ctx, "github.repo_hooks.list", fmt.Sprintf("/repos/%s/%s/hooks?per_page=100", owner, repo))
 }
 
@@ -690,12 +706,17 @@ type DeployKey struct {
 	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
-// ListRepoDeployKeys returns deploy keys for a repo. Requires administration:read.
-func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]DeployKey, error) {
+// DeployKeyFetchCap bounds how many deploy keys one repository's list reads.
+// A list that reaches it comes back marked as possibly holding more.
+const DeployKeyFetchCap = 1000
+
+// ListRepoDeployKeys returns deploy keys for a repo, up to DeployKeyFetchCap,
+// and whether the list reached it. Requires administration:read.
+func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]DeployKey, bool, error) {
 	path := fmt.Sprintf("/repos/%s/%s/keys?per_page=100", owner, repo)
-	raw, _, err := c.getPagedRaw(ctx, "github.deploy_keys.list", path, 1000)
+	raw, more, err := c.getPagedRaw(ctx, "github.deploy_keys.list", path, DeployKeyFetchCap)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	out := make([]DeployKey, 0, len(raw))
 	for _, r := range raw {
@@ -708,7 +729,7 @@ func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]
 			Key       string `json:"key"`
 		}
 		if err := json.Unmarshal(r, &k); err != nil {
-			return nil, fmt.Errorf("%s: decoding deploy key: %w", trimQuery(path), err)
+			return nil, false, fmt.Errorf("%s: decoding deploy key: %w", trimQuery(path), err)
 		}
 		dk := DeployKey{
 			Repository: owner + "/" + repo,
@@ -724,7 +745,7 @@ func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]
 		}
 		out = append(out, dk)
 	}
-	return out, nil
+	return out, more, nil
 }
 
 // Runner is a self-hosted Actions runner (org- or repo-level).
@@ -1115,6 +1136,7 @@ func (c *Client) ListEnvironmentProtectionApps(ctx context.Context, owner, repo,
 }
 
 // PATGrant is a fine-grained PAT granted access to org resources (internal).
+// Permissions holds each permission as name:level, such as contents:write.
 type PATGrant struct {
 	ID          int64    `json:"id"`
 	Owner       string   `json:"owner,omitempty"`
@@ -1124,13 +1146,18 @@ type PATGrant struct {
 	ExpiresAt   string   `json:"expires_at,omitempty"`
 }
 
-// ListOrgPATs returns fine-grained PATs with access to the org. Returns
+// TokenGrantFetchCap bounds how many fine-grained token grants the list reads.
+// A list that reaches it comes back marked as possibly holding more.
+const TokenGrantFetchCap = 5000
+
+// ListOrgPATs returns fine-grained PATs with access to the org, up to
+// TokenGrantFetchCap, and whether the list reached it. Returns
 // ErrFeatureUnavailable, coded not_licensed, when GitHub answers 404, as it
 // does for orgs without a fine-grained-token policy. Token values are never
 // exposed by the API and never emitted.
 func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool, error) {
 	path := fmt.Sprintf("/orgs/%s/personal-access-tokens?per_page=100", org)
-	raw, more, err := c.getPagedRaw(ctx, "github.org_personal_access_tokens.list", path, 5000)
+	raw, more, err := c.getPagedRaw(ctx, "github.org_personal_access_tokens.list", path, TokenGrantFetchCap)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, false, featureUnavailable(err, "the organization has no fine-grained personal access token policy")
@@ -1153,9 +1180,9 @@ func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool,
 			return nil, false, fmt.Errorf("%s: decoding token grant: %w", trimQuery(path), err)
 		}
 		perms := make([]string, 0)
-		for scope, actions := range p.Permissions {
-			for name := range actions {
-				perms = append(perms, scope+":"+name)
+		for _, granted := range p.Permissions {
+			for name, level := range granted {
+				perms = append(perms, name+":"+level)
 			}
 		}
 		sort.Strings(perms)

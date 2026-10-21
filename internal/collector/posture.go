@@ -197,10 +197,11 @@ type SecurityFeaturesRow struct {
 // run emits only aggregates and needs no extra permissions.
 
 // Members is the org member inventory (audit+). A count or flag is nil when
-// its roster could not be read, and PerMember is left out when the members or
-// outside collaborators could not be listed.
+// its roster could not be read, and a count also when its roster reached
+// github.MemberFetchCap. PerMember is left out when the members or outside
+// collaborators could not be listed.
 type Members struct {
-	MemberCount              int         `json:"member_count"`
+	MemberCount              *int        `json:"member_count"`
 	AdminCount               *int        `json:"admin_count"`
 	OutsideCollaboratorCount *int        `json:"outside_collaborator_count"`
 	HasPendingInvitations    *bool       `json:"has_pending_invitations"`
@@ -226,7 +227,9 @@ type MemberRow struct {
 	LastActivity     string `json:"last_activity,omitempty"`
 }
 
-// Repositories is the repo inventory (audit+). DefaultProtected counts
+// Repositories is the repo inventory (audit+). The counts are of in-scope
+// repositories, except ArchivedCount, which counts the organization's
+// archived repositories, none of them in scope. DefaultProtected counts
 // effective protection and is nil when any repository's protection could not
 // be determined.
 type Repositories struct {
@@ -339,13 +342,15 @@ type CodeownersRow struct {
 }
 
 // Webhooks is the org + repo webhook inventory (audit counts, internal detail).
-// A count is nil when its hooks could not be listed.
+// A count is nil when its hooks could not be listed, or when a list reached
+// github.HookFetchCap, which Truncated marks at internal.
 type Webhooks struct {
 	OrgCount     *int           `json:"org_count"`
 	RepoCount    *int           `json:"repo_count"`
 	CountByEvent map[string]int `json:"count_by_event,omitempty"`
 	Org          []WebhookRow   `json:"org,omitempty"`
 	Repo         []WebhookRow   `json:"repo,omitempty"`
+	Truncated    bool           `json:"truncated,omitempty"`
 }
 
 // WebhookRow is one webhook. Only the URL host is emitted (never path/query/secret).
@@ -361,10 +366,14 @@ type WebhookRow struct {
 }
 
 // DeployKeys is the per-repo deploy-key inventory (audit counts, internal detail).
+// The counts are nil when any repository's keys could not be listed, or when
+// a repository's list reached github.DeployKeyFetchCap, which Truncated marks
+// at internal.
 type DeployKeys struct {
 	TotalCount     *int           `json:"total_count"`
 	ReadWriteCount *int           `json:"read_write_count"`
 	PerKey         []DeployKeyRow `json:"per_key,omitempty"`
+	Truncated      bool           `json:"truncated,omitempty"`
 }
 
 // DeployKeyRow is one deploy key. The public key is fingerprinted, not emitted.
@@ -487,12 +496,16 @@ type AppRow struct {
 
 // Tokens is the PAT / fine-grained-token surface (audit count, internal detail).
 // Enterprise / FGT-policy orgs only; degrades to a diagnostic otherwise.
+// GrantCount is nil when the list reached github.TokenGrantFetchCap, which
+// Truncated marks at internal.
 type Tokens struct {
-	GrantCount int        `json:"grant_count"`
+	GrantCount *int       `json:"grant_count"`
 	PerToken   []TokenRow `json:"per_token,omitempty"`
+	Truncated  bool       `json:"truncated,omitempty"`
 }
 
-// TokenRow is one fine-grained PAT grant. Token values are never emitted.
+// TokenRow is one fine-grained PAT grant. Permissions are name:level, such as
+// contents:write. Token values are never emitted.
 type TokenRow struct {
 	ID          int64    `json:"id"`
 	Owner       string   `json:"owner,omitempty"`

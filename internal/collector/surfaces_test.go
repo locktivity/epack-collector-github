@@ -131,7 +131,7 @@ func TestSurfaces_AuditPopulatesNoInternalDetail(t *testing.T) {
 	if p.CollectedAtLevel != "audit" {
 		t.Errorf("collected_at_level = %q, want audit", p.CollectedAtLevel)
 	}
-	if p.Members == nil || p.Members.MemberCount != 2 || p.Members.AdminCount == nil || *p.Members.AdminCount != 1 {
+	if p.Members == nil || p.Members.MemberCount == nil || *p.Members.MemberCount != 2 || p.Members.AdminCount == nil || *p.Members.AdminCount != 1 {
 		t.Fatalf("members audit counts wrong: %+v", p.Members)
 	}
 	// Audit has per-member login/name/role but no 2FA flag.
@@ -169,7 +169,7 @@ func TestSurfaces_AuditPopulatesNoInternalDetail(t *testing.T) {
 	if p.Codeowners.PerRepo[0].Hash != "" {
 		t.Error("audit must not include CODEOWNERS hash (internal-only)")
 	}
-	if p.Tokens == nil || p.Tokens.GrantCount != 1 || len(p.Tokens.PerToken) != 0 {
+	if p.Tokens == nil || p.Tokens.GrantCount == nil || *p.Tokens.GrantCount != 1 || len(p.Tokens.PerToken) != 0 {
 		t.Errorf("audit tokens should have count but no rows: %+v", p.Tokens)
 	}
 	if p.Environments == nil || p.Environments.TotalCount == nil || *p.Environments.TotalCount != 2 ||
@@ -389,6 +389,76 @@ func TestSurfaces_AlertListAtTheCapLeavesItsCountOut(t *testing.T) {
 		if strings.HasPrefix(g.Pointer, "/security_features/") {
 			t.Errorf("unexpected gap %+v: a list cut short is not a failure", g)
 		}
+	}
+}
+
+func TestSurfaces_InventoryListsAtTheCapLeaveTheirCountsOut(t *testing.T) {
+	// A roster, webhook, deploy key, or token list that reaches its fetch cap
+	// may hold more than it read, so its counts are null, as the schema's
+	// x-epack-null explains, and the rows it read are flagged as cut short.
+	mock := richMock()
+	mock.membership.MembersMore = true
+	mock.membership.AdminsMore = true
+	mock.membership.OutsideCollaboratorsMore = true
+	mock.hooksMore = true
+	mock.deployKeysMore = true
+	mock.patsMore = true
+	collect := func(level componentsdk.Level) (*OrgPosture, []componentsdk.Gap) {
+		rec := &componentsdk.Recorder{}
+		p, err := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}, Recorder: rec}, mock).Collect(context.Background(), level)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p, rec.Gaps()
+	}
+
+	p, gaps := collect(componentsdk.LevelInternal)
+	if m := p.Members; m.MemberCount != nil || m.AdminCount != nil || m.OutsideCollaboratorCount != nil || len(m.PerMember) != 3 || !m.Truncated {
+		t.Errorf("members = %+v, want null counts and the rows read, flagged", m)
+	}
+	if w := p.Webhooks; w.OrgCount != nil || w.RepoCount != nil || w.CountByEvent != nil || len(w.Org) != 1 || len(w.Repo) != 1 || !w.Truncated {
+		t.Errorf("webhooks = %+v, want null counts, no breakdown, and the rows read, flagged", w)
+	}
+	if dk := p.DeployKeys; dk.TotalCount != nil || dk.ReadWriteCount != nil || len(dk.PerKey) != 1 || !dk.Truncated {
+		t.Errorf("deploy keys = %+v, want null counts and the rows read, flagged", dk)
+	}
+	if tk := p.Tokens; tk.GrantCount != nil || len(tk.PerToken) != 1 || !tk.Truncated {
+		t.Errorf("tokens = %+v, want a null count and the rows read, flagged", tk)
+	}
+	for _, g := range gaps {
+		for _, surface := range []string{"/members", "/webhooks", "/deploy_keys", "/tokens"} {
+			if g.Pointer == surface || strings.HasPrefix(g.Pointer, surface+"/") {
+				t.Errorf("unexpected gap %+v: a list cut short is not a failure", g)
+			}
+		}
+	}
+
+	p, _ = collect(componentsdk.LevelAudit)
+	if p.Webhooks.OrgCount != nil || p.DeployKeys.TotalCount != nil || p.Tokens.GrantCount != nil {
+		t.Errorf("audit counts = %v, %v, %v; want null", p.Webhooks.OrgCount, p.DeployKeys.TotalCount, p.Tokens.GrantCount)
+	}
+	if p.Webhooks.Truncated || p.DeployKeys.Truncated || p.Tokens.Truncated {
+		t.Error("audit emits no webhook, deploy key, or token rows, so it should flag none")
+	}
+}
+
+func TestSurfaces_ArchivedCountCoversTheOrganization(t *testing.T) {
+	// Archived repositories are never in scope, so the count comes from the
+	// whole repository list, patterns or not, rather than from the rows.
+	mock := richMock()
+	archived := mock.repositories[0]
+	archived.Name, archived.IsArchived = "old-app", true
+	excluded := archived
+	excluded.Name = "sandbox-old"
+	mock.repositories = append(mock.repositories, archived, excluded)
+
+	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}, ExcludePatterns: []string{"sandbox-*"}}, mock)
+	p, err := c.Collect(context.Background(), componentsdk.LevelAudit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := p.Repositories; r.ArchivedCount != 2 || r.TotalCount != 2 || len(r.PerRepo) != 2 {
+		t.Errorf("repositories = %d archived, %d in scope, %d rows; want 2, 2, 2", r.ArchivedCount, r.TotalCount, len(r.PerRepo))
 	}
 }
 
