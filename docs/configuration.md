@@ -131,7 +131,7 @@ For `trust`-level collection (the default), the app needs:
 **Repository permissions:**
 - Administration: Read-only (for security settings and `security_and_analysis` field)
 - Contents: Read-only (for repository metadata)
-- Metadata: Read-only (always required)
+- Metadata: Read-only (always required; also covers the rulesets that apply to each default branch)
 - Code scanning alerts: Read-only (for code scanning status)
 - Secret scanning alerts: Read-only (for secret scanning status)
 - Dependabot alerts: Read-only (for dependabot status)
@@ -152,8 +152,9 @@ you can grant incrementally.
 | Member inventory, per-user 2FA | `members: read` | audit / internal |
 | Branch-protection detail, deploy keys | `administration: read` | audit / internal |
 | Repository inventory | `metadata: read` | audit / internal |
+| Rulesets on each default branch (rules, enforcement, bypass list) | `metadata: read` | audit / internal |
 | CODEOWNERS | `contents: read` | audit / internal |
-| Security-finding counts and inventories | `secret_scanning_alerts: read`, `code_scanning_alerts: read`, `dependabot_alerts: read` | audit / internal |
+| Security-finding counts and inventories | `secret_scanning_alerts: read`, `security_events: read` (code scanning alerts), `vulnerability_alerts: read` (Dependabot alerts) | audit / internal |
 | Repository webhooks | `repository_hooks: read` | audit / internal |
 | Organization webhooks | `organization_hooks: read` | audit / internal |
 | Actions runners + workflow summaries (repo) | `actions: read` | audit / internal |
@@ -161,6 +162,11 @@ you can grant incrementally.
 | Self-hosted runners (org) | `organization_self_hosted_runners: read` | audit / internal |
 | Actions secret names (org, never values) | `organization_secrets: read` | audit / internal |
 | Fine-grained PAT grants | `organization_personal_access_tokens: read` | audit / internal |
+
+GitHub returns a ruleset's bypass list only to tokens with write access to the
+ruleset. With read-only permissions, `bypass_allowed` is `null` on each ruleset
+row and a diagnostic warning says so. Where a repository's admin enforcement
+depends on such a ruleset, `admin_enforcement` is `null` as well.
 
 Some surfaces degrade to a diagnostic warning (rather than a permission error)
 when the underlying feature simply isn't available: the **audit log** requires
@@ -195,14 +201,18 @@ You must provide either:
 - `GITHUB_TOKEN` secret (for brokered token or PAT auth), or
 - `app_id` in config + `GITHUB_APP_PRIVATE_KEY` secret (for App auth)
 
+**"organization not found"**
+
+GitHub has no organization by the configured `organization` name. Check the name for typos. The run fails with exit code 2 and the code `config_invalid`.
+
 **"401 Unauthorized"**
 
-Your credentials are invalid or expired. For GitHub Apps, ensure the private key matches the app and the app is installed on the organization.
+Your credentials are invalid or expired. The run fails with exit code 3 and the code `auth_failed`. For GitHub Apps, ensure the private key matches the app and the app is installed on the organization.
 
 **"403 Forbidden"**
 
 This can occur for two reasons:
 
-1. **Missing permissions**: The authenticated user or app doesn't have the required permissions. See [Required GitHub App Permissions](#required-github-app-permissions) above.
+1. **Missing permissions**: The authenticated user or app doesn't have the required permissions. See [Required GitHub App Permissions](#required-github-app-permissions) above. A 403 on the organization itself fails the run with exit code 3 and the code `permission_denied`; a 403 on anything else leaves the values it covers out, each with a `permission_denied` gap in `artifacts/github.collector-result.json`. When the GitHub App lacks the permission, the gap names it in `missing_permission`, spelled as the result's `signed_in_as.scopes` list the App's permissions.
 
 2. **GitHub Advanced Security not enabled**: For code scanning checks, GitHub returns 403 if Advanced Security is not enabled on the repository. The error message will show: "Advanced Security must be enabled for this repository to use code scanning."

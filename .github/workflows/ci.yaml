@@ -5,69 +5,17 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Run tests
-        run: go test -race -v ./...
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.9.0
-
-      - name: Forbidden-data check
-        run: ./scripts/check-forbidden-data.sh
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Build
-        run: go build -o epack-collector-github ./cmd/epack-collector-github
-
-      - name: Verify binary runs
-        run: ./epack-collector-github --version
-
-  conformance:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Build
-        run: go build -o epack-collector-github ./cmd/epack-collector-github
-
-      - name: Install epack-conformance
-        run: |
-          EPACK_VERSION="$(go list -m -f '{{.Version}}' github.com/locktivity/epack)"
-          echo "Installing epack-conformance at ${EPACK_VERSION}"
-          go install -tags conformance github.com/locktivity/epack/cmd/epack-conformance@"${EPACK_VERSION}"
-
-      - name: Run conformance tests
-        run: epack-conformance collector ./epack-collector-github --level standard
+  collector:
+    uses: locktivity/epack/.github/workflows/collector-ci.yaml@c8cf0c52ec071e051001176eb38aacd4f28c1f92 # v0.9.3
+    with:
+      name: github
+      profile-url: ${{ vars.EVIDENCE_PROFILE_URL }}
+      conformance-secrets: GITHUB_TOKEN GITHUB_APP_PRIVATE_KEY
+      checks: |
+        ./scripts/check-forbidden-data.sh

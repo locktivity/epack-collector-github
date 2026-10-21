@@ -57,44 +57,58 @@ func lessDependabotAlert(a, b github.DependabotAlert) bool {
 	return a.CreatedAt < b.CreatedAt
 }
 
-// collectFindings fetches open secret-scanning, code-scanning, and Dependabot
-// alerts per repo, applying the per-type-per-repo cap and accumulating into a
-// single inventory sorted severity-desc then created-at-asc on truncation.
-func (c *Collector) collectFindings(p *collectionPass) {
+// collectFindings builds the findings inventory from the alerts listed for
+// the per-repo counts, applying the per-type-per-repo cap and sorting
+// severity-desc then created-at-asc on truncation. An inventory that could
+// not be read for every repo is left out, since a list missing some repos'
+// alerts would read as complete.
+func (c *Collector) collectFindings(p *collectionPass, listings []repoAlerts) {
 	findings := &SecurityFindings{}
-	permissionDenied := false
-	featureOff := false
+	unread := map[string]int{}
+	reasons := map[string]error{}
 
-	for _, repo := range p.metrics.repos.included {
-		owner := repo.Owner.Login
-		name := repo.Name
-
-		secrets, moreS, errS := c.client.ListSecretScanningAlerts(p.ctx, owner, name)
-		code, moreC, errC := c.client.ListCodeScanningAlerts(p.ctx, owner, name)
-		deps, moreD, errD := c.client.ListDependabotAlerts(p.ctx, owner, name)
-		for _, e := range []error{errS, errC, errD} {
-			switch {
-			case isDenied(e):
-				permissionDenied = true
-			case isFeatureUnavailable(e):
-				featureOff = true
+	for _, a := range listings {
+		for _, l := range a.lists {
+			if l.err == nil || isFeatureUnavailable(l.err) {
+				if l.more {
+					findings.Truncated = true
+				}
+				continue
+			}
+			unread[l.findings]++
+			if reasons[l.findings] == nil {
+				reasons[l.findings] = l.err
 			}
 		}
 
-		keptS, dropS, truncS := Truncate(secrets, FindingsCap, lessSecretScanningAlert)
-		keptC, dropC, truncC := Truncate(code, FindingsCap, lessCodeScanningAlert)
-		keptD, dropD, truncD := Truncate(deps, FindingsCap, lessDependabotAlert)
+		keptS, dropS, truncS := Truncate(a.secrets, FindingsCap, lessSecretScanningAlert)
+		keptC, dropC, truncC := Truncate(a.code, FindingsCap, lessCodeScanningAlert)
+		keptD, dropD, truncD := Truncate(a.deps, FindingsCap, lessDependabotAlert)
 
 		findings.SecretScanning = append(findings.SecretScanning, keptS...)
 		findings.CodeScanning = append(findings.CodeScanning, keptC...)
 		findings.Dependabot = append(findings.Dependabot, keptD...)
 
-		if truncS || truncC || truncD || moreS || moreC || moreD {
+		if truncS || truncC || truncD {
 			findings.Truncated = true
 		}
 		findings.TruncatedDropped += dropS + dropC + dropD
 	}
 
+	if unread["secret_scanning"] > 0 {
+		findings.SecretScanning = nil
+	}
+	if unread["code_scanning"] > 0 {
+		findings.CodeScanning = nil
+	}
+	if unread["dependabot"] > 0 {
+		findings.Dependabot = nil
+	}
+	for _, list := range []string{"secret_scanning", "code_scanning", "dependabot"} {
+		c.gaps.partial(unread[list], reasons[list], "/security_features/findings/"+list)
+	}
+
+	permissionDenied, featureOff := alertListProblems(listings)
 	recordAlertDiagnostic(p, "security_features.findings", permissionDenied, featureOff)
 
 	p.posture.SecurityFeatures.Findings = findings

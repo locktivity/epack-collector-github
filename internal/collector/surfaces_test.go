@@ -32,9 +32,6 @@ func richMock() *mockGitHubClient {
 			"test-org/repo2": {DependabotSecurityUpdates: true},
 		},
 		orgSettings: &github.OrgSettings{DefaultRepositoryPermission: "read", MembersCanCreateRepositories: boolPtr(false)},
-		alertCounts: map[string]*github.AlertCounts{
-			"test-org/repo1": {SecretScanningOpen: 3, CodeScanningOpen: 1},
-		},
 		secretAlerts: map[string][]github.SecretScanningAlert{
 			"test-org/repo1": {{Number: 1, SecretType: "aws_key", State: "open", CreatedAt: "2026-05-01T00:00:00Z"}},
 		},
@@ -87,8 +84,8 @@ func richMock() *mockGitHubClient {
 			"test-org/repo1#production": {"deploy-gate"},
 		},
 		auditEvents: []github.AuditEvent{
-			{Action: "repo.create", Actor: "alice", Repo: "test-org/repo1", CreatedAt: 1700000000},
-			{Action: "member_add", Actor: "bob", CreatedAt: 1700000100},
+			{Action: "repo.create", Actor: "alice", Repo: "test-org/repo1", CreatedAt: 1700000000000},
+			{Action: "member_add", Actor: "bob", CreatedAt: 1700000100000},
 		},
 		installations: []github.Installation{
 			{AppSlug: "dependabot", AppID: 99, Permissions: map[string]string{"metadata": "read"}, CreatedAt: "2026-01-01T00:00:00Z"},
@@ -134,7 +131,7 @@ func TestSurfaces_AuditPopulatesNoInternalDetail(t *testing.T) {
 	if p.CollectedAtLevel != "audit" {
 		t.Errorf("collected_at_level = %q, want audit", p.CollectedAtLevel)
 	}
-	if p.Members == nil || p.Members.MemberCount != 2 || p.Members.AdminCount != 1 {
+	if p.Members == nil || p.Members.MemberCount != 2 || p.Members.AdminCount == nil || *p.Members.AdminCount != 1 {
 		t.Fatalf("members audit counts wrong: %+v", p.Members)
 	}
 	// Audit has per-member login/name/role but no 2FA flag.
@@ -163,7 +160,7 @@ func TestSurfaces_AuditPopulatesNoInternalDetail(t *testing.T) {
 	if p.SecurityFeatures.Findings != nil {
 		t.Error("audit must not populate findings inventory")
 	}
-	if p.Webhooks == nil || p.Webhooks.OrgCount != 1 || len(p.Webhooks.Org) != 0 {
+	if p.Webhooks == nil || p.Webhooks.OrgCount == nil || *p.Webhooks.OrgCount != 1 || len(p.Webhooks.Org) != 0 {
 		t.Errorf("audit webhooks should have counts but no rows: %+v", p.Webhooks)
 	}
 	if p.Codeowners == nil || len(p.Codeowners.PerRepo) == 0 {
@@ -175,7 +172,8 @@ func TestSurfaces_AuditPopulatesNoInternalDetail(t *testing.T) {
 	if p.Tokens == nil || p.Tokens.GrantCount != 1 || len(p.Tokens.PerToken) != 0 {
 		t.Errorf("audit tokens should have count but no rows: %+v", p.Tokens)
 	}
-	if p.Environments == nil || p.Environments.TotalCount != 2 || p.Environments.WithRequiredReviewersCount != 1 {
+	if p.Environments == nil || p.Environments.TotalCount == nil || *p.Environments.TotalCount != 2 ||
+		p.Environments.WithRequiredReviewersCount == nil || *p.Environments.WithRequiredReviewersCount != 1 {
 		t.Fatalf("environments audit counts wrong: %+v", p.Environments)
 	}
 	envs := map[string]EnvironmentRow{}
@@ -261,8 +259,8 @@ func TestSurfaces_MemberLastActivityCorrelatesWithAuditLog(t *testing.T) {
 	}
 
 	want := map[string]string{
-		"alice": "2023-11-14T22:13:20Z", // time.Unix(1700000000, 0).UTC()
-		"bob":   "2023-11-14T22:15:00Z", // time.Unix(1700000100, 0).UTC()
+		"alice": "2023-11-14T22:13:20Z", // time.UnixMilli(1700000000000).UTC()
+		"bob":   "2023-11-14T22:15:00Z", // time.UnixMilli(1700000100000).UTC()
 	}
 	for login, ts := range want {
 		if got[login] != ts {
@@ -334,7 +332,6 @@ func TestSurfaces_AlertFeatureDisabledIsWarning(t *testing.T) {
 	// A feature-not-enabled 403 on the alert endpoints must degrade to a warning,
 	// not a permission_error telling the customer to grant a scope they may have.
 	mock := richMock()
-	mock.alertCountsErr = github.ErrFeatureUnavailable
 	mock.alertListErr = github.ErrFeatureUnavailable
 
 	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
@@ -358,13 +355,40 @@ func TestSurfaces_AlertFeatureDisabledIsWarning(t *testing.T) {
 func TestSurfaces_AlertPermissionDeniedStillErrors(t *testing.T) {
 	// A genuine permission denial on the alert endpoints stays a permission_error.
 	mock := richMock()
-	mock.alertCountsErr = github.ErrPermissionDenied
+	mock.alertListErr = github.ErrPermissionDenied
 
 	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
 	p, _ := c.Collect(context.Background(), componentsdk.LevelAudit)
 
 	if p.Diagnostics == nil || !anyContains(p.Diagnostics.PermissionErrors, "security_features.alert_counts") {
 		t.Errorf("expected an alert_counts permission_error, got %+v", p.Diagnostics)
+	}
+}
+
+func TestSurfaces_AlertListAtTheCapLeavesItsCountOut(t *testing.T) {
+	// A list that reaches the fetch cap may hold more alerts than it read, so
+	// its count is null, as the schema's x-epack-null explains, rather than the
+	// number read.
+	mock := richMock()
+	mock.alertListMore = true
+	rec := &componentsdk.Recorder{}
+
+	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}, Recorder: rec}, mock)
+	p, err := c.Collect(context.Background(), componentsdk.LevelInternal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := p.SecurityFeatures.PerRepo[0]
+	if row.OpenSecretScanningAlerts != nil || row.OpenCodeScanningAlerts != nil || row.OpenDependabotAlerts != nil {
+		t.Errorf("counts = %v, %v, %v; want null", row.OpenSecretScanningAlerts, row.OpenCodeScanningAlerts, row.OpenDependabotAlerts)
+	}
+	if !p.SecurityFeatures.Findings.Truncated {
+		t.Error("findings should be flagged as cut short")
+	}
+	for _, g := range rec.Gaps() {
+		if strings.HasPrefix(g.Pointer, "/security_features/") {
+			t.Errorf("unexpected gap %+v: a list cut short is not a failure", g)
+		}
 	}
 }
 
@@ -415,13 +439,15 @@ func TestSurfaces_MembersTruncation(t *testing.T) {
 }
 
 func TestSurfaces_EnvironmentsPermissionDenied(t *testing.T) {
+	// A denied environment list leaves the counts and rows out, rather than
+	// reporting zero environments.
 	mock := richMock()
 	mock.environmentsErr = github.ErrPermissionDenied
 
 	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
 	p, _ := c.Collect(context.Background(), componentsdk.LevelAudit)
-	if p.Environments == nil || p.Environments.TotalCount != 0 || len(p.Environments.PerEnvironment) != 0 {
-		t.Errorf("denied environments should emit zero counts: %+v", p.Environments)
+	if p.Environments == nil || p.Environments.TotalCount != nil || p.Environments.WithRequiredReviewersCount != nil || p.Environments.PerEnvironment != nil {
+		t.Errorf("denied environments should leave counts and rows out: %+v", p.Environments)
 	}
 	if p.Diagnostics == nil || !anyContains(p.Diagnostics.PermissionErrors, "environments") {
 		t.Errorf("expected an environments permission diagnostic, got %+v", p.Diagnostics)
@@ -436,14 +462,42 @@ func TestSurfaces_EnvironmentsFetchCapCountsDropped(t *testing.T) {
 
 	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock)
 	p, _ := c.Collect(context.Background(), componentsdk.LevelAudit)
-	if p.Environments.TotalCount != 5 {
-		t.Errorf("TotalCount = %d, want 5 (the reported total)", p.Environments.TotalCount)
+	if p.Environments.TotalCount == nil || *p.Environments.TotalCount != 5 {
+		t.Errorf("TotalCount = %v, want 5 (the reported total)", p.Environments.TotalCount)
 	}
 	if !p.Environments.Truncated || p.Environments.TruncatedDropped != 3 {
 		t.Errorf("truncation = %v/%d, want true/3", p.Environments.Truncated, p.Environments.TruncatedDropped)
 	}
 	if len(p.Environments.PerEnvironment) != 2 {
 		t.Errorf("row count = %d, want 2", len(p.Environments.PerEnvironment))
+	}
+}
+
+func TestSurfaces_InventoryCountsAreGitHubTotals(t *testing.T) {
+	// A runner or installation list read short of its total, as at the fetch
+	// cap, reports GitHub's total and flags the rows as cut short.
+	mock := richMock()
+	mock.orgRunnerTotal = 12000
+	mock.installationTotal = 150
+	collect := func(level componentsdk.Level) *OrgPosture {
+		p, err := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}}, mock).Collect(context.Background(), level)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	p := collect(componentsdk.LevelInternal)
+	if a := p.Actions; a.OrgRunnerCount == nil || *a.OrgRunnerCount != 12000 || len(a.OrgRunners) != 1 || !a.Truncated {
+		t.Errorf("internal actions = %+v, want the total of 12000 over 1 row, flagged", a)
+	}
+	if apps := p.Apps; apps.InstallationCount != 150 || len(apps.PerInstallation) != 1 || !apps.Truncated {
+		t.Errorf("apps = %+v, want the total of 150 over 1 row, flagged", apps)
+	}
+
+	p = collect(componentsdk.LevelAudit)
+	if a := p.Actions; a.OrgRunnerCount == nil || *a.OrgRunnerCount != 12000 || a.Truncated {
+		t.Errorf("audit actions = %+v, want the total, and no flag for rows audit does not emit", a)
 	}
 }
 

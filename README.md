@@ -8,7 +8,7 @@ See [docs/](docs/) for detailed documentation.
 
 - **Posture Summary**: Branch protection and security features coverage percentages
 - **Access Control**: Organization-level 2FA enforcement status
-- **Branch Protection Rules**: Per-rule coverage (PR requirements, reviews, status checks, signed commits, admin enforcement)
+- **Branch Protection Rules**: Per-rule coverage from classic branch protection rules and rulesets (PR requirements, reviews, status checks, signed commits, admin enforcement, force pushes, deletions, linear history)
 - **Security Features**: Per-feature coverage (vulnerability alerts, code scanning, secret scanning, push protection, Dependabot)
 
 At `audit` and `internal` levels the collector also gathers per-repo
@@ -53,6 +53,36 @@ collectors:
 > granting them results in diagnostic warnings on the affected surfaces, not a
 > failed run. The surfaces that need new permissions are simply skipped until
 > the App is re-authorized.
+
+## Output and exit codes
+
+The collector emits three artifacts:
+
+- `artifacts/github.json`: the detailed posture, described by
+  [docs/schema/v1.0.0.json](docs/schema/v1.0.0.json).
+- `artifacts/github.vcs-posture.json`: the normalized
+  `evidencepack/vcs-posture@v1` view of the same posture.
+- `artifacts/github.collector-result.json`: what the collector could not read
+  and why, the GitHub calls it made, and the identity it signed in as.
+
+A value the collector could not read is left out, as `null` or an absent
+field, and the collector result records a gap for it with a code such as
+`permission_denied` or `vendor_error`. The collector never writes 0, `false`,
+or an empty list in its place. A percentage over no repositories is `null`.
+`scope` carries the repository counts the percentages are taken over, and
+`protected_repository_count` and the `repository_counts` objects carry the
+count each percentage is taken of.
+
+When the collector emits, it checks the detailed artifact against its schema
+and the normalized artifact against epack's schema for its type. Anything that
+does not hold, such as a percentage over no repositories, is listed in the
+collector result under `checks`. A check finding never fails the run.
+
+Once the sign-in works, the run exits 0 even when some values are left out. It
+fails only when the configuration is invalid (exit 2) or the sign-in fails: a
+rejected token or App key exits 3 with `auth_failed`, a refused organization
+read exits 3 with `permission_denied`, an organization GitHub does not find
+exits 2 with `config_invalid`, and GitHub failing during the sign-in exits 4.
 
 ## Required GitHub App permissions
 

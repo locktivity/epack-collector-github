@@ -33,28 +33,41 @@
     },
     "organization": {
       "type": "string",
-      "description": "GitHub organization name"
+      "description": "Login of the GitHub organization collected."
     },
     "scope": {
       "type": "object",
-      "description": "Filters applied during collection",
+      "description": "The repositories collection covered: the include and exclude patterns and the repository counts the percentages are taken over.",
       "required": ["include_patterns", "exclude_patterns", "repositories_coverage"],
       "properties": {
         "include_patterns": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "Glob patterns for repositories to include"
+          "description": "Glob patterns for repositories to include. [\"*\"] when the configuration sets none.",
+          "items": { "type": "string" }
         },
         "exclude_patterns": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "Glob patterns for repositories to exclude"
+          "description": "Glob patterns for repositories to leave out. Exclude patterns win over include patterns.",
+          "items": { "type": "string" }
         },
         "repositories_coverage": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of organization repositories covered by the assessment"
+          "x-epack-denominator": "repository_count",
+          "x-epack-numerator": "included_repository_count",
+          "x-epack-rounding": "floor",
+          "description": "Percentage of organization repositories covered by the assessment. Null when the organization has no repositories, or when the repository list could not be read."
+        },
+        "repository_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Repositories in the organization, archived and excluded ones included. Null when the repository list could not be read."
+        },
+        "included_repository_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Repositories in scope: not archived, and matching the include and exclude patterns. The branch protection and security feature percentages are over these. Null when the repository list could not be read."
         }
       }
     },
@@ -64,16 +77,37 @@
       "required": ["branch_protection_coverage", "security_features_coverage"],
       "properties": {
         "branch_protection_coverage": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories with branch protection enabled"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "protected_repository_count",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/protected",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories whose default branch is protected by a classic branch protection rule or by an active ruleset that supplies at least one of the branch_protection_rules rules. Null when any repository's protection could not be determined; diagnostics say why."
+        },
+        "protected_repository_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/protected",
+            "as": "count",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Repositories whose default branch is protected by a classic branch protection rule or by an active ruleset that supplies at least one of the branch_protection_rules rules. Null when any repository's protection could not be determined."
         },
         "security_features_coverage": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Average coverage across all 5 security features"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "description": "Average coverage across all 5 security features. Null when any feature could not be read for any repository."
         }
       }
     },
@@ -84,21 +118,23 @@
       "properties": {
         "two_factor_required": {
           "type": ["boolean", "null"],
-          "description": "Whether 2FA is required for all organization members. Null if insufficient permissions to determine."
+          "description": "Whether the organization requires two-factor authentication for every member. Null when GitHub withholds the setting, as it does from callers without organization owner rights, such as a GitHub App without organization Administration read access."
         },
         "default_repository_permission": {
           "type": "string",
-          "description": "Audit level and above. Org-wide base permission granted to members (read/triage/write/admin/none)."
+          "x-epack-level": "audit",
+          "description": "Audit level and above. The base permission every member has on every repository: read, write, admin, or none. Absent when GitHub withholds it, which it does unless the caller is an organization owner."
         },
         "members_can_create_repositories": {
           "type": ["boolean", "null"],
-          "description": "Audit level and above. Whether members can create repositories."
+          "x-epack-level": "audit",
+          "description": "Audit level and above. Whether members can create repositories. Absent when GitHub withholds it, which it does unless the caller is an organization owner."
         }
       }
     },
     "branch_protection_rules": {
       "type": "object",
-      "description": "Per-rule coverage percentages for branch protection",
+      "description": "Per-rule coverage percentages of effective default-branch protection. A rule is in place on a repository when its classic branch protection rule or an active repository, organization, or enterprise ruleset supplies it. Rulesets in evaluate or disabled enforcement do not count. A percentage is null when the rule could not be determined for at least one repository, for example because GitHub refused the request for a repository's ruleset rules; diagnostics say why.",
       "required": [
         "pull_request_required",
         "approving_reviews",
@@ -110,46 +146,272 @@
       ],
       "properties": {
         "pull_request_required": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories requiring pull requests"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/pull_request_required",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/pull_request_required",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories requiring a pull request before merging"
         },
         "approving_reviews": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories requiring approving reviews"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/approving_reviews",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/approving_reviews",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories requiring at least one approving review"
         },
         "dismiss_stale_reviews": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories that dismiss stale reviews"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/dismiss_stale_reviews",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/dismiss_stale_reviews",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories that dismiss approvals when new commits are pushed"
         },
         "code_owner_reviews": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories requiring code owner reviews"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/code_owner_reviews",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/code_owner_reviews",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories requiring review from code owners"
         },
         "status_checks": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories requiring status checks"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/status_checks",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/status_checks",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories requiring status checks to pass before merging"
         },
         "signed_commits": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/signed_commits",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/signed_commits",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
           "description": "Percentage of repositories requiring signed commits"
         },
         "admin_enforcement": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories enforcing rules on admins"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/admin_enforcement",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/admin_enforcement",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "x-epack-null": "A repository role or an actor type GitHub does not document may bypass a ruleset, so whether administrators are held to its rules cannot be told",
+          "description": "Percentage of repositories where administrators are held to every protection rule on the default branch. Administrators are held to a rule when a classic rule supplying it enforces on admins, or when a ruleset supplying it lets no admin role bypass it. Null when the answer depends on a ruleset whose bypass list the token cannot see, or that lets a repository role bypass it."
+        },
+        "force_pushes_blocked": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/force_pushes_blocked",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/force_pushes_blocked",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories blocking force pushes to the default branch"
+        },
+        "deletions_blocked": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/deletions_blocked",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/deletions_blocked",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories blocking deletion of the default branch"
+        },
+        "linear_history": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/branch_protection_rules/repository_counts/linear_history",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "/repositories/per_repo",
+            "where": "/effective_branch_protection/linear_history",
+            "as": "pct",
+            "truncated": "/repositories/truncated"
+          },
+          "description": "Percentage of repositories requiring a linear history (no merge commits) on the default branch"
+        },
+        "repository_counts": {
+          "type": "object",
+          "description": "How many repositories have each rule, the counts the percentages are taken of. A count is null when its percentage is, except that with no repository in scope the counts are 0 and the percentages null.",
+          "properties": {
+            "pull_request_required": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/pull_request_required",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories requiring a pull request before merging"
+            },
+            "approving_reviews": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/approving_reviews",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories requiring at least one approving review"
+            },
+            "dismiss_stale_reviews": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/dismiss_stale_reviews",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories that dismiss approvals when new commits are pushed"
+            },
+            "code_owner_reviews": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/code_owner_reviews",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories requiring review from code owners"
+            },
+            "status_checks": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/status_checks",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories requiring status checks to pass before merging"
+            },
+            "signed_commits": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/signed_commits",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories requiring signed commits"
+            },
+            "admin_enforcement": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-null": "A repository role or an actor type GitHub does not document may bypass a ruleset, so whether administrators are held to its rules cannot be told",
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/admin_enforcement",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories where administrators are held to every protection rule on the default branch. Administrators are held to a rule when a classic rule supplying it enforces on admins, or when a ruleset supplying it lets no admin role bypass it. Null when the answer depends on a ruleset whose bypass list the token cannot see, or that lets a repository role bypass it."
+            },
+            "force_pushes_blocked": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/force_pushes_blocked",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories blocking force pushes to the default branch"
+            },
+            "deletions_blocked": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/deletions_blocked",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories blocking deletion of the default branch"
+            },
+            "linear_history": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/repositories/per_repo",
+                "where": "/effective_branch_protection/linear_history",
+                "as": "count",
+                "truncated": "/repositories/truncated"
+              },
+              "description": "Repositories requiring a linear history (no merge commits) on the default branch"
+            }
+          }
         }
       }
     },
@@ -165,92 +427,1304 @@
       ],
       "properties": {
         "vulnerability_alerts": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories with vulnerability alerts enabled"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/security_features/repository_counts/vulnerability_alerts",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": { "rows": "per_repo", "where": "/vulnerability_alerts", "as": "pct" },
+          "description": "Percentage of repositories with vulnerability alerts enabled. Null when it could not be read for every repository."
         },
         "code_scanning": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories with code scanning enabled"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/security_features/repository_counts/code_scanning",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": { "rows": "per_repo", "where": "/code_scanning", "as": "pct" },
+          "description": "Percentage of repositories with code scanning enabled. Null when it could not be read for every repository."
         },
         "secret_scanning": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories with secret scanning enabled"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/security_features/repository_counts/secret_scanning",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": { "rows": "per_repo", "where": "/secret_scanning", "as": "pct" },
+          "description": "Percentage of repositories with secret scanning enabled. Null when it could not be read for every repository."
         },
         "secret_scanning_push_protection": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories with secret scanning push protection enabled"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/security_features/repository_counts/secret_scanning_push_protection",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "per_repo",
+            "where": "/secret_scanning_push_protection",
+            "as": "pct"
+          },
+          "description": "Percentage of repositories with secret scanning push protection enabled. Null when it could not be read for every repository."
         },
         "dependabot_security_updates": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,
-          "description": "Percentage of repositories with Dependabot security updates enabled"
+          "x-epack-denominator": "/scope/included_repository_count",
+          "x-epack-numerator": "/security_features/repository_counts/dependabot_security_updates",
+          "x-epack-rounding": "floor",
+          "x-epack-rollup": {
+            "rows": "per_repo",
+            "where": "/dependabot_security_updates",
+            "as": "pct"
+          },
+          "description": "Percentage of repositories with Dependabot security updates enabled. Null when it could not be read for every repository."
+        },
+        "repository_counts": {
+          "type": "object",
+          "description": "How many repositories have each feature enabled, the counts the percentages are taken of. A count is null when its percentage is, except that with no repository in scope the counts are 0 and the percentages null.",
+          "properties": {
+            "vulnerability_alerts": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/security_features/per_repo",
+                "where": "/vulnerability_alerts",
+                "as": "count"
+              },
+              "description": "Repositories with vulnerability alerts enabled. Null when it could not be read for every repository."
+            },
+            "code_scanning": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/security_features/per_repo",
+                "where": "/code_scanning",
+                "as": "count"
+              },
+              "description": "Repositories with code scanning enabled. Null when it could not be read for every repository."
+            },
+            "secret_scanning": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/security_features/per_repo",
+                "where": "/secret_scanning",
+                "as": "count"
+              },
+              "description": "Repositories with secret scanning enabled. Null when it could not be read for every repository."
+            },
+            "secret_scanning_push_protection": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/security_features/per_repo",
+                "where": "/secret_scanning_push_protection",
+                "as": "count"
+              },
+              "description": "Repositories with secret scanning push protection enabled. Null when it could not be read for every repository."
+            },
+            "dependabot_security_updates": {
+              "type": ["integer", "null"],
+              "minimum": 0,
+              "x-epack-rollup": {
+                "rows": "/security_features/per_repo",
+                "where": "/dependabot_security_updates",
+                "as": "count"
+              },
+              "description": "Repositories with Dependabot security updates enabled. Null when it could not be read for every repository."
+            }
+          }
         },
         "per_repo": {
           "type": "array",
-          "description": "Audit level and above. Per-repo security-feature flags plus open-alert counts by type.",
-          "items": { "type": "object" }
+          "x-epack-level": "audit",
+          "description": "Audit level and above. One row per in-scope repository: the security features behind the percentages above, and its open alerts by type. A value is null when it could not be read.",
+          "items": {
+            "type": "object",
+            "required": ["repository"],
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "The repository, as owner/name."
+              },
+              "vulnerability_alerts": {
+                "type": ["boolean", "null"],
+                "description": "Whether Dependabot alerts (vulnerability alerts) are on."
+              },
+              "code_scanning": {
+                "type": ["boolean", "null"],
+                "description": "Whether code scanning runs on the repository, through default setup or through any analysis a workflow uploads."
+              },
+              "secret_scanning": {
+                "type": ["boolean", "null"],
+                "description": "Whether secret scanning is on."
+              },
+              "secret_scanning_push_protection": {
+                "type": ["boolean", "null"],
+                "description": "Whether secret scanning push protection is on."
+              },
+              "dependabot_security_updates": {
+                "type": ["boolean", "null"],
+                "description": "Whether Dependabot security updates are on."
+              },
+              "open_secret_scanning_alerts": {
+                "type": ["integer", "null"],
+                "minimum": 0,
+                "x-epack-null": "The listing reached the 5,001 alerts the collector reads per type, so the repository may have more and the count is not given",
+                "description": "Open secret scanning alerts, from the same listing as the findings inventory, so the two agree. 0 when GitHub reports secret scanning alerts are not on for the repository."
+              },
+              "open_code_scanning_alerts": {
+                "type": ["integer", "null"],
+                "minimum": 0,
+                "x-epack-null": "The listing reached the 5,001 alerts the collector reads per type, so the repository may have more and the count is not given",
+                "description": "Open code scanning alerts, from the same listing as the findings inventory, so the two agree. 0 when GitHub reports code scanning alerts are not on for the repository."
+              },
+              "open_dependabot_alerts": {
+                "type": ["integer", "null"],
+                "minimum": 0,
+                "x-epack-null": "The listing reached the 5,001 alerts the collector reads per type, so the repository may have more and the count is not given",
+                "description": "Open Dependabot alerts, from the same listing as the findings inventory, so the two agree. 0 when GitHub reports Dependabot alerts are not on for the repository."
+              }
+            }
+          }
         },
         "findings": {
           "type": "object",
-          "description": "Internal level only. Open secret-scanning, code-scanning, and Dependabot alert inventories (no secret values, no CVE description text). Capped at 5,000 per type per repo with a truncation flag."
+          "x-epack-level": "internal",
+          "description": "Internal level only. Open secret scanning, code scanning, and Dependabot alerts across in-scope repositories, read in the same listing as per_repo's counts. Never holds a secret's value or an advisory's text. Each list keeps at most 5,000 rows per repository and type. A repository with more keeps its highest-severity alerts, oldest first. A list is absent when it has no rows, and left out with a gap when any repository's alerts could not be read.",
+          "properties": {
+            "secret_scanning": {
+              "type": "array",
+              "description": "Open secret scanning alerts.",
+              "items": { "$ref": "#/$defs/secret_scanning_alert" }
+            },
+            "code_scanning": {
+              "type": "array",
+              "description": "Open code scanning alerts.",
+              "items": { "$ref": "#/$defs/code_scanning_alert" }
+            },
+            "dependabot": {
+              "type": "array",
+              "description": "Open Dependabot alerts.",
+              "items": { "$ref": "#/$defs/dependabot_alert" }
+            },
+            "truncated": {
+              "type": "boolean",
+              "description": "Present and true when a repository had more than 5,000 open alerts of one type, so its rows stop at 5,000."
+            },
+            "truncated_dropped": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Rows left out at the 5,000-row cap. The collector reads at most 5,001 alerts per repository and type, so a repository with more drops more than this counts."
+            }
+          }
         }
       }
     },
     "members": {
       "type": "object",
-      "description": "Audit level and above. Org member inventory: counts plus per-member login/name/role at audit (name is the public profile display name, absent when unset); per-member 2FA-enabled flag and last-activity (from the audit log) at internal. Capped at 10,000 members."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Members and outside collaborators: counts, plus each person's login, display name, and role at audit; two-factor status and last activity at internal. A count is null, and per_member is left out, when the roster it needs could not be read.",
+      "properties": {
+        "member_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Organization members, owners included. Outside collaborators are counted separately."
+        },
+        "admin_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_member",
+            "where": "/role",
+            "equals": "admin",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "Organization owners. Null when the owner roster could not be read."
+        },
+        "outside_collaborator_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_member",
+            "where": "/role",
+            "equals": "outside_collaborator",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "Outside collaborators: people with access to a repository who are not members. Null when that roster could not be read."
+        },
+        "has_pending_invitations": {
+          "type": ["boolean", "null"],
+          "description": "Whether an invitation to join the organization is pending. Null when invitations could not be read."
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "Present and true when per_member was cut short at 10,000 rows."
+        },
+        "per_member": {
+          "type": "array",
+          "description": "Members, then outside collaborators who are not members, in GitHub's order. Capped at 10,000 rows. When cut short, it keeps owners first, then members, then outside collaborators, each by login. Left out when either roster could not be read.",
+          "items": {
+            "type": "object",
+            "required": ["login"],
+            "properties": {
+              "login": {
+                "type": "string",
+                "description": "The person's GitHub login."
+              },
+              "name": {
+                "type": "string",
+                "description": "The display name on the person's public profile. Absent when they have not set one, and left out with a gap when it could not be read."
+              },
+              "role": {
+                "type": "string",
+                "enum": ["admin", "member", "outside_collaborator"],
+                "description": "admin for an organization owner, member, or outside_collaborator. Absent for a member when the owner roster could not be read."
+              },
+              "two_factor_enabled": {
+                "type": "boolean",
+                "x-epack-level": "internal",
+                "description": "Internal level only. Whether the member has two-factor authentication on, from GitHub's roster of members without it, which GitHub returns only to organization owners. Absent for outside collaborators, whom that roster does not cover."
+              },
+              "last_activity": {
+                "type": "string",
+                "x-epack-level": "internal",
+                "description": "Internal level only. When the person last acted in the organization, in RFC 3339 UTC, from the security-relevant audit log events of the last 7 days. Absent when no such event names them."
+              }
+            }
+          }
+        },
+        "truncated_dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rows left out when per_member was cut short."
+        }
+      }
     },
     "repositories": {
       "type": "object",
-      "description": "Audit level and above. Repository inventory: counts/visibility split plus per-repo metadata and default-branch protection detail at audit; description/topics/license/stargazers at internal. Capped at 5,000 repos."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. In-scope repositories: counts by visibility plus a row per repository with its inventory metadata and default-branch protection at audit; description, topics, license, and stars at internal.",
+      "properties": {
+        "total_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "per_repo", "as": "count", "truncated": "truncated" },
+          "description": "In-scope repositories."
+        },
+        "public_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_repo",
+            "where": "/visibility",
+            "equals": "PUBLIC",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "In-scope repositories that are public."
+        },
+        "private_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_repo",
+            "where": "/visibility",
+            "equals": "PRIVATE",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "In-scope repositories that are private."
+        },
+        "internal_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_repo",
+            "where": "/visibility",
+            "equals": "INTERNAL",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "In-scope repositories visible to the enterprise's members (internal)."
+        },
+        "archived_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_repo",
+            "where": "/archived",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "In-scope repositories that are archived. Archived repositories are out of scope, so this is 0."
+        },
+        "default_branch_protected_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_repo",
+            "where": "/effective_branch_protection/protected",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "Repositories whose default branch is protected, counted the same way as posture.branch_protection_coverage. Null when any repository's protection could not be determined."
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "Present and true when per_repo was cut short at 5,000 rows."
+        },
+        "per_repo": {
+          "type": "array",
+          "description": "One row per in-scope repository, in GitHub's order. Capped at 5,000 rows. When cut short, it keeps private repositories first, then the most recently pushed.",
+          "items": {
+            "type": "object",
+            "required": ["name", "visibility", "archived", "is_template"],
+            "properties": {
+              "description": {
+                "type": "string",
+                "x-epack-level": "internal",
+                "description": "Internal level only. The repository's description."
+              },
+              "name": {
+                "type": "string",
+                "description": "The repository, as owner/name."
+              },
+              "visibility": {
+                "type": "string",
+                "description": "PUBLIC, PRIVATE, or INTERNAL, as GitHub's GraphQL API names it."
+              },
+              "archived": {
+                "type": "boolean",
+                "description": "Whether the repository is archived. Archived repositories are out of scope, so this is false."
+              },
+              "is_template": {
+                "type": "boolean",
+                "description": "Whether the repository is a template repository."
+              },
+              "default_branch": {
+                "type": "string",
+                "description": "The default branch's name. Absent for an empty repository."
+              },
+              "created_at": {
+                "type": "string",
+                "description": "When the repository was created, in RFC 3339 UTC."
+              },
+              "updated_at": {
+                "type": "string",
+                "description": "When the repository was last updated, in RFC 3339 UTC."
+              },
+              "pushed_at": {
+                "type": "string",
+                "description": "When the repository was last pushed to, in RFC 3339 UTC."
+              },
+              "primary_language": {
+                "type": "string",
+                "description": "The repository's main language as GitHub detects it. Absent when GitHub detects none."
+              },
+              "size_kb": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The repository's size in kilobytes, as GitHub reports it. Absent when 0."
+              },
+              "topics": {
+                "type": "array",
+                "x-epack-level": "internal",
+                "description": "Internal level only. The repository's topics, up to 20.",
+                "items": { "type": "string" }
+              },
+              "license_spdx": {
+                "type": "string",
+                "x-epack-level": "internal",
+                "description": "Internal level only. SPDX identifier of the license GitHub detects, such as Apache-2.0."
+              },
+              "stargazer_count": {
+                "type": "integer",
+                "x-epack-level": "internal",
+                "description": "Internal level only. Stars on the repository. Absent when 0."
+              },
+              "branch_protection": {
+                "type": "object",
+                "description": "The default branch's classic branch protection rule as GitHub reports it. Absent when the branch has no classic rule. Rulesets are reported in effective_branch_protection and rulesets.",
+                "properties": {
+                  "requires_approving_reviews": {
+                    "type": "boolean",
+                    "description": "Whether the rule requires a pull request before merging. GitHub calls this setting requiresApprovingReviews. required_approving_review_count is the number of approvals."
+                  },
+                  "required_approving_review_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Approving reviews a pull request needs. 0 requires the pull request alone."
+                  },
+                  "dismisses_stale_reviews": {
+                    "type": "boolean",
+                    "description": "Whether a new commit dismisses the approvals given before it."
+                  },
+                  "requires_code_owner_reviews": {
+                    "type": "boolean",
+                    "description": "Whether a code owner must approve changes to the files they own."
+                  },
+                  "requires_status_checks": {
+                    "type": "boolean",
+                    "description": "Whether status checks must pass before merging."
+                  },
+                  "requires_commit_signatures": {
+                    "type": "boolean",
+                    "description": "Whether commits must be signed."
+                  },
+                  "is_admin_enforced": {
+                    "type": "boolean",
+                    "description": "Whether the rule also applies to administrators."
+                  },
+                  "requires_linear_history": {
+                    "type": "boolean",
+                    "description": "Whether merge commits are blocked."
+                  },
+                  "allows_force_pushes": {
+                    "type": "boolean",
+                    "description": "Whether force pushes are allowed."
+                  },
+                  "allows_deletions": {
+                    "type": "boolean",
+                    "description": "Whether the branch can be deleted."
+                  },
+                  "requires_conversation_resolution": {
+                    "type": "boolean",
+                    "description": "Whether review conversations must be resolved before merging."
+                  }
+                }
+              },
+              "effective_branch_protection": {
+                "type": "object",
+                "description": "This repository's default-branch protection from its classic branch protection rule and active rulesets combined. A value is null when it could not be determined, for example when the ruleset rules could not be read and the classic rule does not supply that rule.",
+                "properties": {
+                  "protected": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether the default branch has a classic branch protection rule or an active ruleset supplying at least one of the rules below."
+                  },
+                  "pull_request_required": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether a pull request is required before merging."
+                  },
+                  "approving_reviews": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether at least one approving review is required."
+                  },
+                  "required_approving_review_count": {
+                    "type": ["integer", "null"],
+                    "minimum": 0,
+                    "description": "The highest approving review count that any mechanism requires."
+                  },
+                  "dismiss_stale_reviews": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether a new commit dismisses the approvals given before it."
+                  },
+                  "code_owner_reviews": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether code owners must approve changes to the files they own."
+                  },
+                  "status_checks": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether status checks must pass before merging."
+                  },
+                  "signed_commits": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether commits must be signed."
+                  },
+                  "force_pushes_blocked": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether force pushes to the default branch are blocked."
+                  },
+                  "deletions_blocked": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether deleting the default branch is blocked."
+                  },
+                  "linear_history": {
+                    "type": ["boolean", "null"],
+                    "description": "Whether merge commits are blocked on the default branch."
+                  },
+                  "admin_enforcement": {
+                    "type": ["boolean", "null"],
+                    "x-epack-null": "A repository role or an actor type GitHub does not document may bypass a ruleset, so whether administrators are held to its rules cannot be told",
+                    "description": "Whether administrators are held to every rule in effect, decided as for branch_protection_rules.admin_enforcement."
+                  },
+                  "supplied_by": {
+                    "type": "object",
+                    "description": "For each rule in effect, the mechanisms that supply it: classic_branch_protection, repository_ruleset, organization_ruleset, or enterprise_ruleset. For required_approving_review_count, the mechanisms that require the highest count.",
+                    "additionalProperties": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              },
+              "rulesets": {
+                "type": "array",
+                "description": "Rulesets with at least one rule on the default branch, whether defined on the repository, its organization, or its enterprise.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer",
+                      "description": "The ruleset's ID."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Absent when the ruleset could not be read."
+                    },
+                    "source_type": {
+                      "type": "string",
+                      "description": "Where the ruleset is defined, as GitHub reports it: Repository, Organization, or Enterprise."
+                    },
+                    "source": {
+                      "type": "string",
+                      "description": "The repository (owner/name) or the account that owns the ruleset."
+                    },
+                    "enforcement": {
+                      "type": "string",
+                      "description": "The ruleset's enforcement status. Only active rulesets supply protection. Absent when the ruleset could not be read."
+                    },
+                    "rules": {
+                      "type": "array",
+                      "description": "The GitHub rule types this ruleset applies to the default branch, such as pull_request, required_status_checks, non_fast_forward, or deletion.",
+                      "items": { "type": "string" }
+                    },
+                    "bypass_allowed": {
+                      "type": ["boolean", "null"],
+                      "description": "Whether any actor may bypass the ruleset. Null when GitHub did not return the bypass list, which it returns only to tokens with write access to the ruleset."
+                    },
+                    "bypass_actors": {
+                      "type": "array",
+                      "description": "The actors allowed to bypass the ruleset, when the bypass list is visible.",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "actor_type": {
+                            "type": "string",
+                            "description": "OrganizationAdmin, RepositoryRole, Team, Integration (a GitHub App), DeployKey, or User."
+                          },
+                          "actor_id": {
+                            "type": "integer",
+                            "description": "The ID of the team, app, repository role, or user. Absent when GitHub reports none."
+                          },
+                          "bypass_mode": {
+                            "type": "string",
+                            "description": "always, pull_request (only through a pull request), or exempt (the rules do not apply to the actor)."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "truncated_dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Rows left out when per_repo was cut short."
+        }
+      }
     },
     "codeowners": {
       "type": "object",
-      "description": "Audit level and above. Per-repo CODEOWNERS presence and path at audit; SHA-256 content hash at internal. File contents are never emitted."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Per-repo CODEOWNERS presence and path at audit; SHA-256 content hash at internal. File contents are never emitted.",
+      "properties": {
+        "per_repo": {
+          "type": "array",
+          "description": "One row per in-scope repository.",
+          "items": {
+            "type": "object",
+            "required": ["repository"],
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "The repository, as owner/name."
+              },
+              "present": {
+                "type": ["boolean", "null"],
+                "description": "Whether the repository has a CODEOWNERS file. Null when it could not be read."
+              },
+              "path": {
+                "type": "string",
+                "description": "Where the file is: .github/CODEOWNERS, CODEOWNERS, or docs/CODEOWNERS. GitHub uses the first of these it finds, in that order. Absent when there is none."
+              },
+              "hash": {
+                "type": "string",
+                "x-epack-level": "internal",
+                "description": "SHA-256 of the file. Absent for a file over 1 MiB."
+              }
+            }
+          }
+        }
+      }
     },
     "webhooks": {
       "type": "object",
-      "description": "Audit level and above. Org and repo webhook counts and by-event breakdown at audit; per-hook rows (URL host only, never path/query/secret) at internal."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Organization and repository webhooks: counts and a count per event at audit; a row per webhook at internal, with only the host of its URL. A webhook's full URL, query, and secret are never emitted.",
+      "properties": {
+        "org_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "org", "as": "count" },
+          "description": "Organization webhooks. Null when they could not be listed."
+        },
+        "repo_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "repo", "as": "count" },
+          "description": "Webhooks on in-scope repositories. Null when any repository's could not be listed."
+        },
+        "count_by_event": {
+          "type": "object",
+          "description": "Webhooks subscribed to each event, organization and repository webhooks together. Absent when no webhook subscribes to an event, or when any list could not be read.",
+          "additionalProperties": { "type": "integer" }
+        },
+        "org": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. The organization's webhooks.",
+          "items": { "$ref": "#/$defs/webhook" }
+        },
+        "repo": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. Webhooks on in-scope repositories. Left out when any repository's could not be listed.",
+          "items": { "$ref": "#/$defs/webhook" }
+        }
+      }
     },
     "deploy_keys": {
       "type": "object",
-      "description": "Audit level and above. Per-repo deploy-key counts at audit; per-key rows with public-key fingerprint (never the key) at internal."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Per-repo deploy-key counts at audit; per-key rows with public-key fingerprint (never the key) at internal.",
+      "properties": {
+        "total_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "per_key", "as": "count" },
+          "description": "Deploy keys on in-scope repositories. Null when any repository's could not be listed."
+        },
+        "read_write_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_key",
+            "where": "/read_only",
+            "equals": false,
+            "as": "count"
+          },
+          "description": "Deploy keys that can write. Null when any repository's could not be listed."
+        },
+        "per_key": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. One row per deploy key on an in-scope repository. Left out when any repository's could not be listed.",
+          "items": {
+            "type": "object",
+            "required": ["repository", "id", "read_only"],
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "The repository, as owner/name."
+              },
+              "id": {
+                "type": "integer",
+                "description": "The deploy key's ID."
+              },
+              "title": {
+                "type": "string",
+                "description": "The title given to the key when it was added."
+              },
+              "read_only": {
+                "type": "boolean",
+                "description": "Whether the key can only read."
+              },
+              "created_at": {
+                "type": "string",
+                "description": "When the key was added, as GitHub reports it."
+              },
+              "last_used": {
+                "type": "string",
+                "description": "When the key was last used, as GitHub reports it. Absent when GitHub reports none."
+              },
+              "fingerprint": {
+                "type": "string",
+                "description": "SHA-256 of the public key GitHub returns, hex encoded. The key itself is never emitted."
+              }
+            }
+          }
+        }
+      }
     },
     "actions": {
       "type": "object",
-      "description": "Audit level and above. Self-hosted runner and org Actions-secret counts at audit; per-runner rows and secret names (never values) at internal."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Self-hosted runner and org Actions-secret counts at audit; per-runner rows and secret names (never values) at internal. The counts are GitHub's totals, and each list of rows stops at 10,000.",
+      "properties": {
+        "org_runner_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "org_runners", "as": "count", "truncated": "truncated" },
+          "description": "Self-hosted runners registered to the organization, as GitHub counts them. Null when they could not be listed."
+        },
+        "repo_runner_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "repo_runners", "as": "count", "truncated": "truncated" },
+          "description": "Self-hosted runners registered to in-scope repositories, summed from GitHub's counts. Null when any repository's could not be listed."
+        },
+        "org_secret_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "org_secret_names", "as": "count", "truncated": "truncated" },
+          "description": "The organization's Actions secrets, as GitHub counts them. Null when they could not be listed."
+        },
+        "org_runners": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. The organization's self-hosted runners.",
+          "items": { "$ref": "#/$defs/runner" }
+        },
+        "repo_runners": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. Self-hosted runners on in-scope repositories. Left out when any repository's could not be listed.",
+          "items": { "$ref": "#/$defs/runner" }
+        },
+        "org_secret_names": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. Names of the organization's Actions secrets. Their values are never read.",
+          "items": { "type": "string" }
+        },
+        "truncated": {
+          "type": "boolean",
+          "x-epack-level": "internal",
+          "description": "Present and true when org_runners, repo_runners, or org_secret_names holds fewer rows than its count, as when a list stops at 10,000 rows."
+        }
+      }
     },
     "environments": {
       "type": "object",
-      "description": "Audit level and above. Deployment environments per repository: counts plus per-environment protection detail (required reviewers as team slugs and user logins, self-review prevention, wait timers, deployment branch policy with custom branch and tag patterns, administrator bypass, and GitHub Apps enforcing custom deployment protection rules). Capped at 5,000 environments."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Deployment environments per repository: counts plus per-environment protection detail (required reviewers as team slugs and user logins, self-review prevention, wait timers, deployment branch policy with custom branch and tag patterns, administrator bypass, and GitHub Apps enforcing custom deployment protection rules). Capped at 5,000 environments.",
+      "properties": {
+        "total_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "per_environment", "as": "count", "truncated": "truncated" },
+          "description": "Deployment environments on in-scope repositories, as GitHub counts them. Null when any repository's could not be listed."
+        },
+        "with_required_reviewers_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "x-epack-rollup": {
+            "rows": "per_environment",
+            "where": "/requires_reviewers",
+            "as": "count",
+            "truncated": "truncated"
+          },
+          "description": "Environments listed that make each deployment wait for a required reviewer's approval. Null when any repository's could not be listed."
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "Present and true when per_environment holds fewer rows than total_count: capped at 5,000 rows, or at 1,000 environments for one repository."
+        },
+        "truncated_dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Environments left out of per_environment: those past the 5,000-row cap, plus those past the first 1,000 of one repository."
+        },
+        "per_environment": {
+          "type": "array",
+          "description": "One row per environment, by repository. Capped at 5,000 rows. When cut short, it keeps reviewer-gated environments first, then by repository and name. Left out when any repository's could not be listed.",
+          "items": {
+            "type": "object",
+            "required": [
+              "repository",
+              "name",
+              "requires_reviewers",
+              "prevent_self_review",
+              "branch_policy"
+            ],
+            "properties": {
+              "repository": {
+                "type": "string",
+                "description": "The repository, as owner/name."
+              },
+              "name": {
+                "type": "string",
+                "description": "The environment's name."
+              },
+              "requires_reviewers": {
+                "type": "boolean",
+                "description": "Whether a deployment waits for a required reviewer's approval."
+              },
+              "reviewers": {
+                "type": "array",
+                "description": "The required reviewers, any one of whom can approve a deployment.",
+                "items": {
+                  "type": "object",
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "description": "User or Team."
+                    },
+                    "login": {
+                      "type": "string",
+                      "description": "The user's login. Users only."
+                    },
+                    "slug": {
+                      "type": "string",
+                      "description": "The team's slug. Teams only."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "The team's name. Teams only."
+                    }
+                  }
+                }
+              },
+              "prevent_self_review": {
+                "type": "boolean",
+                "description": "Whether the person who started a deployment is kept from approving it."
+              },
+              "wait_timer_minutes": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Minutes a deployment waits before it starts. Absent when there is no wait timer."
+              },
+              "branch_policy": {
+                "type": "string",
+                "enum": ["any", "protected_branches", "custom"],
+                "description": "Which branches and tags may deploy: any, protected_branches for branches with protection rules, or custom for those matching branch_policy_patterns."
+              },
+              "branch_policy_patterns": {
+                "type": "array",
+                "description": "With a custom branch policy, the name patterns allowed to deploy.",
+                "items": {
+                  "type": "object",
+                  "required": ["name"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "description": "branch or tag."
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "A branch or tag name pattern."
+                    }
+                  }
+                }
+              },
+              "can_admins_bypass": {
+                "type": "boolean",
+                "description": "Whether administrators may deploy without meeting the protection rules. Absent when GitHub does not report it."
+              },
+              "protection_apps": {
+                "type": "array",
+                "description": "Slugs of the GitHub Apps whose custom deployment protection rules are on for the environment.",
+                "items": { "type": "string" }
+              },
+              "created_at": {
+                "type": "string",
+                "description": "When the environment was created, as GitHub reports it."
+              },
+              "updated_at": {
+                "type": "string",
+                "description": "When the environment was last changed, as GitHub reports it."
+              }
+            }
+          }
+        }
+      }
     },
     "audit_log": {
       "type": "object",
-      "description": "Internal level (counts at audit). Security-relevant org audit-log events over a 7-day window. GitHub Enterprise Cloud only; degrades to a diagnostic warning otherwise. Capped at 5,000 events."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Security-relevant organization audit log events over the last 7 days: counts by category at audit, the events at internal. Needs GitHub Enterprise Cloud, and is left out with a not_licensed gap otherwise. Reads at most the 5,000 most recent events.",
+      "properties": {
+        "window_days": {
+          "type": "integer",
+          "description": "Days of the audit log read, ending when collection ran."
+        },
+        "count_by_category": {
+          "type": "object",
+          "description": "Security-relevant events by the part of their action before its first period or underscore, such as repo or member. Absent when there were none.",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "Present and true when the window held 5,000 events or more, so the counts and events cover the 5,000 most recent."
+        },
+        "events": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. The security-relevant events, newest first. Metadata only: no payload bodies.",
+          "items": {
+            "type": "object",
+            "required": ["action", "timestamp"],
+            "properties": {
+              "action": {
+                "type": "string",
+                "description": "The event's action, such as repo.create or member_add."
+              },
+              "actor": {
+                "type": "string",
+                "description": "Login of whoever acted. Absent when GitHub reports none."
+              },
+              "repo": {
+                "type": "string",
+                "description": "The repository the event concerns, as owner/name. Absent for an event on none."
+              },
+              "timestamp": {
+                "type": "integer",
+                "description": "When the event happened, in milliseconds since the Unix epoch, as GitHub reports it."
+              }
+            }
+          }
+        }
+      }
     },
     "apps": {
       "type": "object",
-      "description": "Audit level and above. GitHub Apps installed in the org: count and per-installation permissions summary at audit; timestamps, repo selection, and subscribed events at internal."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. GitHub Apps installed in the org: count and per-installation permissions summary at audit; timestamps, repo selection, and subscribed events at internal. The count is GitHub's total, and per_installation stops at 10,000 rows.",
+      "properties": {
+        "installation_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "per_installation", "as": "count", "truncated": "truncated" },
+          "description": "GitHub Apps installed in the organization, as GitHub counts them, the collector's own App included."
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "Present and true when per_installation holds fewer rows than installation_count, as when the list stops at 10,000 rows."
+        },
+        "per_installation": {
+          "type": "array",
+          "description": "One row per installed App.",
+          "items": {
+            "type": "object",
+            "required": ["app_id", "suspended"],
+            "properties": {
+              "app_slug": {
+                "type": "string",
+                "description": "The App's slug, which is the name in its URL."
+              },
+              "app_id": {
+                "type": "integer",
+                "description": "The App's ID."
+              },
+              "suspended": {
+                "type": "boolean",
+                "description": "Whether the installation is suspended."
+              },
+              "permissions": {
+                "type": "object",
+                "description": "The installation's permissions, each mapped to read, write, or admin.",
+                "additionalProperties": { "type": "string" }
+              },
+              "created_at": {
+                "type": "string",
+                "x-epack-level": "internal",
+                "description": "Internal level only. When the App was installed, as GitHub reports it."
+              },
+              "updated_at": {
+                "type": "string",
+                "x-epack-level": "internal",
+                "description": "Internal level only. When the installation last changed, as GitHub reports it."
+              },
+              "repository_selection": {
+                "type": "string",
+                "x-epack-level": "internal",
+                "description": "Internal level only. all when the App can reach every repository, or selected when it can reach only the ones chosen for it."
+              },
+              "events": {
+                "type": "array",
+                "x-epack-level": "internal",
+                "description": "Internal level only. Events the App subscribes to.",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
     },
     "tokens": {
       "type": "object",
-      "description": "Audit level and above. Fine-grained PAT grants: count at audit; per-token owner/name/permissions/last-used/expiration at internal (never token values). Requires a fine-grained-token policy; degrades to a diagnostic otherwise."
+      "x-epack-level": "audit",
+      "description": "Audit level and above. Fine-grained personal access tokens granted access to the organization: the count at audit, a row per token at internal. Token values are never read. Needs a fine-grained personal access token policy, and is left out with a not_licensed gap otherwise.",
+      "properties": {
+        "grant_count": {
+          "type": "integer",
+          "minimum": 0,
+          "x-epack-rollup": { "rows": "per_token", "as": "count" },
+          "description": "Fine-grained personal access tokens with access to the organization's resources."
+        },
+        "per_token": {
+          "type": "array",
+          "x-epack-level": "internal",
+          "description": "Internal level only. One row per token.",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "type": "integer",
+                "description": "The grant's ID."
+              },
+              "owner": {
+                "type": "string",
+                "description": "Login of the token's owner."
+              },
+              "token_name": {
+                "type": "string",
+                "description": "The name the owner gave the token."
+              },
+              "permissions": {
+                "type": "array",
+                "description": "What the token may reach, as scope:permission, such as repository:contents. The access level is not included.",
+                "items": { "type": "string" }
+              },
+              "last_used": {
+                "type": "string",
+                "description": "When the token was last used, as GitHub reports it. Absent when it never was."
+              },
+              "expires_at": {
+                "type": "string",
+                "description": "When the token expires, as GitHub reports it. Absent when it does not."
+              }
+            }
+          }
+        }
+      }
     },
     "diagnostics": {
       "type": "object",
       "description": "Permission errors and feature-unavailable warnings encountered during collection. A surface that hits a permission denial or a missing org feature is skipped (its field omitted) and explained here.",
       "properties": {
-        "permission_errors": { "type": "array", "items": { "type": "string" } },
-        "warnings": { "type": "array", "items": { "type": "string" } }
+        "permission_errors": {
+          "type": "array",
+          "description": "Surfaces or values left out because the token lacked a permission, each naming the permission to grant.",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "description": "Other limits on what was collected, such as a feature the organization's plan lacks or a ruleset bypass list GitHub withheld.",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "webhook": {
+      "type": "object",
+      "required": ["id", "active"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "The repository, as owner/name. Absent for an organization webhook."
+        },
+        "id": {
+          "type": "integer",
+          "description": "The webhook's ID."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether GitHub delivers the webhook's events."
+        },
+        "content_type": {
+          "type": "string",
+          "description": "How deliveries are encoded: json or form."
+        },
+        "events": {
+          "type": "array",
+          "description": "Events the webhook subscribes to.",
+          "items": { "type": "string" }
+        },
+        "url_host": {
+          "type": "string",
+          "description": "The host of the webhook's URL. Its path, query, and secret are never emitted."
+        },
+        "last_response_code": {
+          "type": "integer",
+          "description": "HTTP status of the last delivery. Absent when GitHub reports none."
+        },
+        "last_response_status": {
+          "type": "string",
+          "description": "GitHub's status for the last delivery, such as active or unused."
+        }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "required": ["id", "busy"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "The repository, as owner/name. Absent for an organization runner."
+        },
+        "id": {
+          "type": "integer",
+          "description": "The runner's ID."
+        },
+        "name": {
+          "type": "string",
+          "description": "The runner's name."
+        },
+        "os": {
+          "type": "string",
+          "description": "The runner's operating system, such as linux, windows, or macos."
+        },
+        "status": {
+          "type": "string",
+          "description": "online or offline."
+        },
+        "busy": {
+          "type": "boolean",
+          "description": "Whether the runner was running a job."
+        },
+        "labels": {
+          "type": "array",
+          "description": "The runner's labels.",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "secret_scanning_alert": {
+      "type": "object",
+      "required": ["repository", "number", "secret_type", "state", "created_at"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "The repository, as owner/name."
+        },
+        "number": {
+          "type": "integer",
+          "description": "The alert's number in the repository."
+        },
+        "secret_type": {
+          "type": "string",
+          "description": "The kind of secret GitHub found, such as aws_access_key_id. The secret itself is never read."
+        },
+        "state": {
+          "type": "string",
+          "description": "The alert's state. Only open alerts are listed."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "When GitHub raised the alert, as it reports it."
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "When the alert last changed, as GitHub reports it."
+        },
+        "resolved_at": {
+          "type": "string",
+          "description": "When the alert was resolved, as GitHub reports it. Absent for an unresolved alert."
+        },
+        "resolved_by": {
+          "type": "string",
+          "description": "Login of whoever resolved the alert. Absent for an unresolved alert."
+        }
+      }
+    },
+    "code_scanning_alert": {
+      "type": "object",
+      "required": ["repository", "number", "rule_id", "severity", "state", "created_at"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "The repository, as owner/name."
+        },
+        "number": {
+          "type": "integer",
+          "description": "The alert's number in the repository."
+        },
+        "rule_id": {
+          "type": "string",
+          "description": "The ID of the rule that raised the alert, such as go/sql-injection."
+        },
+        "severity": {
+          "type": "string",
+          "description": "The rule's severity: error, warning, note, or none."
+        },
+        "state": {
+          "type": "string",
+          "description": "The alert's state. Only open alerts are listed."
+        },
+        "location_path": {
+          "type": "string",
+          "description": "Path of the file where the alert was last found. Absent when GitHub reports none."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "When GitHub raised the alert, as it reports it."
+        },
+        "dismissed_by": {
+          "type": "string",
+          "description": "Login of whoever dismissed the alert. Absent for an alert not dismissed."
+        },
+        "dismissed_reason": {
+          "type": "string",
+          "description": "Why the alert was dismissed. Absent for an alert not dismissed."
+        }
+      }
+    },
+    "dependabot_alert": {
+      "type": "object",
+      "required": [
+        "repository",
+        "number",
+        "package",
+        "ecosystem",
+        "severity",
+        "state",
+        "created_at"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "The repository, as owner/name."
+        },
+        "number": {
+          "type": "integer",
+          "description": "The alert's number in the repository."
+        },
+        "package": {
+          "type": "string",
+          "description": "The vulnerable package's name."
+        },
+        "ecosystem": {
+          "type": "string",
+          "description": "The package's ecosystem, such as npm, pip, or go."
+        },
+        "severity": {
+          "type": "string",
+          "description": "The vulnerability's severity: low, medium, high, or critical."
+        },
+        "cve": {
+          "type": "string",
+          "description": "The advisory's CVE ID. Absent when the advisory has none. The advisory's text is never emitted."
+        },
+        "state": {
+          "type": "string",
+          "description": "The alert's state. Only open alerts are listed."
+        },
+        "created_at": {
+          "type": "string",
+          "description": "When GitHub raised the alert, as it reports it."
+        }
       }
     }
   }

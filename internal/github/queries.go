@@ -1,20 +1,19 @@
-// Package github provides GraphQL client functionality for GitHub API.
+// Package github provides the GitHub REST and GraphQL calls the collector makes.
 package github
 
-import "github.com/shurcooL/githubv4"
+import "time"
 
-// RepositoriesQuery is the GraphQL query for fetching organization repositories
-// with branch protection and security feature information.
-type RepositoriesQuery struct {
-	Organization struct {
-		Repositories struct {
-			Nodes    []Repository
-			PageInfo struct {
-				HasNextPage bool
-				EndCursor   githubv4.String
-			}
-		} `graphql:"repositories(first: 100, after: $cursor)"`
-	} `graphql:"organization(login: $org)"`
+// repositoriesQuery fetches an organization's repositories with branch
+// protection and security feature information, 100 per page.
+const repositoriesQuery = `query($cursor:String$org:String!){organization(login: $org){repositories(first: 100, after: $cursor){nodes{name,owner{login},isArchived,isTemplate,visibility,defaultBranchRef{name,branchProtectionRule{requiresApprovingReviews,requiredApprovingReviewCount,dismissesStaleReviews,requiresCodeOwnerReviews,requiresStatusChecks,requiresCommitSignatures,isAdminEnforced,requiresLinearHistory,allowsForcePushes,allowsDeletions,requiresConversationResolution}},hasVulnerabilityAlertsEnabled,createdAt,updatedAt,pushedAt,diskUsage,stargazerCount,description,primaryLanguage{name},licenseInfo{spdxId},repositoryTopics(first: 20){nodes{topic{name}}}},pageInfo{hasNextPage,endCursor}}}}`
+
+// membersQuery fetches member display names, which GitHub's REST member list
+// endpoints do not return, 100 per page.
+const membersQuery = `query($cursor:String$org:String!){organization(login: $org){membersWithRole(first: 100, after: $cursor){nodes{login,name},pageInfo{hasNextPage,endCursor}}}}`
+
+type pageInfo struct {
+	HasNextPage bool
+	EndCursor   string
 }
 
 // Repository represents a GitHub repository with security-relevant fields.
@@ -35,9 +34,9 @@ type Repository struct {
 	HasVulnerabilityAlertsEnabled bool
 
 	// Inventory metadata (audit / internal).
-	CreatedAt       githubv4.DateTime
-	UpdatedAt       githubv4.DateTime
-	PushedAt        githubv4.DateTime
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	PushedAt        time.Time
 	DiskUsage       int
 	StargazerCount  int
 	Description     string
@@ -45,7 +44,7 @@ type Repository struct {
 		Name string
 	}
 	LicenseInfo *struct {
-		SpdxID string `graphql:"spdxId"`
+		SpdxID string
 	}
 	RepositoryTopics struct {
 		Nodes []struct {
@@ -53,24 +52,7 @@ type Repository struct {
 				Name string
 			}
 		}
-	} `graphql:"repositoryTopics(first: 20)"`
-}
-
-// MembersWithRoleQuery is the GraphQL query for fetching member display
-// names, which GitHub's REST member list endpoints do not return.
-type MembersWithRoleQuery struct {
-	Organization struct {
-		MembersWithRole struct {
-			Nodes []struct {
-				Login string
-				Name  string
-			}
-			PageInfo struct {
-				HasNextPage bool
-				EndCursor   githubv4.String
-			}
-		} `graphql:"membersWithRole(first: 100, after: $cursor)"`
-	} `graphql:"organization(login: $org)"`
+	}
 }
 
 // BranchProtectionRule represents branch protection settings.

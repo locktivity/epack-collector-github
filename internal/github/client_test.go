@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/locktivity/epack/componentsdk"
 )
 
 func TestFetchSecuritySettings(t *testing.T) {
@@ -23,10 +25,14 @@ func TestFetchSecuritySettings(t *testing.T) {
 		analysesResponse string
 		analysesStatus   int
 		wantSettings     SecuritySettings
+		wantErr          bool
+		wantHidden       bool
+		wantCodeUnknown  bool
 	}{
 		{
 			name: "all features enabled",
 			repoResponse: `{
+				"name": "repo",
 				"security_and_analysis": {
 					"secret_scanning": {"status": "enabled"},
 					"secret_scanning_push_protection": {"status": "enabled"},
@@ -46,6 +52,7 @@ func TestFetchSecuritySettings(t *testing.T) {
 		{
 			name: "all features disabled",
 			repoResponse: `{
+				"name": "repo",
 				"security_and_analysis": {
 					"secret_scanning": {"status": "disabled"},
 					"secret_scanning_push_protection": {"status": "disabled"},
@@ -65,6 +72,7 @@ func TestFetchSecuritySettings(t *testing.T) {
 		{
 			name: "partial features",
 			repoResponse: `{
+				"name": "repo",
 				"security_and_analysis": {
 					"secret_scanning": {"status": "enabled"},
 					"secret_scanning_push_protection": {"status": "disabled"}
@@ -83,6 +91,7 @@ func TestFetchSecuritySettings(t *testing.T) {
 		{
 			name: "advanced setup detected via analyses",
 			repoResponse: `{
+				"name": "repo",
 				"security_and_analysis": {
 					"secret_scanning": {"status": "disabled"}
 				}
@@ -97,12 +106,30 @@ func TestFetchSecuritySettings(t *testing.T) {
 			},
 		},
 		{
+			// A repository GitHub could not return leaves every setting
+			// unknown rather than reading as every feature disabled.
 			name:         "repo not found",
 			repoResponse: `{"message": "Not Found"}`,
 			repoStatus:   http.StatusNotFound,
-			codeResponse: ``,
-			codeStatus:   http.StatusNotFound,
-			wantSettings: SecuritySettings{},
+			wantErr:      true,
+		},
+		{
+			name:         "server error",
+			repoResponse: `{"message": "Server Error"}`,
+			repoStatus:   http.StatusBadGateway,
+			wantErr:      true,
+		},
+		{
+			name:         "malformed repository body",
+			repoResponse: `{"name": "repo", "security_and_analysis":`,
+			repoStatus:   http.StatusOK,
+			wantErr:      true,
+		},
+		{
+			name:         "repository body without a name",
+			repoResponse: `{}`,
+			repoStatus:   http.StatusOK,
+			wantErr:      true,
 		},
 		{
 			name:         "no security_and_analysis field",
@@ -111,10 +138,12 @@ func TestFetchSecuritySettings(t *testing.T) {
 			codeResponse: `{"state": "not-configured"}`,
 			codeStatus:   http.StatusOK,
 			wantSettings: SecuritySettings{},
+			wantHidden:   true,
 		},
 		{
 			name: "code scanning 404",
 			repoResponse: `{
+				"name": "repo",
 				"security_and_analysis": {
 					"secret_scanning": {"status": "enabled"}
 				}
@@ -126,6 +155,20 @@ func TestFetchSecuritySettings(t *testing.T) {
 				SecretScanning:      true,
 				CodeScanningEnabled: false,
 			},
+		},
+		{
+			name: "code scanning server error",
+			repoResponse: `{
+				"name": "repo",
+				"security_and_analysis": {
+					"secret_scanning": {"status": "enabled"}
+				}
+			}`,
+			repoStatus:      http.StatusOK,
+			codeResponse:    `{"message": "Server Error"}`,
+			codeStatus:      http.StatusInternalServerError,
+			wantSettings:    SecuritySettings{SecretScanning: true},
+			wantCodeUnknown: true,
 		},
 	}
 
@@ -156,6 +199,12 @@ func TestFetchSecuritySettings(t *testing.T) {
 			client := NewClientWithHTTP(server.Client(), server.URL)
 			settings, err := client.FetchSecuritySettings(context.Background(), "owner", "repo")
 
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("settings = %+v, want an error", settings)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -171,6 +220,15 @@ func TestFetchSecuritySettings(t *testing.T) {
 			}
 			if settings.CodeScanningEnabled != tt.wantSettings.CodeScanningEnabled {
 				t.Errorf("CodeScanningEnabled = %v, want %v", settings.CodeScanningEnabled, tt.wantSettings.CodeScanningEnabled)
+			}
+			if hidden := settings.AnalysisErr != nil; hidden != tt.wantHidden {
+				t.Errorf("AnalysisErr = %v, want hidden %v", settings.AnalysisErr, tt.wantHidden)
+			}
+			if tt.wantHidden && componentsdk.Classify(settings.AnalysisErr) != componentsdk.CodePermissionDenied {
+				t.Errorf("hidden security_and_analysis code = %s, want permission_denied", componentsdk.Classify(settings.AnalysisErr))
+			}
+			if unknown := settings.CodeScanningErr != nil; unknown != tt.wantCodeUnknown {
+				t.Errorf("CodeScanningErr = %v, want unknown %v", settings.CodeScanningErr, tt.wantCodeUnknown)
 			}
 		})
 	}
@@ -204,6 +262,7 @@ func TestCheckCodeScanning(t *testing.T) {
 		want               bool
 		wantPermissionDeny bool
 		wantErrorMessage   string
+		wantUnknown        bool
 	}{
 		{
 			name:               "configured",
@@ -242,6 +301,7 @@ func TestCheckCodeScanning(t *testing.T) {
 			want:               false,
 			wantPermissionDeny: true,
 			wantErrorMessage:   "Must have admin rights to Repository",
+			wantUnknown:        true,
 		},
 		{
 			name:               "403 GHAS not enabled",
@@ -257,6 +317,21 @@ func TestCheckCodeScanning(t *testing.T) {
 			status:             http.StatusOK,
 			want:               false,
 			wantPermissionDeny: false,
+			wantUnknown:        true,
+		},
+		{
+			name:        "default setup body without a state",
+			response:    `{}`,
+			status:      http.StatusOK,
+			wantUnknown: true,
+		},
+		{
+			name:             "analyses server error",
+			response:         `{"state": "not-configured"}`,
+			status:           http.StatusOK,
+			analysesResponse: `{"message": "Server Error"}`,
+			analysesStatus:   http.StatusInternalServerError,
+			wantUnknown:      true,
 		},
 	}
 
@@ -292,6 +367,9 @@ func TestCheckCodeScanning(t *testing.T) {
 			if result.errorMessage != tt.wantErrorMessage {
 				t.Errorf("checkCodeScanning() errorMessage = %q, want %q", result.errorMessage, tt.wantErrorMessage)
 			}
+			if unknown := result.err != nil; unknown != tt.wantUnknown {
+				t.Errorf("checkCodeScanning() err = %v, want unknown %v", result.err, tt.wantUnknown)
+			}
 		})
 	}
 }
@@ -322,6 +400,7 @@ func TestFetchOrgSecurity_Success(t *testing.T) {
 		if r.URL.Path == "/orgs/test-org" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"login":                          "test-org",
 				"two_factor_requirement_enabled": true,
 			})
 		} else {
@@ -348,6 +427,7 @@ func TestFetchOrgSecurity_TwoFactorDisabled(t *testing.T) {
 		if r.URL.Path == "/orgs/test-org" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"login":                          "test-org",
 				"two_factor_requirement_enabled": false,
 			})
 		} else {
@@ -370,14 +450,14 @@ func TestFetchOrgSecurity_TwoFactorDisabled(t *testing.T) {
 }
 
 func TestFetchOrgSecurity_PermissionError(t *testing.T) {
-	// Test that errors result in nil fields (graceful degradation)
+	// The organization read is the sign-in, so a refusal fails it rather than
+	// reading as an unknown setting.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/orgs/test-org" {
-			// REST API returns 403 - no permission for 2FA
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
-				"message": "Must have admin rights to Repository",
+				"message": "Resource protected by organization SAML enforcement.",
 			})
 		} else {
 			w.WriteHeader(http.StatusNotFound)
@@ -386,16 +466,75 @@ func TestFetchOrgSecurity_PermissionError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClientWithHTTP(server.Client(), server.URL)
-	security, err := client.FetchOrgSecurity(context.Background(), "test-org")
-
-	// Should NOT return an error - should return partial data
-	if err != nil {
-		t.Fatalf("FetchOrgSecurity() error: %v, want nil (graceful degradation)", err)
+	_, err := client.FetchOrgSecurity(context.Background(), "test-org")
+	if !errors.Is(err, ErrPermissionDenied) {
+		t.Fatalf("FetchOrgSecurity() error = %v, want ErrPermissionDenied", err)
 	}
+	if got := componentsdk.Classify(err); got != componentsdk.CodePermissionDenied {
+		t.Errorf("Classify() = %s, want permission_denied", got)
+	}
+}
 
-	// 2FA should be nil (unknown) due to permission error
+func TestFetchOrgSecurity_RejectedCredential(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"message": "Bad credentials"}`))
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+	_, err := client.FetchOrgSecurity(context.Background(), "test-org")
+	if got := componentsdk.Classify(err); got != componentsdk.CodeAuthFailed {
+		t.Fatalf("Classify(%v) = %s, want auth_failed", err, got)
+	}
+}
+
+func TestFetchOrgSecurity_UnknownOrganization(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message": "Not Found"}`))
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+	_, err := client.FetchOrgSecurity(context.Background(), "no-such-org")
+	if got := componentsdk.Classify(err); got != componentsdk.CodeConfigInvalid {
+		t.Fatalf("Classify(%v) = %s, want config_invalid", err, got)
+	}
+}
+
+func TestFetchOrgSecurity_HiddenTwoFactorSetting(t *testing.T) {
+	// GitHub leaves the setting out for callers that are not organization
+	// owners; the setting is then unknown.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-OAuth-Scopes", "repo, read:org")
+		_, _ = w.Write([]byte(`{"login": "test-org"}`))
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+	security, err := client.FetchOrgSecurity(context.Background(), "test-org")
+	if err != nil {
+		t.Fatalf("FetchOrgSecurity() error: %v", err)
+	}
 	if security.TwoFactorRequired != nil {
-		t.Errorf("TwoFactorRequired = %v, want nil", security.TwoFactorRequired)
+		t.Errorf("TwoFactorRequired = %v, want nil", *security.TwoFactorRequired)
+	}
+	if strings.Join(security.Credential.Scopes, ",") != "repo,read:org" || security.Credential.Kind != "token" {
+		t.Errorf("credential = %+v, want a token with its OAuth scopes", security.Credential)
+	}
+}
+
+func TestFetchOrgSecurity_BodyWithoutLogin(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+	_, err := client.FetchOrgSecurity(context.Background(), "test-org")
+	if got := componentsdk.Classify(err); got != componentsdk.CodeInvalidResponse {
+		t.Fatalf("Classify(%v) = %s, want invalid_response", err, got)
 	}
 }
 
@@ -480,7 +619,6 @@ func TestFetchRepositories_Pagination(t *testing.T) {
 }
 
 func TestFetchOrgSecurity_RateLimitError(t *testing.T) {
-	// Rate limit errors should result in graceful degradation (nil values)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-RateLimit-Remaining", "0")
 		w.Header().Set("X-RateLimit-Reset", "1234567890")
@@ -493,26 +631,21 @@ func TestFetchOrgSecurity_RateLimitError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClientWithHTTP(server.Client(), server.URL)
-	security, err := client.FetchOrgSecurity(context.Background(), "test-org")
-
-	// Should gracefully degrade - return nil values instead of error
-	if err != nil {
-		t.Fatalf("FetchOrgSecurity() error: %v, want graceful degradation", err)
+	_, err := client.FetchOrgSecurity(context.Background(), "test-org")
+	if got := componentsdk.Classify(err); got != componentsdk.CodeRateLimited {
+		t.Fatalf("Classify(%v) = %s, want rate_limited", err, got)
 	}
-
-	// 2FA should be nil due to rate limiting
-	if security.TwoFactorRequired != nil {
-		t.Errorf("TwoFactorRequired = %v, want nil", security.TwoFactorRequired)
+	if errors.Is(err, ErrPermissionDenied) {
+		t.Error("a rate-limited 403 should not read as a permission denial")
 	}
 }
 
 func TestFetchOrgSecurity_ContextCancellation(t *testing.T) {
-	// Context cancellation during REST call should result in nil values (graceful degradation)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Delay response to trigger context cancellation
 		time.Sleep(100 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"login": "test-org"})
 	}))
 	defer server.Close()
 
@@ -521,16 +654,9 @@ func TestFetchOrgSecurity_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 
-	security, err := client.FetchOrgSecurity(ctx, "test-org")
-
-	// Should gracefully degrade - REST call times out but we return nil values
-	if err != nil {
-		t.Fatalf("FetchOrgSecurity() error: %v, want graceful degradation", err)
-	}
-
-	// 2FA should be nil due to timeout
-	if security.TwoFactorRequired != nil {
-		t.Errorf("TwoFactorRequired = %v, want nil", security.TwoFactorRequired)
+	_, err := client.FetchOrgSecurity(ctx, "test-org")
+	if got := componentsdk.Classify(err); got != componentsdk.CodeTimeout {
+		t.Fatalf("Classify(%v) = %s, want timeout", err, got)
 	}
 }
 
@@ -757,22 +883,25 @@ func TestCollaboratorNames_CapAndAbort(t *testing.T) {
 		case "/users/boom":
 			w.WriteHeader(http.StatusInternalServerError)
 		default:
-			_, _ = w.Write([]byte(`{"name":"Someone"}`))
+			_, _ = fmt.Fprintf(w, `{"login":%q,"name":"Someone"}`, strings.TrimPrefix(r.URL.Path, "/users/"))
 		}
 	}))
 	defer server.Close()
 
 	client := NewClientWithHTTP(server.Client(), server.URL)
 
-	names, incomplete := client.collaboratorNames(context.Background(), []string{"ghost", "ok", "boom", "never"})
+	lookup := client.collaboratorNames(context.Background(), []string{"ghost", "ok", "boom", "never"})
 	if userCalls != 3 {
 		t.Errorf("lookup calls = %d, want 3 (404 skipped, abort on 500)", userCalls)
 	}
-	if len(names) != 1 || names["ok"] != "Someone" {
-		t.Errorf("names = %v, want map[ok:Someone]", names)
+	if len(lookup.names) != 1 || lookup.names["ok"] != "Someone" {
+		t.Errorf("names = %v, want map[ok:Someone]", lookup.names)
 	}
-	if len(incomplete) != 1 || !strings.Contains(incomplete[0], "aborted") {
-		t.Errorf("incomplete = %v, want one abort reason", incomplete)
+	if len(lookup.incomplete) != 1 || !strings.Contains(lookup.incomplete[0], "aborted") {
+		t.Errorf("incomplete = %v, want one abort reason", lookup.incomplete)
+	}
+	if strings.Join(lookup.unread, ",") != "boom,never" || lookup.err == nil {
+		t.Errorf("unread = %v (err %v), want the failed login and the rest with the error", lookup.unread, lookup.err)
 	}
 
 	many := make([]string, CollaboratorNameLookupCap+5)
@@ -780,14 +909,14 @@ func TestCollaboratorNames_CapAndAbort(t *testing.T) {
 		many[i] = fmt.Sprintf("user%d", i)
 	}
 	userCalls = 0
-	names, incomplete = client.collaboratorNames(context.Background(), many)
+	lookup = client.collaboratorNames(context.Background(), many)
 	if userCalls != CollaboratorNameLookupCap {
 		t.Errorf("lookup calls = %d, want cap %d", userCalls, CollaboratorNameLookupCap)
 	}
-	if len(names) != CollaboratorNameLookupCap {
-		t.Errorf("names len = %d, want %d", len(names), CollaboratorNameLookupCap)
+	if len(lookup.names) != CollaboratorNameLookupCap {
+		t.Errorf("names len = %d, want %d", len(lookup.names), CollaboratorNameLookupCap)
 	}
-	if len(incomplete) != 1 || !strings.Contains(incomplete[0], "capped") {
-		t.Errorf("incomplete = %v, want one cap reason", incomplete)
+	if len(lookup.incomplete) != 1 || !strings.Contains(lookup.incomplete[0], "capped") {
+		t.Errorf("incomplete = %v, want one cap reason", lookup.incomplete)
 	}
 }
