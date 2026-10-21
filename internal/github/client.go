@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/locktivity/epack/componentsdk"
@@ -26,6 +27,7 @@ var ErrPermissionDenied = errors.New("permission denied")
 type GitHubClient interface {
 	FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity, error)
 	FetchRepositories(ctx context.Context, org string, callback func([]Repository) error) error
+	FetchInstallationRepositories(ctx context.Context) (*InstallationRepositories, error)
 	FetchSecuritySettings(ctx context.Context, owner, repo string) (*SecuritySettings, error)
 	GetBranchRules(ctx context.Context, owner, repo, branch string) ([]BranchRule, error)
 	GetRepoRuleset(ctx context.Context, owner, repo string, rulesetID int64) (*Ruleset, error)
@@ -57,6 +59,7 @@ type Client struct {
 	baseURL      string // REST API base URL (for testing with httptest)
 	graphqlURL   string
 	installation *ghinstallation.Transport
+	exchanges    *tokenExchanges
 }
 
 // Ensure Client implements GitHubClient.
@@ -101,7 +104,8 @@ func NewClientWithGraphQL(httpClient *http.Client, baseURL, graphqlURL string) *
 // Build base with NameOperation, so the installation token requests count
 // under their own name.
 func NewClientFromApp(base http.RoundTripper, appID, installationID int64, privateKey []byte) (*Client, error) {
-	itr, err := ghinstallation.New(base, appID, installationID, privateKey)
+	exchanges := &tokenExchanges{base: base}
+	itr, err := ghinstallation.New(exchanges, appID, installationID, privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GitHub App transport: %w", err)
 	}
@@ -110,7 +114,47 @@ func NewClientFromApp(base http.RoundTripper, appID, installationID int64, priva
 		baseURL:      DefaultBaseURL,
 		graphqlURL:   DefaultGraphQLURL,
 		installation: itr,
+		exchanges:    exchanges,
 	}, nil
+}
+
+// tokenExchanges sends requests through base and keeps the repository
+// selection GitHub returns with each installation token, which ghinstallation
+// does not keep.
+type tokenExchanges struct {
+	base      http.RoundTripper
+	mu        sync.Mutex
+	selection string
+}
+
+func (t *tokenExchanges) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if _, exchange := NameOperation(req); !exchange || err != nil || resp.StatusCode != http.StatusCreated {
+		return resp, err
+	}
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	var token struct {
+		RepositorySelection string `json:"repository_selection"`
+	}
+	if json.Unmarshal(body, &token) == nil {
+		t.mu.Lock()
+		t.selection = token.RepositorySelection
+		t.mu.Unlock()
+	}
+	return resp, nil
+}
+
+// repositorySelection is the selection the last token exchange reported, or
+// "" when it reported none.
+func (t *tokenExchanges) repositorySelection() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.selection
 }
 
 // NameOperation names the installation token requests ghinstallation sends,
@@ -233,11 +277,68 @@ func (c *Client) FetchRepositories(ctx context.Context, org string, callback fun
 	}
 }
 
+// InstallationRepositories is the GitHub App installation's repository
+// access. Names holds the lowercased names of the repositories it is
+// installed on, and is nil when Selection is RepositorySelectionAll.
+type InstallationRepositories struct {
+	Selection string
+	Names     map[string]bool
+}
+
+// FetchInstallationRepositories reads the repositories the GitHub App's
+// installation can read. An installation on all repositories needs no list,
+// so the first page that says so ends the read.
+func (c *Client) FetchInstallationRepositories(ctx context.Context) (*InstallationRepositories, error) {
+	const path = "/installation/repositories?per_page=100"
+	out := &InstallationRepositories{Names: map[string]bool{}}
+	next := c.baseURL + path
+	for next != "" {
+		resp, err := c.do(ctx, componentsdk.Operation{Name: "github.installation_repositories.list"}, http.MethodGet, next, nil)
+		if err != nil {
+			return nil, err
+		}
+		var page struct {
+			RepositorySelection string `json:"repository_selection"`
+			Repositories        *[]struct {
+				Name string `json:"name"`
+			} `json:"repositories"`
+		}
+		decErr := json.NewDecoder(resp.Body).Decode(&page)
+		link := resp.Header.Get("Link")
+		_ = resp.Body.Close()
+		switch {
+		case decErr != nil:
+			return nil, componentsdk.ResponseError(resp, fmt.Errorf("%s: decoding response: %w", trimQuery(path), decErr))
+		case page.RepositorySelection == RepositorySelectionAll:
+			return &InstallationRepositories{Selection: RepositorySelectionAll}, nil
+		case page.RepositorySelection != RepositorySelectionSelected:
+			return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no repository_selection", trimQuery(path)))
+		case page.Repositories == nil:
+			return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no repositories list", trimQuery(path)))
+		}
+		out.Selection = RepositorySelectionSelected
+		for _, r := range *page.Repositories {
+			out.Names[strings.ToLower(r.Name)] = true
+		}
+		next = ""
+		if m := linkNextRe.FindStringSubmatch(link); m != nil {
+			next = m[1]
+		}
+	}
+	return out, nil
+}
+
 // OrgSecurity represents organization-level security settings and the
 // credential that read them. TwoFactorRequired is nil when GitHub left the
 // setting out, which it does unless the caller is an organization owner.
+// RepositoryCount is GitHub's count of the organization's repositories,
+// archived ones included: public_repos plus owned_private_repos, which counts
+// internal repositories too, unlike total_private_repos. It is nil when GitHub
+// left owned_private_repos out, which it also does unless the caller is an
+// organization owner.
 type OrgSecurity struct {
 	TwoFactorRequired *bool
+	RepositoryCount   *int
 	Credential        Credential
 }
 
@@ -245,6 +346,12 @@ type OrgSecurity struct {
 const (
 	CredentialAppInstallation = "app_installation"
 	CredentialToken           = "token"
+)
+
+// Repository selections of a GitHub App installation.
+const (
+	RepositorySelectionAll      = "all"
+	RepositorySelectionSelected = "selected"
 )
 
 // Credential describes what the collector signed in as.
@@ -256,6 +363,10 @@ type Credential struct {
 	// Scopes are the installation's permissions, as name:level, or a classic
 	// token's OAuth scopes.
 	Scopes []string
+	// RepositorySelection is the installation's repository access as the
+	// token exchange reported it, or "" for a token or an exchange that
+	// reported none.
+	RepositorySelection string
 }
 
 // FetchOrgSecurity signs in and reads organization-level security settings.
@@ -285,9 +396,10 @@ func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity
 			return nil, invalidResponse("installation token response has no token")
 		}
 		result.Credential = Credential{
-			Kind:   CredentialAppInstallation,
-			ID:     strconv.FormatInt(c.installation.AppID(), 10),
-			Scopes: installationScopes(c.installation),
+			Kind:                CredentialAppInstallation,
+			ID:                  strconv.FormatInt(c.installation.AppID(), 10),
+			Scopes:              installationScopes(c.installation),
+			RepositorySelection: c.exchanges.repositorySelection(),
 		}
 	}
 
@@ -303,6 +415,8 @@ func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity
 	var body struct {
 		Login                       string `json:"login"`
 		TwoFactorRequirementEnabled *bool  `json:"two_factor_requirement_enabled"`
+		PublicRepos                 *int   `json:"public_repos"`
+		OwnedPrivateRepos           *int   `json:"owned_private_repos"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("%s: decoding response: %w", path, err)
@@ -311,6 +425,10 @@ func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity
 		return nil, invalidResponse("%s response has no login", path)
 	}
 	result.TwoFactorRequired = body.TwoFactorRequirementEnabled
+	if body.PublicRepos != nil && body.OwnedPrivateRepos != nil {
+		count := *body.PublicRepos + *body.OwnedPrivateRepos
+		result.RepositoryCount = &count
+	}
 	if c.installation == nil {
 		result.Credential = Credential{Kind: CredentialToken, Scopes: splitScopes(resp.Header.Get("X-OAuth-Scopes"))}
 	}

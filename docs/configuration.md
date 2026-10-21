@@ -124,6 +124,14 @@ include_patterns: ["*"]
 exclude_patterns: ["test-*", "experiment-*", "sandbox-*"]
 ```
 
+## Selected repositories
+
+A GitHub App can be installed on all of an organization's repositories or only on selected ones. When it is installed on selected repositories, the collector assesses only those, and the patterns narrow them further. The organization's other repositories still count toward `repository_count`, so `repositories_coverage` shows how much of the organization the selection covers, the same way excluded repositories lower it. `scope.repository_selection` records which kind of installation the run used.
+
+GitHub shows the count of the organization's repositories only to organization owners, so an App installed on selected repositories needs the organization Administration permission (read) for it. Without that permission, `repository_count` and `repositories_coverage` are left out with a gap that names it.
+
+A fine-grained token limited to some repositories has the same limit, but GitHub does not say which repositories a token can read. The collector treats every repository it can list as in scope, so public repositories outside the token's selection are refused and left out as gaps. Use the GitHub App, or a token with access to all repositories, and narrow the scope with the patterns.
+
 ## Required GitHub App Permissions
 
 For `trust`-level collection (the default), the app needs:
@@ -137,7 +145,7 @@ For `trust`-level collection (the default), the app needs:
 - Dependabot alerts: Read-only (for dependabot status)
 
 **Organization permissions:**
-- Administration: Read-only (for 2FA settings)
+- Administration: Read-only (for 2FA settings, and for the organization's repository count when the app is installed on selected repositories)
 - Members: Read-only (for organization membership)
 
 ### Additional permissions for audit and internal levels

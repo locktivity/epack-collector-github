@@ -37,7 +37,7 @@
     },
     "scope": {
       "type": "object",
-      "description": "The repositories collection covered: the include and exclude patterns and the repository counts the percentages are taken over.",
+      "description": "The repositories collection covered: the include and exclude patterns, the GitHub App's repository selection, and the repository counts the percentages are taken over.",
       "required": ["include_patterns", "exclude_patterns", "repositories_coverage"],
       "properties": {
         "include_patterns": {
@@ -50,6 +50,12 @@
           "description": "Glob patterns for repositories to leave out. Exclude patterns win over include patterns.",
           "items": { "type": "string" }
         },
+        "repository_selection": {
+          "type": ["string", "null"],
+          "enum": ["all", "selected", null],
+          "x-epack-null": "GitHub does not say which repositories a token can read",
+          "description": "all when the GitHub App is installed on every repository in the organization, or selected when it is installed only on the repositories chosen for it. Repositories outside the selection are not assessed, and they count toward repository_count the way excluded ones do. Null for a token, or when the App's selection could not be read."
+        },
         "repositories_coverage": {
           "type": ["integer", "null"],
           "minimum": 0,
@@ -57,17 +63,17 @@
           "x-epack-denominator": "repository_count",
           "x-epack-numerator": "included_repository_count",
           "x-epack-rounding": "floor",
-          "description": "Percentage of organization repositories covered by the assessment. Null when the organization has no repositories, or when the repository list could not be read."
+          "description": "Percentage of organization repositories covered by the assessment. Null when the organization has no repositories, when the repository list could not be read, or when repository_count is null."
         },
         "repository_count": {
           "type": ["integer", "null"],
           "minimum": 0,
-          "description": "Repositories in the organization, archived and excluded ones included. Null when the repository list could not be read."
+          "description": "Repositories in the organization, archived and excluded ones included. For a GitHub App installed on selected repositories, this is GitHub's own count, public_repos plus owned_private_repos, so it includes the repositories outside the selection. Null when the repository list could not be read, or for such an App when GitHub hides its count, which it shows only to organization owners, or counts fewer repositories than the App lists."
         },
         "included_repository_count": {
           "type": ["integer", "null"],
           "minimum": 0,
-          "description": "Repositories in scope: not archived, and matching the include and exclude patterns. The branch protection and security feature percentages are over these. Null when the repository list could not be read."
+          "description": "Repositories in scope: not archived, matching the include and exclude patterns, and for a GitHub App installed on selected repositories, in its selection. The branch protection and security feature percentages are over these. Null when the repository list could not be read."
         }
       }
     },
@@ -761,7 +767,7 @@
         "archived_count": {
           "type": "integer",
           "minimum": 0,
-          "description": "Archived repositories in the organization, whether or not they match the include and exclude patterns. Archived repositories are out of scope, so none has a row in per_repo or counts toward total_count."
+          "description": "Archived repositories in the organization, or for a GitHub App installed on selected repositories, in its selection, whether or not they match the include and exclude patterns. Archived repositories are out of scope, so none has a row in per_repo or counts toward total_count."
         },
         "default_branch_protected_count": {
           "type": ["integer", "null"],

@@ -32,6 +32,7 @@ const (
 // GitHub lists the permissions each endpoint requires.
 var operationPermissions = map[string]string{
 	"github.repositories.list":                 permMetadata,
+	"github.installation_repositories.list":    permMetadata,
 	"github.branch_rules.list":                 permMetadata,
 	"github.rulesets.get":                      permMetadata,
 	"github.repos.get":                         permMetadata,
@@ -69,6 +70,7 @@ var withheldPermissions = []struct {
 	permission string
 }{
 	{errTwoFactorHidden, permOrgAdministration},
+	{errRepositoryCountHidden, permOrgAdministration},
 	{errOrgSettingsHidden, permOrgAdministration},
 	{github.ErrAnalysisHidden, permAdministration},
 }

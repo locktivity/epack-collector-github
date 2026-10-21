@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,30 +97,86 @@ func kitOrgURL(rest string) string {
 	return fmt.Sprintf("%s/orgs/%s%s", kitAPI, kitOrg, rest)
 }
 
-// kitTokenResponse answers the GitHub App's installation token exchange.
+// kitTokenResponse answers the GitHub App's installation token exchange for
+// an installation on all repositories.
 func kitTokenResponse() collectortest.Response {
+	return kitTokenResponseFor(github.RepositorySelectionAll)
+}
+
+// kitTokenResponseFor answers the exchange for an installation with the
+// given repository selection, or with none when selection is "".
+func kitTokenResponseFor(selection string) collectortest.Response {
+	body := map[string]any{
+		"token":      kitToken,
+		"expires_at": "2099-01-01T00:00:00Z",
+		"permissions": map[string]any{
+			"administration": "read", "contents": "read", "members": "read", "metadata": "read",
+		},
+	}
+	if selection != "" {
+		body["repository_selection"] = selection
+	}
 	return collectortest.Response{
 		Method: http.MethodPost,
 		URL:    fmt.Sprintf("%s/app/installations/%d/access_tokens", kitAPI, kitInstallationID),
 		Status: http.StatusCreated,
-		Body: kitJSON(map[string]any{
-			"token":      kitToken,
-			"expires_at": "2099-01-01T00:00:00Z",
-			"permissions": map[string]any{
-				"administration": "read", "contents": "read", "members": "read", "metadata": "read",
-			},
-		}),
+		Body:   kitJSON(body),
 	}
 }
 
 // kitOrgResponse answers both the sign-in and the org settings read.
 func kitOrgResponse(twoFactor bool) collectortest.Response {
-	return collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(map[string]any{
+	return collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(kitOrgBody(twoFactor))}
+}
+
+func kitOrgBody(twoFactor bool) map[string]any {
+	return map[string]any{
 		"login":                           kitOrg,
 		"two_factor_requirement_enabled":  twoFactor,
 		"default_repository_permission":   "read",
 		"members_can_create_repositories": false,
-	})}
+	}
+}
+
+// kitOutsider is a public fixture repository, so GitHub lists it to a GitHub
+// App that is not installed on it.
+const kitOutsider = "org-ruleset"
+
+// kitInstallationReposURL is the first page of the installation's
+// repositories.
+const kitInstallationReposURL = kitAPI + "/installation/repositories?per_page=100"
+
+// kitSelectedResponses answer the clean run as GitHub does for a GitHub App
+// installed on every fixture repository but kitOutsider. Nothing answers a
+// call about kitOutsider, so a run that reads it fails. GitHub's count of the
+// organization's repositories is its 1 public repository plus ownedPrivate,
+// which is left out when nil.
+func kitSelectedResponses(ownedPrivate *int) []collectortest.Response {
+	outsider := kitRepoURL(kitOutsider, "")
+	var responses []collectortest.Response
+	for _, r := range kitResponses() {
+		if r.URL != outsider && !strings.HasPrefix(r.URL, outsider+"/") {
+			responses = append(responses, r)
+		}
+	}
+	responses = replaceResponse(responses, kitTokenResponseFor(github.RepositorySelectionSelected))
+	org := kitOrgBody(true)
+	org["public_repos"] = 1
+	if ownedPrivate != nil {
+		org["owned_private_repos"] = *ownedPrivate
+	}
+	responses = replaceResponse(responses, collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(org)})
+	var installed []any
+	for _, name := range kitRepos {
+		if name != kitOutsider {
+			installed = append(installed, map[string]any{"name": name, "full_name": kitOrg + "/" + name})
+		}
+	}
+	return append(responses, collectortest.Response{URL: kitInstallationReposURL, Body: kitJSON(map[string]any{
+		"total_count":          len(installed),
+		"repository_selection": github.RepositorySelectionSelected,
+		"repositories":         installed,
+	})})
 }
 
 func kitRepoNode(name, visibility string, archived, vulnAlerts bool, classic map[string]any) map[string]any {

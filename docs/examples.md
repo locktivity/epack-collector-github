@@ -100,6 +100,7 @@ collectors:
     "scope": {
       "include_patterns": ["*"],
       "exclude_patterns": ["*-archived", "test-*"],
+      "repository_selection": "all",
       "repositories_coverage": 79,
       "repository_count": 142,
       "included_repository_count": 113
@@ -156,7 +157,7 @@ collectors:
 
 All coverage values are percentages (0-100), rounded down. The `security_features_coverage` is the average of all five security features. Beside each other percentage is the count of repositories it is taken of: `protected_repository_count`, and a `repository_counts` object in `branch_protection_rules` and in `security_features`. A count is `null` when its percentage is, except that with no repository in scope the counts are 0. A value is `null` when it could not be determined for every repository, and `artifacts/github.collector-result.json` records a gap with the reason, as does `diagnostics`. The percentages are also `null` when no repository is in scope.
 
-The `scope` field records the filters applied during collection. The `repositories_coverage` percentage indicates what proportion of the organization's repositories were assessed (e.g., 79% means 79% of repos matched the include/exclude filters). `repository_count` counts every repository in the organization, archived ones included, and `included_repository_count` counts the ones in scope, which the other percentages are taken over.
+The `scope` field records the filters applied during collection. The `repositories_coverage` percentage indicates what proportion of the organization's repositories were assessed (e.g., 79% means 79% of repos matched the include/exclude filters). `repository_count` counts every repository in the organization, archived ones included, and `included_repository_count` counts the ones in scope, which the other percentages are taken over. `repository_selection` is `all` or `selected` for a GitHub App, and `null` for a token. When the App is installed on selected repositories, only those can be in scope, and the organization's other repositories still count toward `repository_count` (see [Selected repositories](configuration.md#selected-repositories)).
 
 The `access_control` section provides organization-level security posture:
 - `two_factor_required`: Whether 2FA is enforced for all org members

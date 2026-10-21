@@ -78,10 +78,15 @@ type Diagnostics struct {
 
 // Scope describes what was included and excluded from collection. The counts
 // and the coverage are nil when the repository list could not be read, and
-// the coverage is nil for an organization with no repositories.
+// the coverage is nil for an organization with no repositories. For a GitHub
+// App installed on selected repositories, RepositoryCount is GitHub's count of
+// the organization's repositories, and it and the coverage are nil when that
+// count is hidden or below the repositories listed. RepositorySelection is nil
+// for a token.
 type Scope struct {
 	IncludePatterns         []string `json:"include_patterns"`
 	ExcludePatterns         []string `json:"exclude_patterns"`
+	RepositorySelection     *string  `json:"repository_selection"`
 	RepositoriesCoverage    *int     `json:"repositories_coverage"`
 	RepositoryCount         *int     `json:"repository_count"`
 	IncludedRepositoryCount *int     `json:"included_repository_count"`
@@ -229,9 +234,10 @@ type MemberRow struct {
 
 // Repositories is the repo inventory (audit+). The counts are of in-scope
 // repositories, except ArchivedCount, which counts the organization's
-// archived repositories, none of them in scope. DefaultProtected counts
-// effective protection and is nil when any repository's protection could not
-// be determined.
+// archived repositories, none of them in scope, or for a GitHub App installed
+// on selected repositories, the archived ones in its selection.
+// DefaultProtected counts effective protection and is nil when any
+// repository's protection could not be determined.
 type Repositories struct {
 	TotalCount       int       `json:"total_count"`
 	PublicCount      int       `json:"public_count"`
