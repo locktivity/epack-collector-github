@@ -1,0 +1,944 @@
+{
+  "name": "recording",
+  "recorded_at": "2026-10-21T15:48:43Z",
+  "collector": "github",
+  "collector_version": "record",
+  "config": {
+    "app_id": 123456,
+    "installation_id": 78901234,
+    "level": "trust",
+    "organization": "test-org"
+  },
+  "responses": [
+    {
+      "operation": "github.installation_token.create",
+      "method": "POST",
+      "url": "https://api.github.com/app/installations/78901234/access_tokens?",
+      "request_body": "null",
+      "status": 201,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"b09af190e9b21924a6838df7ee90de713110c3455e25baccb563654934d247cf\""
+        ]
+      },
+      "body": {
+        "token": "REDACTED",
+        "expires_at": "2026-10-21T16:48:43Z",
+        "permissions": {
+          "members": "read",
+          "organization_administration": "read",
+          "administration": "read",
+          "contents": "read",
+          "metadata": "read",
+          "secret_scanning_alerts": "read",
+          "security_events": "read",
+          "vulnerability_alerts": "read"
+        },
+        "repository_selection": "all"
+      }
+    },
+    {
+      "operation": "github.orgs.get",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"a56a372d9f4b924be63018440246c292d504173bf217a061fb3c729a9caf0c4d\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4975"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "25"
+        ]
+      },
+      "body": {
+        "login": "test-org",
+        "id": 900000002,
+        "node_id": "node-1",
+        "url": "https://api.github.com/orgs/test-org",
+        "repos_url": "https://api.github.com/orgs/test-org/repos",
+        "events_url": "https://api.github.com/orgs/test-org/events",
+        "hooks_url": "https://api.github.com/orgs/test-org/hooks",
+        "issues_url": "https://api.github.com/orgs/test-org/issues",
+        "members_url": "https://api.github.com/orgs/test-org/members{/member}",
+        "public_members_url": "https://api.github.com/orgs/test-org/public_members{/member}",
+        "avatar_url": "https://avatars.githubusercontent.com/u/900000002?v=4",
+        "description": null,
+        "is_verified": false,
+        "has_organization_projects": true,
+        "has_repository_projects": true,
+        "public_repos": 3,
+        "public_gists": 0,
+        "followers": 0,
+        "following": 0,
+        "html_url": "https://github.com/test-org",
+        "created_at": "2026-10-21T14:30:09Z",
+        "updated_at": "2026-10-21T14:30:09Z",
+        "archived_at": null,
+        "type": "Organization",
+        "total_private_repos": 0,
+        "owned_private_repos": 0,
+        "private_gists": 0,
+        "disk_usage": 2,
+        "collaborators": 0,
+        "billing_email": "user1@example.com",
+        "default_repository_permission": "read",
+        "members_can_create_repositories": true,
+        "two_factor_requirement_enabled": true,
+        "members_allowed_repository_creation_type": "all",
+        "members_can_create_public_repositories": true,
+        "members_can_create_private_repositories": true,
+        "members_can_create_internal_repositories": false,
+        "members_can_create_pages": true,
+        "members_can_fork_private_repositories": false,
+        "web_commit_signoff_required": false,
+        "deploy_keys_enabled_for_repositories": false,
+        "members_can_delete_repositories": true,
+        "members_can_change_repo_visibility": true,
+        "members_can_invite_outside_collaborators": true,
+        "members_can_delete_issues": false,
+        "display_commenter_full_name_setting_enabled": false,
+        "readers_can_create_discussions": true,
+        "members_can_create_teams": true,
+        "members_can_view_dependency_insights": true,
+        "default_repository_branch": "main",
+        "members_can_create_public_pages": true,
+        "members_can_create_private_pages": true,
+        "plan": {
+          "name": "free",
+          "space": 976562499,
+          "private_repos": 10000,
+          "filled_seats": 1,
+          "seats": 0
+        },
+        "advanced_security_enabled_for_new_repositories": false,
+        "dependabot_alerts_enabled_for_new_repositories": false,
+        "dependabot_security_updates_enabled_for_new_repositories": false,
+        "dependency_graph_enabled_for_new_repositories": false,
+        "secret_scanning_enabled_for_new_repositories": false,
+        "secret_scanning_push_protection_enabled_for_new_repositories": false,
+        "secret_scanning_push_protection_custom_link_enabled": false,
+        "secret_scanning_push_protection_custom_link": null,
+        "secret_scanning_validity_checks_enabled": false
+      }
+    },
+    {
+      "operation": "github.repositories.list",
+      "method": "POST",
+      "url": "https://api.github.com/graphql?",
+      "request_body": {
+        "query": "query($cursor:String$org:String!){organization(login: $org){repositories(first: 100, after: $cursor){nodes{name,owner{login},isArchived,isTemplate,visibility,defaultBranchRef{name,branchProtectionRule{requiresApprovingReviews,requiredApprovingReviewCount,dismissesStaleReviews,requiresCodeOwnerReviews,requiresStatusChecks,requiresCommitSignatures,isAdminEnforced,requiresLinearHistory,allowsForcePushes,allowsDeletions,requiresConversationResolution}},hasVulnerabilityAlertsEnabled,createdAt,updatedAt,pushedAt,diskUsage,stargazerCount,description,primaryLanguage{name},licenseInfo{spdxId},repositoryTopics(first: 20){nodes{topic{name}}}},pageInfo{hasNextPage,endCursor}}}}",
+        "variables": {
+          "cursor": null,
+          "org": "test-org"
+        }
+      },
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4996"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "graphql"
+        ],
+        "X-Ratelimit-Used": [
+          "4"
+        ]
+      },
+      "body": {
+        "data": {
+          "organization": {
+            "repositories": {
+              "nodes": [
+                {
+                  "name": "classic-protected",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": {
+                      "requiresApprovingReviews": true,
+                      "requiredApprovingReviewCount": 1,
+                      "dismissesStaleReviews": true,
+                      "requiresCodeOwnerReviews": true,
+                      "requiresStatusChecks": true,
+                      "requiresCommitSignatures": true,
+                      "isAdminEnforced": true,
+                      "requiresLinearHistory": true,
+                      "allowsForcePushes": false,
+                      "allowsDeletions": false,
+                      "requiresConversationResolution": false
+                    }
+                  },
+                  "hasVulnerabilityAlertsEnabled": true,
+                  "createdAt": "2026-10-21T14:43:56Z",
+                  "updatedAt": "2026-10-21T14:44:47Z",
+                  "pushedAt": "2026-10-21T14:44:30Z",
+                  "diskUsage": 1,
+                  "stargazerCount": 0,
+                  "description": "Default branch protected by a classic branch protection rule.",
+                  "primaryLanguage": {
+                    "name": "Python"
+                  },
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "name": "ruleset-protected",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": null
+                  },
+                  "hasVulnerabilityAlertsEnabled": true,
+                  "createdAt": "2026-10-21T14:44:02Z",
+                  "updatedAt": "2026-10-21T14:44:44Z",
+                  "pushedAt": "2026-10-21T14:44:32Z",
+                  "diskUsage": 1,
+                  "stargazerCount": 0,
+                  "description": "Default branch protected by a repository ruleset.",
+                  "primaryLanguage": {
+                    "name": "Python"
+                  },
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "name": "archived-unprotected",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": true,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": null
+                  },
+                  "hasVulnerabilityAlertsEnabled": false,
+                  "createdAt": "2026-10-21T14:48:48Z",
+                  "updatedAt": "2026-10-21T14:51:42Z",
+                  "pushedAt": "2026-10-21T14:48:50Z",
+                  "diskUsage": 0,
+                  "stargazerCount": 0,
+                  "description": "Archived, with nothing turned on. The collector leaves archived repositories out of scope.",
+                  "primaryLanguage": null,
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                }
+              ],
+              "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": "cursor-1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "operation": "github.branch_rules.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-protected/rules/branches/main?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"416e60a4aa99bcc7a6f40809db69cd382ae116f9b0481e05ba9f5ae920bb17db\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4974"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "26"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.branch_rules.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-protected/rules/branches/main?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"7908e069f2bad9c56ddad16b5d08eae86dfa90d9f9068e16e4c2605084ec821b\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4973"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "27"
+        ]
+      },
+      "body": [
+        {
+          "type": "deletion",
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-protected",
+          "ruleset_id": 90000001
+        },
+        {
+          "type": "required_signatures",
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-protected",
+          "ruleset_id": 90000001
+        },
+        {
+          "type": "pull_request",
+          "parameters": {
+            "required_approving_review_count": 1,
+            "dismiss_stale_reviews_on_push": true,
+            "required_reviewers": [],
+            "require_code_owner_review": false,
+            "dismissal_restriction": {
+              "enabled": false,
+              "allowed_actors": []
+            },
+            "require_last_push_approval": false,
+            "required_review_thread_resolution": false,
+            "require_extra_approval_for_unattributed_changes": true,
+            "allowed_merge_methods": [
+              "merge",
+              "squash",
+              "rebase"
+            ]
+          },
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-protected",
+          "ruleset_id": 90000001
+        },
+        {
+          "type": "required_status_checks",
+          "parameters": {
+            "strict_required_status_checks_policy": false,
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "build"
+              }
+            ]
+          },
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-protected",
+          "ruleset_id": 90000001
+        },
+        {
+          "type": "non_fast_forward",
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-protected",
+          "ruleset_id": 90000001
+        }
+      ]
+    },
+    {
+      "operation": "github.rulesets.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-protected/rulesets/90000001?includes_parents=true",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"ec40fb7b17b5a52a5ee1eb73a776071e83f619d527696fcc387ae820309fee0b\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4972"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "28"
+        ]
+      },
+      "body": {
+        "id": 90000001,
+        "name": "protect-default-branch",
+        "target": "branch",
+        "source_type": "Repository",
+        "source": "test-org/ruleset-protected",
+        "enforcement": "active",
+        "conditions": {
+          "ref_name": {
+            "exclude": [],
+            "include": [
+              "~DEFAULT_BRANCH"
+            ]
+          }
+        },
+        "rules": [
+          {
+            "type": "deletion"
+          },
+          {
+            "type": "required_signatures"
+          },
+          {
+            "type": "pull_request",
+            "parameters": {
+              "required_approving_review_count": 1,
+              "dismiss_stale_reviews_on_push": true,
+              "required_reviewers": [],
+              "require_code_owner_review": false,
+              "dismissal_restriction": {
+                "enabled": false,
+                "allowed_actors": []
+              },
+              "require_last_push_approval": false,
+              "required_review_thread_resolution": false,
+              "require_extra_approval_for_unattributed_changes": true,
+              "allowed_merge_methods": [
+                "merge",
+                "squash",
+                "rebase"
+              ]
+            }
+          },
+          {
+            "type": "required_status_checks",
+            "parameters": {
+              "strict_required_status_checks_policy": false,
+              "do_not_enforce_on_create": false,
+              "required_status_checks": [
+                {
+                  "context": "build"
+                }
+              ]
+            }
+          },
+          {
+            "type": "non_fast_forward"
+          }
+        ],
+        "node_id": "node-2",
+        "created_at": "2026-10-21T14:44:40.629Z",
+        "updated_at": "2026-10-21T14:44:40.692Z",
+        "current_user_can_bypass": "never",
+        "_links": {
+          "self": {
+            "href": "https://api.github.com/repos/test-org/ruleset-protected/rulesets/90000001"
+          },
+          "html": {
+            "href": "https://github.com/test-org/ruleset-protected/rules/90000001"
+          }
+        }
+      }
+    },
+    {
+      "operation": "github.repos.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-protected?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"b825279d1e8fd8d315bcef0342af69697f6822936b2542559d4351b7697a3e77\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4971"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "29"
+        ]
+      },
+      "body": {
+        "id": 9000000003,
+        "node_id": "node-4",
+        "name": "classic-protected",
+        "full_name": "test-org/classic-protected",
+        "private": false,
+        "owner": {
+          "login": "test-org",
+          "id": 900000002,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000002?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/test-org/classic-protected",
+        "description": "Default branch protected by a classic branch protection rule.",
+        "fork": false,
+        "url": "https://api.github.com/repos/test-org/classic-protected",
+        "forks_url": "https://api.github.com/repos/test-org/classic-protected/forks",
+        "keys_url": "https://api.github.com/repos/test-org/classic-protected/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/test-org/classic-protected/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/test-org/classic-protected/teams",
+        "hooks_url": "https://api.github.com/repos/test-org/classic-protected/hooks",
+        "issue_events_url": "https://api.github.com/repos/test-org/classic-protected/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/test-org/classic-protected/events",
+        "assignees_url": "https://api.github.com/repos/test-org/classic-protected/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/test-org/classic-protected/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/test-org/classic-protected/tags",
+        "blobs_url": "https://api.github.com/repos/test-org/classic-protected/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/test-org/classic-protected/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/test-org/classic-protected/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/test-org/classic-protected/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/test-org/classic-protected/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/test-org/classic-protected/languages",
+        "stargazers_url": "https://api.github.com/repos/test-org/classic-protected/stargazers",
+        "contributors_url": "https://api.github.com/repos/test-org/classic-protected/contributors",
+        "subscribers_url": "https://api.github.com/repos/test-org/classic-protected/subscribers",
+        "subscription_url": "https://api.github.com/repos/test-org/classic-protected/subscription",
+        "commits_url": "https://api.github.com/repos/test-org/classic-protected/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/test-org/classic-protected/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/test-org/classic-protected/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/test-org/classic-protected/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/test-org/classic-protected/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/test-org/classic-protected/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/test-org/classic-protected/merges",
+        "archive_url": "https://api.github.com/repos/test-org/classic-protected/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/test-org/classic-protected/downloads",
+        "issues_url": "https://api.github.com/repos/test-org/classic-protected/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/test-org/classic-protected/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/test-org/classic-protected/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/test-org/classic-protected/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/test-org/classic-protected/labels{/name}",
+        "releases_url": "https://api.github.com/repos/test-org/classic-protected/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/test-org/classic-protected/deployments",
+        "created_at": "2026-10-21T14:43:56Z",
+        "updated_at": "2026-10-21T14:44:47Z",
+        "pushed_at": "2026-10-21T14:44:30Z",
+        "git_url": "git://github.com/test-org/classic-protected.git",
+        "ssh_url": "user2@example.com:test-org/classic-protected.git",
+        "clone_url": "https://github.com/test-org/classic-protected.git",
+        "svn_url": "https://github.com/test-org/classic-protected",
+        "homepage": "",
+        "size": 1,
+        "stargazers_count": 0,
+        "watchers_count": 0,
+        "language": "Python",
+        "has_issues": false,
+        "has_projects": false,
+        "has_downloads": false,
+        "has_wiki": false,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 0,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 0,
+        "license": null,
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 0,
+        "open_issues": 0,
+        "watchers": 0,
+        "default_branch": "main",
+        "permissions": {
+          "admin": false,
+          "maintain": false,
+          "push": false,
+          "triage": false,
+          "pull": false
+        },
+        "temp_clone_token": "",
+        "custom_properties": {},
+        "organization": {
+          "login": "test-org",
+          "id": 900000002,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000002?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "security_and_analysis": {
+          "secret_scanning": {
+            "status": "enabled"
+          },
+          "secret_scanning_push_protection": {
+            "status": "enabled"
+          },
+          "dependabot_security_updates": {
+            "status": "enabled"
+          },
+          "secret_scanning_non_provider_patterns": {
+            "status": "disabled"
+          },
+          "secret_scanning_validity_checks": {
+            "status": "disabled"
+          }
+        },
+        "network_count": 0,
+        "subscribers_count": 0
+      }
+    },
+    {
+      "operation": "github.code_scanning_default_setup.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-protected/code-scanning/default-setup?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"82f42f75811b3d56e16d30214248f786ab84311e0b922994db3f36232ae44c6e\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4970"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "30"
+        ]
+      },
+      "body": {
+        "state": "configured",
+        "languages": [
+          "python"
+        ],
+        "query_suite": "default",
+        "threat_model": "remote",
+        "updated_at": "2026-10-21T14:53:07Z",
+        "schedule": "weekly",
+        "runner_type": "standard",
+        "runner_label": ""
+      }
+    },
+    {
+      "operation": "github.repos.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-protected?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"0c2d37905ef375d2e71891b9e0a733f52e45653253b9d53ddb97bdc4df9df1d6\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4969"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "31"
+        ]
+      },
+      "body": {
+        "id": 9000000004,
+        "node_id": "node-3",
+        "name": "ruleset-protected",
+        "full_name": "test-org/ruleset-protected",
+        "private": false,
+        "owner": {
+          "login": "test-org",
+          "id": 900000002,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000002?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/test-org/ruleset-protected",
+        "description": "Default branch protected by a repository ruleset.",
+        "fork": false,
+        "url": "https://api.github.com/repos/test-org/ruleset-protected",
+        "forks_url": "https://api.github.com/repos/test-org/ruleset-protected/forks",
+        "keys_url": "https://api.github.com/repos/test-org/ruleset-protected/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/test-org/ruleset-protected/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/test-org/ruleset-protected/teams",
+        "hooks_url": "https://api.github.com/repos/test-org/ruleset-protected/hooks",
+        "issue_events_url": "https://api.github.com/repos/test-org/ruleset-protected/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/test-org/ruleset-protected/events",
+        "assignees_url": "https://api.github.com/repos/test-org/ruleset-protected/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/test-org/ruleset-protected/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/test-org/ruleset-protected/tags",
+        "blobs_url": "https://api.github.com/repos/test-org/ruleset-protected/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/test-org/ruleset-protected/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/test-org/ruleset-protected/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/test-org/ruleset-protected/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/test-org/ruleset-protected/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/test-org/ruleset-protected/languages",
+        "stargazers_url": "https://api.github.com/repos/test-org/ruleset-protected/stargazers",
+        "contributors_url": "https://api.github.com/repos/test-org/ruleset-protected/contributors",
+        "subscribers_url": "https://api.github.com/repos/test-org/ruleset-protected/subscribers",
+        "subscription_url": "https://api.github.com/repos/test-org/ruleset-protected/subscription",
+        "commits_url": "https://api.github.com/repos/test-org/ruleset-protected/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/test-org/ruleset-protected/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/test-org/ruleset-protected/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/test-org/ruleset-protected/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/test-org/ruleset-protected/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/test-org/ruleset-protected/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/test-org/ruleset-protected/merges",
+        "archive_url": "https://api.github.com/repos/test-org/ruleset-protected/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/test-org/ruleset-protected/downloads",
+        "issues_url": "https://api.github.com/repos/test-org/ruleset-protected/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/test-org/ruleset-protected/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/test-org/ruleset-protected/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/test-org/ruleset-protected/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/test-org/ruleset-protected/labels{/name}",
+        "releases_url": "https://api.github.com/repos/test-org/ruleset-protected/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/test-org/ruleset-protected/deployments",
+        "created_at": "2026-10-21T14:44:02Z",
+        "updated_at": "2026-10-21T14:44:44Z",
+        "pushed_at": "2026-10-21T14:44:32Z",
+        "git_url": "git://github.com/test-org/ruleset-protected.git",
+        "ssh_url": "user2@example.com:test-org/ruleset-protected.git",
+        "clone_url": "https://github.com/test-org/ruleset-protected.git",
+        "svn_url": "https://github.com/test-org/ruleset-protected",
+        "homepage": "",
+        "size": 1,
+        "stargazers_count": 0,
+        "watchers_count": 0,
+        "language": "Python",
+        "has_issues": false,
+        "has_projects": false,
+        "has_downloads": false,
+        "has_wiki": false,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 0,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 0,
+        "license": null,
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 0,
+        "open_issues": 0,
+        "watchers": 0,
+        "default_branch": "main",
+        "permissions": {
+          "admin": false,
+          "maintain": false,
+          "push": false,
+          "triage": false,
+          "pull": false
+        },
+        "temp_clone_token": "",
+        "custom_properties": {},
+        "organization": {
+          "login": "test-org",
+          "id": 900000002,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000002?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "security_and_analysis": {
+          "secret_scanning": {
+            "status": "enabled"
+          },
+          "secret_scanning_push_protection": {
+            "status": "enabled"
+          },
+          "dependabot_security_updates": {
+            "status": "enabled"
+          },
+          "secret_scanning_non_provider_patterns": {
+            "status": "disabled"
+          },
+          "secret_scanning_validity_checks": {
+            "status": "disabled"
+          }
+        },
+        "network_count": 0,
+        "subscribers_count": 0
+      }
+    },
+    {
+      "operation": "github.code_scanning_default_setup.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-protected/code-scanning/default-setup?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"b9b73d4abd8d76a9160c645312d05a13ff8c7e1857c1466a2b8adb131ecc0cfd\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4968"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "32"
+        ]
+      },
+      "body": {
+        "state": "configured",
+        "languages": [
+          "python"
+        ],
+        "query_suite": "default",
+        "threat_model": "remote",
+        "updated_at": "2026-10-21T14:53:04Z",
+        "schedule": "weekly",
+        "runner_type": "standard",
+        "runner_label": ""
+      }
+    }
+  ]
+}
