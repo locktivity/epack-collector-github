@@ -314,6 +314,34 @@ func TestRejectedTokenFailsTheRun(t *testing.T) {
 	}
 }
 
+// A 404 that shows the organization lacks a feature leaves the surface out
+// as not_licensed, and the gap still names the call GitHub answered.
+func TestNotLicensedGapsNameTheirCall(t *testing.T) {
+	responses := kitResponses()
+	for _, url := range []string{
+		kitOrgURL("/audit-log?phrase=created%3A%3E%3D2026-10-10&per_page=100"),
+		kitOrgURL("/personal-access-tokens?per_page=100"),
+	} {
+		responses = replaceResponse(responses, kitNotFoundResponse(url))
+	}
+	res := runKit(t, kitConfig(), kitSecrets(), responses)
+	if res.ExitCode != 0 || res.Result == nil {
+		t.Fatalf("run failed with exit %d: %s", res.ExitCode, res.Stderr)
+	}
+	for pointer, operation := range map[string]string{
+		"/audit_log": "github.audit_log.list",
+		"/tokens":    "github.org_personal_access_tokens.list",
+	} {
+		g := gapAt(res, DetailedPath, pointer)
+		switch {
+		case g == nil:
+			t.Errorf("%s: no gap", pointer)
+		case g.Code != componentsdk.CodeNotLicensed || g.Operation != operation || g.Call == 0:
+			t.Errorf("%s: code %s, operation %q, call %d; want not_licensed naming a %s call", pointer, g.Code, g.Operation, g.Call, operation)
+		}
+	}
+}
+
 func TestRunRecordsTheSignedInApp(t *testing.T) {
 	res := runKit(t, kitConfig(), kitSecrets(), kitResponses())
 	if res.ExitCode != 0 || res.Result == nil {

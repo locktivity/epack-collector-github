@@ -136,6 +136,23 @@ func newGraphQLError(resp *http.Response, errs []graphQLError) *APIError {
 	return e
 }
 
+// unavailableError is ErrFeatureUnavailable for reason, from the failed call
+// that showed the feature is off. Its text is the reason alone, and it keeps
+// the call, so a gap recorded from it names the call.
+type unavailableError struct {
+	reason string
+	call   error
+}
+
+func (e *unavailableError) Error() string   { return ErrFeatureUnavailable.Error() + ": " + e.reason }
+func (e *unavailableError) Unwrap() []error { return []error{ErrFeatureUnavailable, e.call} }
+
+// featureUnavailable returns call, a 404 that shows the organization lacks a
+// feature, as ErrFeatureUnavailable coded not_licensed.
+func featureUnavailable(call error, reason string) error {
+	return componentsdk.CodeError(componentsdk.CodeNotLicensed, &unavailableError{reason: reason, call: call})
+}
+
 // operationOf names the call resp answered.
 func operationOf(resp *http.Response) string {
 	if resp.Request == nil {

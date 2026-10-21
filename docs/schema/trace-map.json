@@ -1120,27 +1120,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:906"
+            "line": "internal/github/surfaces.go:905"
           }
         ],
         "gaps": [
@@ -1190,27 +1190,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:905"
+            "line": "internal/github/surfaces.go:904"
           }
         ],
         "gaps": [
@@ -1264,27 +1264,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:909"
+            "line": "internal/github/surfaces.go:908"
           }
         ],
         "gaps": [
@@ -1338,27 +1338,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:912"
+            "line": "internal/github/surfaces.go:911"
           }
         ],
         "gaps": [
@@ -1405,27 +1405,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -1469,27 +1469,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -1536,27 +1536,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ],
         "gaps": [
@@ -1603,27 +1603,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -1670,27 +1670,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ],
         "gaps": [
@@ -1737,27 +1737,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -1801,27 +1801,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -1865,27 +1865,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -1929,27 +1929,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -1996,27 +1996,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ],
         "gaps": [
@@ -2063,27 +2063,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -2127,27 +2127,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -2191,27 +2191,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -2255,27 +2255,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:908"
+            "line": "internal/github/surfaces.go:907"
           }
         ]
       },
@@ -2326,27 +2326,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:911"
+            "line": "internal/github/surfaces.go:910"
           }
         ],
         "gaps": [
@@ -2396,27 +2396,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:907"
+            "line": "internal/github/surfaces.go:906"
           }
         ],
         "gaps": [
@@ -2470,27 +2470,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:884"
+            "line": "internal/github/surfaces.go:883"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:885"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:886"
+            "line": "internal/github/surfaces.go:889"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:890"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:901"
+            "line": "internal/github/surfaces.go:900"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:910"
+            "line": "internal/github/surfaces.go:909"
           }
         ],
         "gaps": [
@@ -2591,19 +2591,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:836"
+            "line": "internal/github/surfaces.go:835"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:843"
+            "line": "internal/github/surfaces.go:842"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:846"
+            "line": "internal/github/surfaces.go:845"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:849"
+            "line": "internal/github/surfaces.go:848"
           }
         ],
         "gaps": [
@@ -2682,19 +2682,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:836"
+            "line": "internal/github/surfaces.go:835"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:843"
+            "line": "internal/github/surfaces.go:842"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:846"
+            "line": "internal/github/surfaces.go:845"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:849"
+            "line": "internal/github/surfaces.go:848"
           }
         ],
         "gaps": [
@@ -2768,19 +2768,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:836"
+            "line": "internal/github/surfaces.go:835"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:843"
+            "line": "internal/github/surfaces.go:842"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:846"
+            "line": "internal/github/surfaces.go:845"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:849"
+            "line": "internal/github/surfaces.go:848"
           }
         ],
         "gaps": [
@@ -2854,19 +2854,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:836"
+            "line": "internal/github/surfaces.go:835"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:843"
+            "line": "internal/github/surfaces.go:842"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:846"
+            "line": "internal/github/surfaces.go:845"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:849"
+            "line": "internal/github/surfaces.go:848"
           }
         ],
         "gaps": [
@@ -2940,19 +2940,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:836"
+            "line": "internal/github/surfaces.go:835"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:843"
+            "line": "internal/github/surfaces.go:842"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:846"
+            "line": "internal/github/surfaces.go:845"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:849"
+            "line": "internal/github/surfaces.go:848"
           }
         ],
         "gaps": [
@@ -3026,19 +3026,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:836"
+            "line": "internal/github/surfaces.go:835"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:843"
+            "line": "internal/github/surfaces.go:842"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:846"
+            "line": "internal/github/surfaces.go:845"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:849"
+            "line": "internal/github/surfaces.go:848"
           }
         ],
         "gaps": [
@@ -4881,11 +4881,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1030"
+            "line": "internal/github/surfaces.go:1029"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1031"
           },
           {
             "role": "condition",
@@ -4896,20 +4900,16 @@
             "line": "internal/github/surfaces.go:1033"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1034"
           },
           {
-            "role": "input",
+            "role": "condition",
             "line": "internal/github/surfaces.go:1035"
           },
           {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1036"
-          },
-          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1037"
+            "line": "internal/github/surfaces.go:1036"
           }
         ],
         "gaps": [
@@ -5012,15 +5012,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1026"
+            "line": "internal/github/surfaces.go:1025"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1030"
+            "line": "internal/github/surfaces.go:1029"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1031"
           },
           {
             "role": "condition",
@@ -5031,36 +5035,32 @@
             "line": "internal/github/surfaces.go:1033"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1034"
           },
           {
-            "role": "input",
+            "role": "condition",
             "line": "internal/github/surfaces.go:1035"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1036"
           },
           {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1070"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1076"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1080"
+          },
+          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1037"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1071"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1077"
-          },
-          {
-            "role": "condition",
             "line": "internal/github/surfaces.go:1081"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1082"
           }
         ],
         "gaps": [
@@ -5164,15 +5164,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1026"
+            "line": "internal/github/surfaces.go:1025"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1030"
+            "line": "internal/github/surfaces.go:1029"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1031"
           },
           {
             "role": "condition",
@@ -5183,36 +5187,32 @@
             "line": "internal/github/surfaces.go:1033"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1034"
           },
           {
-            "role": "input",
+            "role": "condition",
             "line": "internal/github/surfaces.go:1035"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1036"
           },
           {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1070"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1076"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1080"
+          },
+          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1037"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1071"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1077"
-          },
-          {
-            "role": "condition",
             "line": "internal/github/surfaces.go:1081"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1082"
           }
         ],
         "gaps": [
@@ -5318,15 +5318,19 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1026"
+            "line": "internal/github/surfaces.go:1025"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1030"
+            "line": "internal/github/surfaces.go:1029"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1031"
           },
           {
             "role": "condition",
@@ -5337,36 +5341,32 @@
             "line": "internal/github/surfaces.go:1033"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1034"
           },
           {
-            "role": "input",
+            "role": "condition",
             "line": "internal/github/surfaces.go:1035"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1036"
           },
           {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1070"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1076"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1080"
+          },
+          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1037"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1071"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1077"
-          },
-          {
-            "role": "condition",
             "line": "internal/github/surfaces.go:1081"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1082"
           }
         ],
         "gaps": [
@@ -5387,11 +5387,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1029"
+            "line": "internal/github/surfaces.go:1028"
           }
         ],
         "gaps": [
@@ -5411,11 +5411,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1027"
+            "line": "internal/github/surfaces.go:1026"
           }
         ],
         "gaps": [
@@ -5435,11 +5435,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1026"
+            "line": "internal/github/surfaces.go:1025"
           }
         ],
         "gaps": [
@@ -5459,7 +5459,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -5470,12 +5474,8 @@
             "line": "internal/github/surfaces.go:1041"
           },
           {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1042"
-          },
-          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1044"
+            "line": "internal/github/surfaces.go:1043"
           }
         ],
         "gaps": [
@@ -5570,11 +5570,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1026"
+            "line": "internal/github/surfaces.go:1025"
           }
         ],
         "gaps": [
@@ -5670,11 +5670,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1026"
+            "line": "internal/github/surfaces.go:1025"
           }
         ],
         "gaps": [
@@ -5711,7 +5711,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -5722,12 +5726,8 @@
             "line": "internal/github/surfaces.go:1041"
           },
           {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1042"
-          },
-          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1043"
+            "line": "internal/github/surfaces.go:1042"
           }
         ],
         "gaps": [
@@ -5751,7 +5751,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -5763,19 +5767,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1042"
+            "line": "internal/github/surfaces.go:1044"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1045"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1046"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1048"
+            "line": "internal/github/surfaces.go:1047"
           }
         ],
         "gaps": [
@@ -5799,7 +5799,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -5811,19 +5815,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1042"
+            "line": "internal/github/surfaces.go:1044"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1045"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1046"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1050"
+            "line": "internal/github/surfaces.go:1049"
           }
         ],
         "gaps": [
@@ -5847,7 +5847,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -5859,19 +5863,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1042"
+            "line": "internal/github/surfaces.go:1044"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1045"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1046"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1049"
+            "line": "internal/github/surfaces.go:1048"
           }
         ],
         "gaps": [
@@ -5895,7 +5895,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -5907,19 +5911,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1042"
+            "line": "internal/github/surfaces.go:1044"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1045"
           },
           {
             "role": "input",
             "line": "internal/github/surfaces.go:1046"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1047"
           }
         ],
         "gaps": [
@@ -5939,11 +5939,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1028"
+            "line": "internal/github/surfaces.go:1027"
           }
         ],
         "gaps": [
@@ -5963,7 +5963,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -5971,15 +5975,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1041"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1053"
+            "line": "internal/github/surfaces.go:1052"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1054"
+            "line": "internal/github/surfaces.go:1053"
           }
         ],
         "gaps": [
@@ -6113,7 +6113,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1021"
+            "line": "internal/github/surfaces.go:1020"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1039"
           },
           {
             "role": "condition",
@@ -6124,12 +6128,8 @@
             "line": "internal/github/surfaces.go:1041"
           },
           {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1042"
-          },
-          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1043"
+            "line": "internal/github/surfaces.go:1042"
           }
         ],
         "gaps": [
@@ -13439,27 +13439,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1133"
+            "line": "internal/github/surfaces.go:1132"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:1133"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:1134"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1135"
+            "line": "internal/github/surfaces.go:1141"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1143"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1154"
+            "line": "internal/github/surfaces.go:1152"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1170"
+            "line": "internal/github/surfaces.go:1168"
           }
         ],
         "gaps": [
@@ -13513,27 +13513,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1133"
+            "line": "internal/github/surfaces.go:1132"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:1133"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:1134"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1135"
+            "line": "internal/github/surfaces.go:1141"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1143"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1154"
+            "line": "internal/github/surfaces.go:1152"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1165"
+            "line": "internal/github/surfaces.go:1163"
           }
         ],
         "gaps": [
@@ -13587,27 +13587,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1133"
+            "line": "internal/github/surfaces.go:1132"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:1133"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:1134"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1135"
+            "line": "internal/github/surfaces.go:1141"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1143"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1154"
+            "line": "internal/github/surfaces.go:1152"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1166"
+            "line": "internal/github/surfaces.go:1164"
           }
         ],
         "gaps": [
@@ -13661,43 +13661,43 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1133"
+            "line": "internal/github/surfaces.go:1132"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:1133"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:1134"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1135"
+            "line": "internal/github/surfaces.go:1141"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1143"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1154"
+            "line": "internal/github/surfaces.go:1152"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:1155"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1156"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:1157"
           },
           {
-            "role": "condition",
+            "role": "input",
             "line": "internal/github/surfaces.go:1158"
           },
           {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1159"
-          },
-          {
             "role": "input",
-            "line": "internal/github/surfaces.go:1160"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:1168"
+            "line": "internal/github/surfaces.go:1166"
           }
         ],
         "gaps": [
@@ -13751,27 +13751,27 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1133"
+            "line": "internal/github/surfaces.go:1132"
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:1133"
+          },
+          {
+            "role": "condition",
             "line": "internal/github/surfaces.go:1134"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1135"
+            "line": "internal/github/surfaces.go:1141"
           },
           {
             "role": "condition",
-            "line": "internal/github/surfaces.go:1143"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:1154"
+            "line": "internal/github/surfaces.go:1152"
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:1167"
+            "line": "internal/github/surfaces.go:1165"
           }
         ],
         "gaps": [
@@ -16324,65 +16324,65 @@
     "internal/github/surfaces.go:826": "\tpath := fmt.Sprintf(\"/orgs/%s/audit-log?phrase=%s\u0026per_page=100\", org, url.QueryEscape(phrase))",
     "internal/github/surfaces.go:827": "\traw, more, err := c.getPagedRaw(ctx, \"github.audit_log.list\", path, maxEvents)",
     "internal/github/surfaces.go:828": "\tif err != nil {",
-    "internal/github/surfaces.go:836": "\tfor _, r := range raw {",
-    "internal/github/surfaces.go:843": "\t\tif err := json.Unmarshal(r, \u0026e); err != nil {",
-    "internal/github/surfaces.go:846": "\t\tif !isSecurityRelevantAction(e.Action) {",
-    "internal/github/surfaces.go:849": "\t\tout = append(out, AuditEvent{Action: e.Action, Actor: e.Actor, Repo: e.Repo, CreatedAt: e.CreatedAt})",
-    "internal/github/surfaces.go:884": "\tpath := fmt.Sprintf(\"/orgs/%s/installations?per_page=100\", org)",
-    "internal/github/surfaces.go:885": "\traw, total, err := c.getPagedTotal(ctx, \"github.org_installations.list\", path, \"installations\", InventoryFetchCap)",
-    "internal/github/surfaces.go:886": "\tif err != nil {",
-    "internal/github/surfaces.go:890": "\tfor _, item := range raw {",
-    "internal/github/surfaces.go:901": "\t\tif err := json.Unmarshal(item, \u0026i); err != nil {",
-    "internal/github/surfaces.go:905": "\t\t\tAppSlug:             i.AppSlug,",
-    "internal/github/surfaces.go:906": "\t\t\tAppID:               i.AppID,",
-    "internal/github/surfaces.go:907": "\t\t\tSuspended:           i.SuspendedAt != nil,",
-    "internal/github/surfaces.go:908": "\t\t\tPermissions:         i.Permissions,",
-    "internal/github/surfaces.go:909": "\t\t\tCreatedAt:           i.CreatedAt,",
-    "internal/github/surfaces.go:910": "\t\t\tUpdatedAt:           i.UpdatedAt,",
-    "internal/github/surfaces.go:911": "\t\t\tRepositorySelection: i.RepositorySelection,",
-    "internal/github/surfaces.go:912": "\t\t\tEvents:              i.Events,",
-    "internal/github/surfaces.go:1021": "\tif json.Unmarshal(raw, \u0026e) != nil {",
-    "internal/github/surfaces.go:1026": "\t\tName:            e.Name,",
-    "internal/github/surfaces.go:1027": "\t\tCreatedAt:       e.CreatedAt,",
-    "internal/github/surfaces.go:1028": "\t\tUpdatedAt:       e.UpdatedAt,",
-    "internal/github/surfaces.go:1029": "\t\tCanAdminsBypass: e.CanAdminsBypass,",
-    "internal/github/surfaces.go:1030": "\t\tBranchPolicy:    BranchPolicyAny,",
-    "internal/github/surfaces.go:1032": "\tif e.DeploymentBranchPolicy != nil {",
-    "internal/github/surfaces.go:1033": "\t\tswitch {",
-    "internal/github/surfaces.go:1034": "\t\tcase e.DeploymentBranchPolicy.CustomBranchPolicies:",
-    "internal/github/surfaces.go:1035": "\t\t\tenv.BranchPolicy = BranchPolicyCustom",
-    "internal/github/surfaces.go:1036": "\t\tcase e.DeploymentBranchPolicy.ProtectedBranches:",
-    "internal/github/surfaces.go:1037": "\t\t\tenv.BranchPolicy = BranchPolicyProtected",
-    "internal/github/surfaces.go:1040": "\tfor _, rule := range e.ProtectionRules {",
-    "internal/github/surfaces.go:1041": "\t\tswitch rule.Type {",
-    "internal/github/surfaces.go:1042": "\t\tcase \"required_reviewers\":",
-    "internal/github/surfaces.go:1043": "\t\t\tenv.HasRequiredReviewers = true",
-    "internal/github/surfaces.go:1044": "\t\t\tenv.PreventSelfReview = rule.PreventSelfReview",
-    "internal/github/surfaces.go:1045": "\t\t\tfor _, rv := range rule.Reviewers {",
-    "internal/github/surfaces.go:1046": "\t\t\t\tenv.Reviewers = append(env.Reviewers, EnvironmentReviewer{",
-    "internal/github/surfaces.go:1047": "\t\t\t\t\tType:  rv.Type,",
-    "internal/github/surfaces.go:1048": "\t\t\t\t\tLogin: rv.Reviewer.Login,",
-    "internal/github/surfaces.go:1049": "\t\t\t\t\tSlug:  rv.Reviewer.Slug,",
-    "internal/github/surfaces.go:1050": "\t\t\t\t\tName:  rv.Reviewer.Name,",
-    "internal/github/surfaces.go:1053": "\t\tcase \"wait_timer\":",
-    "internal/github/surfaces.go:1054": "\t\t\tenv.WaitTimerMinutes = rule.WaitTimer",
-    "internal/github/surfaces.go:1071": "\tif err := c.getJSON(ctx, \"github.environment_branch_policies.list\", path, \u0026body); err != nil {",
-    "internal/github/surfaces.go:1077": "\tif body.BranchPolicies == nil {",
-    "internal/github/surfaces.go:1081": "\tfor _, p := range *body.BranchPolicies {",
-    "internal/github/surfaces.go:1082": "\t\tout = append(out, BranchPolicyPattern{Name: p.Name, Type: p.Type})",
-    "internal/github/surfaces.go:1133": "\tpath := fmt.Sprintf(\"/orgs/%s/personal-access-tokens?per_page=100\", org)",
-    "internal/github/surfaces.go:1134": "\traw, more, err := c.getPagedRaw(ctx, \"github.org_personal_access_tokens.list\", path, 5000)",
-    "internal/github/surfaces.go:1135": "\tif err != nil {",
-    "internal/github/surfaces.go:1143": "\tfor _, r := range raw {",
-    "internal/github/surfaces.go:1154": "\t\tif err := json.Unmarshal(r, \u0026p); err != nil {",
-    "internal/github/surfaces.go:1157": "\t\tperms := make([]string, 0)",
-    "internal/github/surfaces.go:1158": "\t\tfor scope, actions := range p.Permissions {",
-    "internal/github/surfaces.go:1159": "\t\t\tfor name := range actions {",
-    "internal/github/surfaces.go:1160": "\t\t\t\tperms = append(perms, scope+\":\"+name)",
-    "internal/github/surfaces.go:1165": "\t\t\tID:          p.ID,",
-    "internal/github/surfaces.go:1166": "\t\t\tOwner:       p.Owner.Login,",
-    "internal/github/surfaces.go:1167": "\t\t\tTokenName:   p.TokenName,",
-    "internal/github/surfaces.go:1168": "\t\t\tPermissions: perms,",
-    "internal/github/surfaces.go:1170": "\t\t\tExpiresAt:   p.TokenExpiresAt,"
+    "internal/github/surfaces.go:835": "\tfor _, r := range raw {",
+    "internal/github/surfaces.go:842": "\t\tif err := json.Unmarshal(r, \u0026e); err != nil {",
+    "internal/github/surfaces.go:845": "\t\tif !isSecurityRelevantAction(e.Action) {",
+    "internal/github/surfaces.go:848": "\t\tout = append(out, AuditEvent{Action: e.Action, Actor: e.Actor, Repo: e.Repo, CreatedAt: e.CreatedAt})",
+    "internal/github/surfaces.go:883": "\tpath := fmt.Sprintf(\"/orgs/%s/installations?per_page=100\", org)",
+    "internal/github/surfaces.go:884": "\traw, total, err := c.getPagedTotal(ctx, \"github.org_installations.list\", path, \"installations\", InventoryFetchCap)",
+    "internal/github/surfaces.go:885": "\tif err != nil {",
+    "internal/github/surfaces.go:889": "\tfor _, item := range raw {",
+    "internal/github/surfaces.go:900": "\t\tif err := json.Unmarshal(item, \u0026i); err != nil {",
+    "internal/github/surfaces.go:904": "\t\t\tAppSlug:             i.AppSlug,",
+    "internal/github/surfaces.go:905": "\t\t\tAppID:               i.AppID,",
+    "internal/github/surfaces.go:906": "\t\t\tSuspended:           i.SuspendedAt != nil,",
+    "internal/github/surfaces.go:907": "\t\t\tPermissions:         i.Permissions,",
+    "internal/github/surfaces.go:908": "\t\t\tCreatedAt:           i.CreatedAt,",
+    "internal/github/surfaces.go:909": "\t\t\tUpdatedAt:           i.UpdatedAt,",
+    "internal/github/surfaces.go:910": "\t\t\tRepositorySelection: i.RepositorySelection,",
+    "internal/github/surfaces.go:911": "\t\t\tEvents:              i.Events,",
+    "internal/github/surfaces.go:1020": "\tif json.Unmarshal(raw, \u0026e) != nil {",
+    "internal/github/surfaces.go:1025": "\t\tName:            e.Name,",
+    "internal/github/surfaces.go:1026": "\t\tCreatedAt:       e.CreatedAt,",
+    "internal/github/surfaces.go:1027": "\t\tUpdatedAt:       e.UpdatedAt,",
+    "internal/github/surfaces.go:1028": "\t\tCanAdminsBypass: e.CanAdminsBypass,",
+    "internal/github/surfaces.go:1029": "\t\tBranchPolicy:    BranchPolicyAny,",
+    "internal/github/surfaces.go:1031": "\tif e.DeploymentBranchPolicy != nil {",
+    "internal/github/surfaces.go:1032": "\t\tswitch {",
+    "internal/github/surfaces.go:1033": "\t\tcase e.DeploymentBranchPolicy.CustomBranchPolicies:",
+    "internal/github/surfaces.go:1034": "\t\t\tenv.BranchPolicy = BranchPolicyCustom",
+    "internal/github/surfaces.go:1035": "\t\tcase e.DeploymentBranchPolicy.ProtectedBranches:",
+    "internal/github/surfaces.go:1036": "\t\t\tenv.BranchPolicy = BranchPolicyProtected",
+    "internal/github/surfaces.go:1039": "\tfor _, rule := range e.ProtectionRules {",
+    "internal/github/surfaces.go:1040": "\t\tswitch rule.Type {",
+    "internal/github/surfaces.go:1041": "\t\tcase \"required_reviewers\":",
+    "internal/github/surfaces.go:1042": "\t\t\tenv.HasRequiredReviewers = true",
+    "internal/github/surfaces.go:1043": "\t\t\tenv.PreventSelfReview = rule.PreventSelfReview",
+    "internal/github/surfaces.go:1044": "\t\t\tfor _, rv := range rule.Reviewers {",
+    "internal/github/surfaces.go:1045": "\t\t\t\tenv.Reviewers = append(env.Reviewers, EnvironmentReviewer{",
+    "internal/github/surfaces.go:1046": "\t\t\t\t\tType:  rv.Type,",
+    "internal/github/surfaces.go:1047": "\t\t\t\t\tLogin: rv.Reviewer.Login,",
+    "internal/github/surfaces.go:1048": "\t\t\t\t\tSlug:  rv.Reviewer.Slug,",
+    "internal/github/surfaces.go:1049": "\t\t\t\t\tName:  rv.Reviewer.Name,",
+    "internal/github/surfaces.go:1052": "\t\tcase \"wait_timer\":",
+    "internal/github/surfaces.go:1053": "\t\t\tenv.WaitTimerMinutes = rule.WaitTimer",
+    "internal/github/surfaces.go:1070": "\tif err := c.getJSON(ctx, \"github.environment_branch_policies.list\", path, \u0026body); err != nil {",
+    "internal/github/surfaces.go:1076": "\tif body.BranchPolicies == nil {",
+    "internal/github/surfaces.go:1080": "\tfor _, p := range *body.BranchPolicies {",
+    "internal/github/surfaces.go:1081": "\t\tout = append(out, BranchPolicyPattern{Name: p.Name, Type: p.Type})",
+    "internal/github/surfaces.go:1132": "\tpath := fmt.Sprintf(\"/orgs/%s/personal-access-tokens?per_page=100\", org)",
+    "internal/github/surfaces.go:1133": "\traw, more, err := c.getPagedRaw(ctx, \"github.org_personal_access_tokens.list\", path, 5000)",
+    "internal/github/surfaces.go:1134": "\tif err != nil {",
+    "internal/github/surfaces.go:1141": "\tfor _, r := range raw {",
+    "internal/github/surfaces.go:1152": "\t\tif err := json.Unmarshal(r, \u0026p); err != nil {",
+    "internal/github/surfaces.go:1155": "\t\tperms := make([]string, 0)",
+    "internal/github/surfaces.go:1156": "\t\tfor scope, actions := range p.Permissions {",
+    "internal/github/surfaces.go:1157": "\t\t\tfor name := range actions {",
+    "internal/github/surfaces.go:1158": "\t\t\t\tperms = append(perms, scope+\":\"+name)",
+    "internal/github/surfaces.go:1163": "\t\t\tID:          p.ID,",
+    "internal/github/surfaces.go:1164": "\t\t\tOwner:       p.Owner.Login,",
+    "internal/github/surfaces.go:1165": "\t\t\tTokenName:   p.TokenName,",
+    "internal/github/surfaces.go:1166": "\t\t\tPermissions: perms,",
+    "internal/github/surfaces.go:1168": "\t\t\tExpiresAt:   p.TokenExpiresAt,"
   }
 }
