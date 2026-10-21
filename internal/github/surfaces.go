@@ -827,8 +827,7 @@ func (c *Client) GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEv
 	raw, more, err := c.getPagedRaw(ctx, "github.audit_log.list", path, maxEvents)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return nil, false, componentsdk.CodeError(componentsdk.CodeNotLicensed,
-				fmt.Errorf("%w: the audit log API requires GitHub Enterprise Cloud", ErrFeatureUnavailable))
+			return nil, false, featureUnavailable(err, "the audit log API requires GitHub Enterprise Cloud")
 		}
 		return nil, false, err
 	}
@@ -1134,8 +1133,7 @@ func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool,
 	raw, more, err := c.getPagedRaw(ctx, "github.org_personal_access_tokens.list", path, 5000)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return nil, false, componentsdk.CodeError(componentsdk.CodeNotLicensed,
-				fmt.Errorf("%w: the organization has no fine-grained personal access token policy", ErrFeatureUnavailable))
+			return nil, false, featureUnavailable(err, "the organization has no fine-grained personal access token policy")
 		}
 		return nil, false, err
 	}
