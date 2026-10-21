@@ -538,6 +538,116 @@ func TestFetchOrgSecurity_BodyWithoutLogin(t *testing.T) {
 	}
 }
 
+func TestFetchOrgSecurity_RepositoryCount(t *testing.T) {
+	tests := []struct {
+		name string
+		body map[string]any
+		want *int
+	}{
+		{
+			// total_private_repos leaves internal repositories out, so it is
+			// not counted.
+			name: "owner",
+			body: map[string]any{"login": "test-org", "public_repos": 18, "owned_private_repos": 15, "total_private_repos": 5},
+			want: ptrInt(33),
+		},
+		{
+			name: "not an owner",
+			body: map[string]any{"login": "test-org", "public_repos": 18},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(tt.body)
+			}))
+			defer server.Close()
+
+			security, err := NewClientWithHTTP(server.Client(), server.URL).FetchOrgSecurity(context.Background(), "test-org")
+			if err != nil {
+				t.Fatalf("FetchOrgSecurity() error: %v", err)
+			}
+			switch {
+			case tt.want == nil && security.RepositoryCount != nil:
+				t.Errorf("RepositoryCount = %d, want nil", *security.RepositoryCount)
+			case tt.want != nil && (security.RepositoryCount == nil || *security.RepositoryCount != *tt.want):
+				t.Errorf("RepositoryCount = %v, want %d", security.RepositoryCount, *tt.want)
+			}
+		})
+	}
+}
+
+func ptrInt(v int) *int { return &v }
+
+// installationReposPage serves one page of GET /installation/repositories,
+// linking to page 2 when next is set.
+func installationReposPage(w http.ResponseWriter, serverURL, selection string, names []string, next bool) {
+	repos := make([]any, 0, len(names))
+	for _, name := range names {
+		repos = append(repos, map[string]any{"name": name, "full_name": "test-org/" + name})
+	}
+	if next {
+		w.Header().Set("Link", fmt.Sprintf(`<%s/installation/repositories?per_page=100&page=2>; rel="next"`, serverURL))
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"total_count": 2, "repository_selection": selection, "repositories": repos})
+}
+
+func TestFetchInstallationRepositories_FollowsEveryPage(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/installation/repositories" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.URL.Query().Get("page") == "" {
+			installationReposPage(w, server.URL, RepositorySelectionSelected, []string{"Repo-One"}, true)
+			return
+		}
+		installationReposPage(w, server.URL, RepositorySelectionSelected, []string{"repo-two"}, false)
+	}))
+	defer server.Close()
+
+	installed, err := NewClientWithHTTP(server.Client(), server.URL).FetchInstallationRepositories(context.Background())
+	if err != nil {
+		t.Fatalf("FetchInstallationRepositories() error: %v", err)
+	}
+	if installed.Selection != RepositorySelectionSelected || len(installed.Names) != 2 || !installed.Names["repo-one"] || !installed.Names["repo-two"] {
+		t.Errorf("installed = %+v, want selected with repo-one and repo-two", installed)
+	}
+}
+
+func TestFetchInstallationRepositories_AllNeedsOnePage(t *testing.T) {
+	requests := 0
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		installationReposPage(w, server.URL, RepositorySelectionAll, []string{"repo-one"}, true)
+	}))
+	defer server.Close()
+
+	installed, err := NewClientWithHTTP(server.Client(), server.URL).FetchInstallationRepositories(context.Background())
+	if err != nil {
+		t.Fatalf("FetchInstallationRepositories() error: %v", err)
+	}
+	if installed.Selection != RepositorySelectionAll || installed.Names != nil || requests != 1 {
+		t.Errorf("installed = %+v after %d requests, want all after one", installed, requests)
+	}
+}
+
+func TestFetchInstallationRepositories_WithoutASelection(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"total_count":0,"repositories":[]}`))
+	}))
+	defer server.Close()
+
+	_, err := NewClientWithHTTP(server.Client(), server.URL).FetchInstallationRepositories(context.Background())
+	if got := componentsdk.Classify(err); got != componentsdk.CodeInvalidResponse {
+		t.Fatalf("Classify(%v) = %s, want invalid_response", err, got)
+	}
+}
+
 func TestFetchRepositories_Pagination(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

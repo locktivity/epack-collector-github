@@ -287,6 +287,8 @@ type mockGitHubClient struct {
 	orgSecurityErr   error
 	repositories     []github.Repository
 	repositoriesErr  error
+	installed        *github.InstallationRepositories // default: all repositories
+	installedErr     error
 	securitySettings map[string]*github.SecuritySettings // key: "owner/repo"
 	requestedRepos   []string
 
@@ -360,6 +362,16 @@ func (m *mockGitHubClient) FetchRepositories(ctx context.Context, org string, ca
 		return m.repositoriesErr
 	}
 	return callback(m.repositories)
+}
+
+func (m *mockGitHubClient) FetchInstallationRepositories(ctx context.Context) (*github.InstallationRepositories, error) {
+	if m.installedErr != nil {
+		return nil, m.installedErr
+	}
+	if m.installed == nil {
+		return &github.InstallationRepositories{Selection: github.RepositorySelectionAll}, nil
+	}
+	return m.installed, nil
 }
 
 func (m *mockGitHubClient) FetchSecuritySettings(ctx context.Context, owner, repo string) (*github.SecuritySettings, error) {

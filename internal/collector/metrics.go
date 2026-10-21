@@ -12,12 +12,15 @@ import (
 type metricsAggregator struct {
 	// Scope tracking. reposErr is why the repository list could not be read,
 	// which leaves every repository-derived value unknown. archivedRepos
-	// counts the organization's archived repositories, which are out of scope
-	// and so in excludedRepos too.
-	totalRepos    int
-	excludedRepos int
-	archivedRepos int
-	reposErr      error
+	// counts the archived repositories read, which are out of scope and so in
+	// excludedRepos too. repositorySelection is the GitHub App installation's
+	// repository selection, "" for a token or when it could not be read; for
+	// "selected", only the repositories in the selection are counted at all.
+	totalRepos          int
+	excludedRepos       int
+	archivedRepos       int
+	reposErr            error
+	repositorySelection string
 
 	// repos holds the included repositories and their REST security settings,
 	// captured for the audit/internal surface pass.

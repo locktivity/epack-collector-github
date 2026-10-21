@@ -138,12 +138,17 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 
 	// A repository list that fails on any page is discarded, because a partial
 	// list would skew every repository-derived value.
+	reposCtx := steps.next("repositories", "Repositories")
 	var listed []github.Repository
-	err = c.client.FetchRepositories(steps.next("repositories", "Repositories"), c.config.Organization, func(repos []github.Repository) error {
+	err = c.client.FetchRepositories(reposCtx, c.config.Organization, func(repos []github.Repository) error {
 		listed = append(listed, repos...)
 		c.status(fmt.Sprintf("Found %d repositories...", len(listed)))
 		return nil
 	})
+	metrics.repositorySelection = orgSecurity.Credential.RepositorySelection
+	if err == nil {
+		metrics.repositorySelection, listed, err = c.installedOn(reposCtx, orgSecurity.Credential, listed)
+	}
 	if err != nil {
 		metrics.reposErr = err
 		c.degradeCore(metrics, "repositories", "metadata: read", err)
@@ -369,6 +374,53 @@ func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsA
 	}
 }
 
+// installedOn returns the GitHub App installation's repository selection and
+// the listed repositories it is installed on. GitHub lists every public
+// repository to any caller, so an App installed on selected repositories also
+// sees public ones it cannot read the settings of. A token's selection is "",
+// since GitHub does not say which repositories a token can read.
+func (c *Collector) installedOn(ctx context.Context, cred github.Credential, listed []github.Repository) (string, []github.Repository, error) {
+	if cred.Kind != github.CredentialAppInstallation || cred.RepositorySelection == github.RepositorySelectionAll {
+		return cred.RepositorySelection, listed, nil
+	}
+	installed, err := c.client.FetchInstallationRepositories(ctx)
+	if err != nil {
+		return cred.RepositorySelection, nil, err
+	}
+	if installed.Selection == github.RepositorySelectionAll {
+		return installed.Selection, listed, nil
+	}
+	var kept []github.Repository
+	for _, repo := range listed {
+		if installed.Names[strings.ToLower(repo.Name)] {
+			kept = append(kept, repo)
+		}
+	}
+	return installed.Selection, kept, nil
+}
+
+// errRepositoryCountShort leaves out a count of the organization's
+// repositories that is below the repositories the GitHub App lists, which
+// would put the coverage over 100.
+var errRepositoryCountShort = componentsdk.CodeError(componentsdk.CodeInvalidResponse,
+	errors.New("GitHub counts fewer repositories in the organization than the GitHub App lists"))
+
+// organizationRepositoryCount is the number of repositories the coverage is
+// taken over. A GitHub App installed on selected repositories cannot list the
+// private ones outside its selection, so the count is GitHub's own.
+func organizationRepositoryCount(sec *github.OrgSecurity, metrics *metricsAggregator) (int, error) {
+	listed := metrics.totalRepos + metrics.excludedRepos
+	switch {
+	case metrics.repositorySelection != github.RepositorySelectionSelected:
+		return listed, nil
+	case sec.RepositoryCount == nil:
+		return 0, errRepositoryCountHidden
+	case *sec.RepositoryCount < listed:
+		return 0, errRepositoryCountShort
+	}
+	return *sec.RepositoryCount, nil
+}
+
 // repoDerivedPointers are the trust-level values computed from the repository
 // list, all left out when the list cannot be read.
 var repoDerivedPointers = []string{
@@ -391,6 +443,11 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 		IncludePatterns: includePatterns,
 		ExcludePatterns: excludePatterns,
 	}
+	if metrics.repositorySelection != "" {
+		posture.Scope.RepositorySelection = ptr(metrics.repositorySelection)
+	} else if orgSecurity.Credential.Kind == github.CredentialAppInstallation {
+		c.gaps.leaveOut(metrics.reposErr, "/scope/repository_selection")
+	}
 	posture.AccessControl = AccessControl{
 		TwoFactorRequired: orgSecurity.TwoFactorRequired,
 	}
@@ -410,11 +467,14 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 	}
 	posture.BranchProtectionRules = metrics.toBranchProtectionRules()
 
-	totalOrgRepos := metrics.totalRepos + metrics.excludedRepos
-	posture.Scope.RepositoryCount = ptr(totalOrgRepos)
 	posture.Scope.IncludedRepositoryCount = ptr(metrics.totalRepos)
-	if totalOrgRepos > 0 {
-		posture.Scope.RepositoriesCoverage = ptr(percent(metrics.totalRepos, totalOrgRepos))
+	if orgRepos, err := organizationRepositoryCount(orgSecurity, metrics); err != nil {
+		c.gaps.leaveOut(err, "/scope/repository_count", "/scope/repositories_coverage")
+	} else {
+		posture.Scope.RepositoryCount = ptr(orgRepos)
+		if orgRepos > 0 {
+			posture.Scope.RepositoriesCoverage = ptr(percent(metrics.totalRepos, orgRepos))
+		}
 	}
 
 	coverage := metrics.securityFeaturesCoverage()
