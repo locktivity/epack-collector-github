@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/locktivity/epack/componentsdk"
@@ -159,6 +160,91 @@ func TestGetPagedTotalStopsAtTheCap(t *testing.T) {
 	}
 	if len(items) != 1 || total != 3 || requests != 1 {
 		t.Errorf("read %d of %d in %d requests, want 1 of 3 in 1", len(items), total, requests)
+	}
+}
+
+// endlessServer answers every request with a page of size copies of item and
+// a link to another page, so a list stops only at its cap.
+func endlessServer(t *testing.T, item string, size int) *httptest.Server {
+	t.Helper()
+	page := "[" + strings.TrimSuffix(strings.Repeat(item+",", size), ",") + "]"
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", fmt.Sprintf(`<%s%s?page=next>; rel="next"`, server.URL, r.URL.Path))
+		_, _ = w.Write([]byte(page))
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func TestListsAtTheCapSayTheyMayHoldMore(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name     string
+		item     string
+		fetchCap int
+		list     func(*Client) (int, bool, error)
+	}{
+		{"org webhooks", `{"id":1}`, HookFetchCap, func(c *Client) (int, bool, error) {
+			hooks, more, err := c.ListOrgHooks(ctx, "org")
+			return len(hooks), more, err
+		}},
+		{"repo webhooks", `{"id":1}`, HookFetchCap, func(c *Client) (int, bool, error) {
+			hooks, more, err := c.ListRepoHooks(ctx, "org", "repo")
+			return len(hooks), more, err
+		}},
+		{"deploy keys", `{"id":1}`, DeployKeyFetchCap, func(c *Client) (int, bool, error) {
+			keys, more, err := c.ListRepoDeployKeys(ctx, "org", "repo")
+			return len(keys), more, err
+		}},
+		{"token grants", `{"id":1}`, TokenGrantFetchCap, func(c *Client) (int, bool, error) {
+			grants, more, err := c.ListOrgPATs(ctx, "org")
+			return len(grants), more, err
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := endlessServer(t, tt.item, 1000)
+			read, more, err := tt.list(NewClientWithHTTP(server.Client(), server.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if read != tt.fetchCap || !more {
+				t.Errorf("read %d, more %t; want the cap of %d, marked as possibly holding more", read, more, tt.fetchCap)
+			}
+		})
+	}
+}
+
+func TestGetOrgMembershipMarksRostersAtTheCap(t *testing.T) {
+	server := endlessServer(t, `{"login":"someone"}`, 10000)
+	m, err := NewClientWithHTTP(server.Client(), server.URL).GetOrgMembership(context.Background(), "org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Members) != MemberFetchCap || !m.MembersMore || !m.AdminsMore || !m.OutsideCollaboratorsMore {
+		t.Errorf("read %d members; more: members %t, admins %t, outside collaborators %t; want every roster marked at the cap",
+			len(m.Members), m.MembersMore, m.AdminsMore, m.OutsideCollaboratorsMore)
+	}
+	// Members past the cap of the roster without two-factor would read as
+	// having it on, so the roster is not used.
+	if m.TwoFADisabled != nil || m.TwoFAErr != nil {
+		t.Errorf("TwoFADisabled has %d logins (err %v), want none and no error", len(m.TwoFADisabled), m.TwoFAErr)
+	}
+}
+
+func TestListOrgPATsKeepsAccessLevels(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":5,"owner":{"login":"alice"},"token_name":"ci","permissions":{"organization":{"members":"read"},"repository":{"contents":"write","metadata":"read"}}}]`))
+	}))
+	defer server.Close()
+
+	grants, more, err := NewClientWithHTTP(server.Client(), server.URL).ListOrgPATs(context.Background(), "org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if more || len(grants) != 1 || strings.Join(grants[0].Permissions, ",") != "contents:write,members:read,metadata:read" {
+		t.Errorf("grants = %+v, more %t; want one grant with contents:write, members:read, and metadata:read", grants, more)
 	}
 }
 

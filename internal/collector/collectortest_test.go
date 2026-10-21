@@ -125,7 +125,10 @@ func kitSuite() collectortest.Suite {
 				Name:      "clean",
 				Responses: kitResponses(),
 				// The second page of each list proves it was followed, and
-				// each open alert count matches the findings rows.
+				// each open alert count matches the findings rows. The
+				// archived count is the organization's, though no archived
+				// repository is in scope, and token permissions keep their
+				// access level.
 				Expect: map[string]map[string]any{DetailedPath: {
 					"/actions/org_runners/1/name":                               "runner-2",
 					"/actions/org_secret_names/1":                               "NPM_TOKEN",
@@ -137,6 +140,8 @@ func kitSuite() collectortest.Suite {
 					"/security_features/per_repo/0/open_dependabot_alerts":      2,
 					"/security_features/findings/dependabot/1/package":          "lodash",
 					"/security_features/per_repo/2/open_secret_scanning_alerts": 0,
+					"/repositories/archived_count":                              1,
+					"/tokens/per_token/0/permissions":                           []any{"contents:read", "members:read"},
 				}, kitResultPath: kitStepPins()},
 			},
 			{
@@ -152,6 +157,26 @@ func kitSuite() collectortest.Suite {
 			{Name: "empty organization", Responses: kitEmptyTenantResponses()},
 			{Name: "security settings read fails", Responses: kitSecurityOutageResponses()},
 			{Name: "read-only token", Responses: kitReadOnlyResponses()},
+			{
+				Name:      "lists at the cap",
+				Responses: kitListsAtTheCapResponses(),
+				// Each list may hold more than it read, so its counts are
+				// null, which the schema's x-epack-null explains, and the
+				// rows read are flagged.
+				Expect: map[string]map[string]any{DetailedPath: {
+					"/members/member_count":         nil,
+					"/members/truncated":            true,
+					"/webhooks/org_count":           nil,
+					"/webhooks/repo_count":          1,
+					"/webhooks/count_by_event":      collectortest.Absent,
+					"/webhooks/truncated":           true,
+					"/deploy_keys/total_count":      nil,
+					"/deploy_keys/read_write_count": nil,
+					"/deploy_keys/truncated":        true,
+					"/tokens/grant_count":           nil,
+					"/tokens/truncated":             true,
+				}},
+			},
 		},
 		Required: []string{"github.installation_token.create", "github.orgs.get"},
 		Semantics: []collectortest.Semantic{

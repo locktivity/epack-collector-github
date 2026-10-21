@@ -11,9 +11,12 @@ import (
 // metricsAggregator collects repository metrics during iteration.
 type metricsAggregator struct {
 	// Scope tracking. reposErr is why the repository list could not be read,
-	// which leaves every repository-derived value unknown.
+	// which leaves every repository-derived value unknown. archivedRepos
+	// counts the organization's archived repositories, which are out of scope
+	// and so in excludedRepos too.
 	totalRepos    int
 	excludedRepos int
+	archivedRepos int
 	reposErr      error
 
 	// repos holds the included repositories and their REST security settings,
@@ -50,6 +53,7 @@ type metricsAggregator struct {
 func (m *metricsAggregator) processRepository(repo github.Repository, includePatterns, excludePatterns []string) {
 	if repo.IsArchived {
 		m.excludedRepos++
+		m.archivedRepos++
 		return
 	}
 

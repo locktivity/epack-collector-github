@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/locktivity/epack-collector-github/internal/github"
 	"github.com/locktivity/epack/componentsdk/collectortest"
 )
 
@@ -464,4 +465,37 @@ func kitReadOnlyResponses() []collectortest.Response {
 	responses = replaceResponse(responses, collectortest.Response{URL: kitRepoURL("repo-ruleset", "/rulesets/1001?includes_parents=true"), Body: kitTestdata("ruleset_1001.json")})
 	responses = replaceResponse(responses, collectortest.Response{URL: kitRepoURL("classic-and-org", "/rulesets/2001?includes_parents=true"), Body: kitTestdata("ruleset_2001.json")})
 	return replaceResponse(responses, collectortest.Response{URL: kitRepoURL("org-ruleset", "/rulesets/2001?includes_parents=true"), Body: kitTestdata("ruleset_2001.json")})
+}
+
+// kitListsAtTheCapResponses answer the clean run with a member list, an
+// organization webhook list, a deploy key list, and a token list each as long
+// as the collector reads, so each may hold more.
+func kitListsAtTheCapResponses() []collectortest.Response {
+	members := make([]any, github.MemberFetchCap)
+	members[0], members[1] = map[string]any{"login": "alice"}, map[string]any{"login": "bob"}
+	for i := 2; i < len(members); i++ {
+		members[i] = map[string]any{"login": fmt.Sprintf("member-%05d", i)}
+	}
+	hooks := make([]any, github.HookFetchCap)
+	for i := range hooks {
+		hooks[i] = map[string]any{"id": i + 1, "active": true, "events": []any{"push"}, "config": map[string]any{"url": "https://hooks.example.com/github"}}
+	}
+	keys := make([]any, github.DeployKeyFetchCap)
+	for i := range keys {
+		keys[i] = map[string]any{"id": i + 1, "title": fmt.Sprintf("deploy-%d", i), "read_only": true}
+	}
+	grants := make([]any, github.TokenGrantFetchCap)
+	for i := range grants {
+		grants[i] = map[string]any{"id": i + 1, "owner": map[string]any{"login": "alice"}, "permissions": map[string]any{"repository": map[string]any{"contents": "read"}}}
+	}
+	responses := kitResponses()
+	for _, r := range []collectortest.Response{
+		{URL: kitOrgURL("/members?per_page=100"), Body: kitJSON(members)},
+		{URL: kitOrgURL("/hooks?per_page=100"), Body: kitJSON(hooks)},
+		{URL: kitRepoURL("repo-ruleset", "/keys?per_page=100"), Body: kitJSON(keys)},
+		{URL: kitOrgURL("/personal-access-tokens?per_page=100"), Body: kitJSON(grants)},
+	} {
+		responses = replaceResponse(responses, r)
+	}
+	return responses
 }

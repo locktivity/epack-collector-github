@@ -51,7 +51,7 @@ func (c *Collector) collectRepositories(p *collectionPass) {
 	if c.reposUnknown(p, "/repositories") {
 		return
 	}
-	repos := &Repositories{}
+	repos := &Repositories{ArchivedCount: p.metrics.archivedRepos}
 	rows := make([]RepoRow, 0, len(p.metrics.repos.included))
 	protections := make(map[string]*repoProtection, len(p.metrics.repos.included))
 	protected, protectedUnknown := 0, false
@@ -65,9 +65,6 @@ func (c *Collector) collectRepositories(p *collectionPass) {
 			repos.PrivateCount++
 		case "INTERNAL":
 			repos.InternalCount++
-		}
-		if r.IsArchived {
-			repos.ArchivedCount++
 		}
 		protection := p.metrics.repos.protectionFor(r)
 		protections[repoKey(r)] = protection
@@ -190,8 +187,12 @@ func (c *Collector) collectWebhooks(p *collectionPass) {
 	w := &Webhooks{}
 	countByEvent := map[string]int{}
 	permissionDenied := false
+	// truncated reports a list that reached github.HookFetchCap, so it may
+	// hold more webhooks than it read. Its count and the breakdown are left
+	// null or out, as the schema explains.
+	truncated := false
 
-	orgHooks, orgErr := c.client.ListOrgHooks(p.ctx, p.org)
+	orgHooks, orgMore, orgErr := c.client.ListOrgHooks(p.ctx, p.org)
 	if orgErr != nil {
 		permissionDenied = isDenied(orgErr)
 		c.gaps.leaveOut(orgErr, "/webhooks/org_count", "/webhooks/count_by_event")
@@ -199,7 +200,10 @@ func (c *Collector) collectWebhooks(p *collectionPass) {
 			c.gaps.leaveOut(orgErr, "/webhooks/org")
 		}
 	} else {
-		w.OrgCount = ptr(len(orgHooks))
+		truncated = orgMore
+		if !orgMore {
+			w.OrgCount = ptr(len(orgHooks))
+		}
 		for _, h := range orgHooks {
 			tallyHookEvents(countByEvent, h.Events)
 			if p.internal() {
@@ -214,15 +218,16 @@ func (c *Collector) collectWebhooks(p *collectionPass) {
 	}
 	failed := perRepoFailures{}
 	if !c.reposUnknown(p, repoPointers...) {
-		repoCount := 0
+		repoCount, repoMore := 0, false
 		for _, r := range p.metrics.repos.included {
-			hooks, herr := c.client.ListRepoHooks(p.ctx, r.Owner.Login, r.Name)
+			hooks, more, herr := c.client.ListRepoHooks(p.ctx, r.Owner.Login, r.Name)
 			if herr != nil {
 				permissionDenied = permissionDenied || isDenied(herr)
 				failed.add(herr)
 				continue
 			}
 			repoCount += len(hooks)
+			repoMore = repoMore || more
 			repoKey := r.Owner.Login + "/" + r.Name
 			for _, h := range hooks {
 				tallyHookEvents(countByEvent, h.Events)
@@ -231,16 +236,23 @@ func (c *Collector) collectWebhooks(p *collectionPass) {
 				}
 			}
 		}
-		if failed.count > 0 {
+		switch {
+		case failed.count > 0:
 			w.Repo = nil
 			c.gaps.partial(failed.count, failed.err, repoPointers...)
-		} else {
+		case repoMore:
+			truncated = true
+		default:
 			w.RepoCount = ptr(repoCount)
 		}
 	}
 
-	if orgErr == nil && p.metrics.reposErr == nil && failed.count == 0 && len(countByEvent) > 0 {
+	if orgErr == nil && p.metrics.reposErr == nil && failed.count == 0 && !truncated && len(countByEvent) > 0 {
 		w.CountByEvent = countByEvent
+	}
+	// The flag describes the rows, which only internal emits.
+	if p.internal() {
+		w.Truncated = truncated
 	}
 	if permissionDenied {
 		p.metrics.diag.surfacePermissionDenied("webhooks", "organization_hooks:read, repository_hooks:read")
@@ -277,14 +289,19 @@ func (c *Collector) collectDeployKeys(p *collectionPass) {
 	permissionDenied := false
 	failed := perRepoFailures{}
 	total, readWrite := 0, 0
+	// truncated reports a list that reached github.DeployKeyFetchCap, so it
+	// may hold more keys than it read. The counts are then left null, as the
+	// schema explains.
+	truncated := false
 
 	for _, r := range p.metrics.repos.included {
-		keys, err := c.client.ListRepoDeployKeys(p.ctx, r.Owner.Login, r.Name)
+		keys, more, err := c.client.ListRepoDeployKeys(p.ctx, r.Owner.Login, r.Name)
 		if err != nil {
 			permissionDenied = permissionDenied || isDenied(err)
 			failed.add(err)
 			continue
 		}
+		truncated = truncated || more
 		repoKey := r.Owner.Login + "/" + r.Name
 		for _, k := range keys {
 			total++
@@ -304,13 +321,17 @@ func (c *Collector) collectDeployKeys(p *collectionPass) {
 			}
 		}
 	}
-	if failed.count > 0 {
+	switch {
+	case failed.count > 0:
 		dk.PerKey = nil
 		c.gaps.partial(failed.count, failed.err, "/deploy_keys/total_count", "/deploy_keys/read_write_count")
 		if p.internal() {
 			c.gaps.partial(failed.count, failed.err, "/deploy_keys/per_key")
 		}
-	} else {
+	case truncated:
+		// The flag describes the rows, which only internal emits.
+		dk.Truncated = p.internal()
+	default:
 		dk.TotalCount = ptr(total)
 		dk.ReadWriteCount = ptr(readWrite)
 	}
@@ -622,7 +643,7 @@ func (c *Collector) collectApps(p *collectionPass) {
 // collectTokens gathers fine-grained PAT grants (Enterprise / FGT-policy orgs
 // only). Audit emits the count; internal adds per-token metadata (no values).
 func (c *Collector) collectTokens(p *collectionPass) {
-	grants, _, err := c.client.ListOrgPATs(p.ctx, p.org)
+	grants, more, err := c.client.ListOrgPATs(p.ctx, p.org)
 	if err != nil {
 		if isFeatureUnavailable(err) {
 			p.metrics.diag.surfaceUnavailable("tokens", "requires a fine-grained personal-access-token policy")
@@ -632,7 +653,12 @@ func (c *Collector) collectTokens(p *collectionPass) {
 		c.gaps.leaveOut(err, "/tokens")
 		return
 	}
-	tokens := &Tokens{GrantCount: len(grants)}
+	tokens := &Tokens{}
+	// A list that reached github.TokenGrantFetchCap may hold more grants, so
+	// the count is left null, as the schema explains.
+	if !more {
+		tokens.GrantCount = ptr(len(grants))
+	}
 	if p.internal() {
 		for _, g := range grants {
 			tokens.PerToken = append(tokens.PerToken, TokenRow{
@@ -644,6 +670,7 @@ func (c *Collector) collectTokens(p *collectionPass) {
 				ExpiresAt:   g.ExpiresAt,
 			})
 		}
+		tokens.Truncated = more
 	}
 	p.posture.Tokens = tokens
 }
@@ -666,11 +693,16 @@ func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64,
 		p.metrics.diag.memberNamesIncomplete(reason)
 	}
 
-	m := &Members{MemberCount: len(membership.Members)}
-	if membership.AdminsErr == nil {
+	// A roster that reached github.MemberFetchCap may hold more logins, so its
+	// count is left null, as the schema explains.
+	m := &Members{}
+	if !membership.MembersMore {
+		m.MemberCount = ptr(len(membership.Members))
+	}
+	if membership.AdminsErr == nil && !membership.AdminsMore {
 		m.AdminCount = ptr(len(membership.Admins))
 	}
-	if membership.OutsideCollaboratorsErr == nil {
+	if membership.OutsideCollaboratorsErr == nil && !membership.OutsideCollaboratorsMore {
 		m.OutsideCollaboratorCount = ptr(len(membership.OutsideCollaborators))
 	}
 	if membership.InvitationsErr == nil {
@@ -744,7 +776,7 @@ func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64,
 		}
 	}
 	m.PerMember = kept
-	m.Truncated = truncated
+	m.Truncated = truncated || membership.MembersMore || membership.OutsideCollaboratorsMore
 	m.TruncatedDropped = dropped
 }
 
