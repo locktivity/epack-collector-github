@@ -106,9 +106,12 @@ const minIdentifier = 4
 // replace safely, or one a JSON member name contains, is an error, which
 // never names the value.
 func tenantIdentifiers(sc collectortest.Scenario, known map[string]string) (map[string]string, error) {
-	f := identifierFinder{known: map[string]bool{}, numbers: map[string]bool{}, found: map[string]string{}, keys: map[string]bool{}}
+	f := identifierFinder{known: map[string]bool{}, originals: map[string]string{}, numbers: map[string]bool{}, found: map[string]string{}, keys: map[string]bool{}}
 	for value, fake := range known {
 		f.known[strings.ToLower(value)], f.known[strings.ToLower(fake)] = true, true
+		if fake != "" && !isDigits(value) {
+			f.originals[strings.ToLower(fake)] = value
+		}
 	}
 	for _, r := range sc.Responses {
 		f.text(r.URL)
@@ -125,10 +128,11 @@ func tenantIdentifiers(sc collectortest.Scenario, known map[string]string) (map[
 }
 
 type identifierFinder struct {
-	known   map[string]bool   // lowercase
-	numbers map[string]bool   // digits
-	found   map[string]string // value to kind
-	keys    map[string]bool   // every JSON member name, lowercase
+	known     map[string]bool   // lowercase
+	originals map[string]string // lowercase fake to the identifier it replaces
+	numbers   map[string]bool   // digits
+	found     map[string]string // value to kind
+	keys      map[string]bool   // every JSON member name, lowercase
 }
 
 func (f *identifierFinder) number(v string) {
@@ -138,9 +142,30 @@ func (f *identifierFinder) number(v string) {
 }
 
 func (f *identifierFinder) add(v, kind string) {
-	if v != "" && !f.known[strings.ToLower(v)] {
+	if v == "" || f.known[strings.ToLower(v)] {
+		return
+	}
+	if v = f.unscrub(v); !f.known[strings.ToLower(v)] {
 		f.found[v] = kind
 	}
+}
+
+// unscrub puts back the known identifiers whose fakes v holds. A pass
+// replaces a known identifier wherever its text appears, so an identifier
+// that contains one, such as an App slug that starts with the organization's
+// login, reads in the recording as the fake joined to the rest. The next pass
+// has to replace the original whole, or the known identifier inside it is
+// replaced first and leaves the same joined value behind.
+func (f *identifierFinder) unscrub(v string) string {
+	fakes := make([]string, 0, len(f.originals))
+	for fake := range f.originals {
+		fakes = append(fakes, fake)
+	}
+	sort.Slice(fakes, func(i, j int) bool { return len(fakes[i]) > len(fakes[j]) })
+	for _, fake := range fakes {
+		v = regexp.MustCompile("(?i)"+regexp.QuoteMeta(fake)).ReplaceAllLiteralString(v, f.originals[fake])
+	}
+	return v
 }
 
 func (f *identifierFinder) text(s string) {
@@ -618,6 +643,23 @@ func TestTenantIdentifiersFindsWhatNamesTheTenant(t *testing.T) {
 		if _, ok := want[v]; !ok {
 			t.Errorf("found %q, which is not an identifier", v)
 		}
+	}
+}
+
+// An App slug that starts with the organization's login reads in a scrubbed
+// recording as the login's fake and the rest, so the finder has to name the
+// original slug for the next pass to replace.
+func TestTenantIdentifiersPutsBackTheIdentifiersInsideOne(t *testing.T) {
+	sc := collectortest.Scenario{Responses: []collectortest.Response{{
+		URL:  kitOrgURL("/installations"),
+		Body: `{"total_count":1,"installations":[{"app_slug":"` + kitOrg + `-collector"}]}`,
+	}}}
+	found, err := tenantIdentifiers(sc, map[string]string{"widget-works": kitOrg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(found) != 1 || found["widget-works-collector"] != "sandbox-app-1" {
+		t.Errorf("found %v, want widget-works-collector as sandbox-app-1", found)
 	}
 }
 
