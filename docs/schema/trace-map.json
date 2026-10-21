@@ -9743,6 +9743,34 @@
           }
         ]
       },
+      "/scope/exclude_patterns": {
+        "code": [
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:385"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:386"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:387"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:392"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:36"
+          }
+        ]
+      },
       "/scope/exclude_patterns/*": {
         "code": [
           {
