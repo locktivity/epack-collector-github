@@ -1,0 +1,4035 @@
+{
+  "name": "recording",
+  "recorded_at": "2026-10-21T16:01:23Z",
+  "collector": "github",
+  "collector_version": "record",
+  "config": {
+    "app_id": 123456,
+    "exclude_patterns": [
+      "scratch-*"
+    ],
+    "installation_id": 78901234,
+    "level": "audit",
+    "organization": "test-org"
+  },
+  "responses": [
+    {
+      "operation": "github.installation_token.create",
+      "method": "POST",
+      "url": "https://api.github.com/app/installations/78901234/access_tokens?",
+      "request_body": "null",
+      "status": 201,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"6d7ff7e8a8d9f81bd7a7c6965f361f4444f3f27f3cbf83c06c1723a9c0da0d03\""
+        ]
+      },
+      "body": {
+        "token": "REDACTED",
+        "expires_at": "2026-10-21T17:01:23Z",
+        "permissions": {
+          "members": "read",
+          "organization_administration": "read",
+          "organization_hooks": "read",
+          "organization_secrets": "read",
+          "organization_self_hosted_runners": "read",
+          "actions": "read",
+          "administration": "read",
+          "contents": "read",
+          "metadata": "read",
+          "repository_hooks": "read",
+          "secret_scanning_alerts": "read",
+          "security_events": "read",
+          "vulnerability_alerts": "read"
+        },
+        "repository_selection": "all"
+      }
+    },
+    {
+      "operation": "github.orgs.get",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"af4245958d6e8aea60608162c828b67a8078b94428fbb3fc87235368e25b669c\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4846"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "154"
+        ]
+      },
+      "body": {
+        "login": "test-org",
+        "id": 900000003,
+        "node_id": "node-1",
+        "url": "https://api.github.com/orgs/test-org",
+        "repos_url": "https://api.github.com/orgs/test-org/repos",
+        "events_url": "https://api.github.com/orgs/test-org/events",
+        "hooks_url": "https://api.github.com/orgs/test-org/hooks",
+        "issues_url": "https://api.github.com/orgs/test-org/issues",
+        "members_url": "https://api.github.com/orgs/test-org/members{/member}",
+        "public_members_url": "https://api.github.com/orgs/test-org/public_members{/member}",
+        "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+        "description": null,
+        "is_verified": false,
+        "has_organization_projects": true,
+        "has_repository_projects": true,
+        "public_repos": 6,
+        "public_gists": 0,
+        "followers": 0,
+        "following": 0,
+        "html_url": "https://github.com/test-org",
+        "created_at": "2026-10-21T14:31:14Z",
+        "updated_at": "2026-10-21T14:31:14Z",
+        "archived_at": null,
+        "type": "Organization",
+        "total_private_repos": 0,
+        "owned_private_repos": 0,
+        "private_gists": 0,
+        "disk_usage": 0,
+        "collaborators": 0,
+        "billing_email": "user1@example.com",
+        "default_repository_permission": "write",
+        "members_can_create_repositories": true,
+        "two_factor_requirement_enabled": false,
+        "members_allowed_repository_creation_type": "all",
+        "members_can_create_public_repositories": true,
+        "members_can_create_private_repositories": true,
+        "members_can_create_internal_repositories": false,
+        "members_can_create_pages": true,
+        "members_can_fork_private_repositories": false,
+        "web_commit_signoff_required": false,
+        "deploy_keys_enabled_for_repositories": false,
+        "members_can_delete_repositories": true,
+        "members_can_change_repo_visibility": true,
+        "members_can_invite_outside_collaborators": true,
+        "members_can_delete_issues": false,
+        "display_commenter_full_name_setting_enabled": false,
+        "readers_can_create_discussions": true,
+        "members_can_create_teams": true,
+        "members_can_view_dependency_insights": true,
+        "default_repository_branch": "main",
+        "members_can_create_public_pages": true,
+        "members_can_create_private_pages": true,
+        "plan": {
+          "name": "free",
+          "space": 976562499,
+          "private_repos": 10000,
+          "filled_seats": 1,
+          "seats": 0
+        },
+        "advanced_security_enabled_for_new_repositories": false,
+        "dependabot_alerts_enabled_for_new_repositories": false,
+        "dependabot_security_updates_enabled_for_new_repositories": false,
+        "dependency_graph_enabled_for_new_repositories": false,
+        "secret_scanning_enabled_for_new_repositories": false,
+        "secret_scanning_push_protection_enabled_for_new_repositories": false,
+        "secret_scanning_push_protection_custom_link_enabled": false,
+        "secret_scanning_push_protection_custom_link": null,
+        "secret_scanning_validity_checks_enabled": false
+      }
+    },
+    {
+      "operation": "github.repositories.list",
+      "method": "POST",
+      "url": "https://api.github.com/graphql?",
+      "request_body": {
+        "query": "query($cursor:String$org:String!){organization(login: $org){repositories(first: 100, after: $cursor){nodes{name,owner{login},isArchived,isTemplate,visibility,defaultBranchRef{name,branchProtectionRule{requiresApprovingReviews,requiredApprovingReviewCount,dismissesStaleReviews,requiresCodeOwnerReviews,requiresStatusChecks,requiresCommitSignatures,isAdminEnforced,requiresLinearHistory,allowsForcePushes,allowsDeletions,requiresConversationResolution}},hasVulnerabilityAlertsEnabled,createdAt,updatedAt,pushedAt,diskUsage,stargazerCount,description,primaryLanguage{name},licenseInfo{spdxId},repositoryTopics(first: 20){nodes{topic{name}}}},pageInfo{hasNextPage,endCursor}}}}",
+        "variables": {
+          "cursor": null,
+          "org": "test-org"
+        }
+      },
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4990"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599338"
+        ],
+        "X-Ratelimit-Resource": [
+          "graphql"
+        ],
+        "X-Ratelimit-Used": [
+          "10"
+        ]
+      },
+      "body": {
+        "data": {
+          "organization": {
+            "repositories": {
+              "nodes": [
+                {
+                  "name": "classic-pr-required",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": {
+                      "requiresApprovingReviews": true,
+                      "requiredApprovingReviewCount": 1,
+                      "dismissesStaleReviews": false,
+                      "requiresCodeOwnerReviews": false,
+                      "requiresStatusChecks": false,
+                      "requiresCommitSignatures": false,
+                      "isAdminEnforced": false,
+                      "requiresLinearHistory": false,
+                      "allowsForcePushes": false,
+                      "allowsDeletions": false,
+                      "requiresConversationResolution": false
+                    }
+                  },
+                  "hasVulnerabilityAlertsEnabled": true,
+                  "createdAt": "2026-10-21T15:02:53Z",
+                  "updatedAt": "2026-10-21T15:28:43Z",
+                  "pushedAt": "2026-10-21T15:03:23Z",
+                  "diskUsage": 0,
+                  "stargazerCount": 0,
+                  "description": "Classic branch protection requiring a pull request with one approving review.",
+                  "primaryLanguage": {
+                    "name": "Python"
+                  },
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "name": "ruleset-pr-no-approvals",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": {
+                      "requiresApprovingReviews": false,
+                      "requiredApprovingReviewCount": null,
+                      "dismissesStaleReviews": false,
+                      "requiresCodeOwnerReviews": false,
+                      "requiresStatusChecks": false,
+                      "requiresCommitSignatures": false,
+                      "isAdminEnforced": false,
+                      "requiresLinearHistory": true,
+                      "allowsForcePushes": true,
+                      "allowsDeletions": true,
+                      "requiresConversationResolution": false
+                    }
+                  },
+                  "hasVulnerabilityAlertsEnabled": true,
+                  "createdAt": "2026-10-21T15:03:08Z",
+                  "updatedAt": "2026-10-21T15:04:31Z",
+                  "pushedAt": "2026-10-21T15:04:07Z",
+                  "diskUsage": 0,
+                  "stargazerCount": 0,
+                  "description": "Ruleset requiring a pull request with no approvals, plus a classic rule requiring only linear history.",
+                  "primaryLanguage": {
+                    "name": "Python"
+                  },
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "name": "ruleset-disabled",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": null
+                  },
+                  "hasVulnerabilityAlertsEnabled": false,
+                  "createdAt": "2026-10-21T15:03:28Z",
+                  "updatedAt": "2026-10-21T15:05:11Z",
+                  "pushedAt": "2026-10-21T15:04:05Z",
+                  "diskUsage": 0,
+                  "stargazerCount": 0,
+                  "description": "Ruleset requiring a pull request, with enforcement disabled.",
+                  "primaryLanguage": {
+                    "name": "Python"
+                  },
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "name": "classic-no-pr",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": {
+                      "requiresApprovingReviews": false,
+                      "requiredApprovingReviewCount": null,
+                      "dismissesStaleReviews": false,
+                      "requiresCodeOwnerReviews": false,
+                      "requiresStatusChecks": false,
+                      "requiresCommitSignatures": false,
+                      "isAdminEnforced": false,
+                      "requiresLinearHistory": false,
+                      "allowsForcePushes": false,
+                      "allowsDeletions": false,
+                      "requiresConversationResolution": false
+                    }
+                  },
+                  "hasVulnerabilityAlertsEnabled": false,
+                  "createdAt": "2026-10-21T15:03:49Z",
+                  "updatedAt": "2026-10-21T15:05:31Z",
+                  "pushedAt": "2026-10-21T15:04:33Z",
+                  "diskUsage": 0,
+                  "stargazerCount": 0,
+                  "description": "Classic branch protection that blocks force pushes and deletions but requires no pull request.",
+                  "primaryLanguage": {
+                    "name": "Python"
+                  },
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "name": "unprotected",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": null
+                  },
+                  "hasVulnerabilityAlertsEnabled": false,
+                  "createdAt": "2026-10-21T15:04:12Z",
+                  "updatedAt": "2026-10-21T15:05:49Z",
+                  "pushedAt": "2026-10-21T15:04:49Z",
+                  "diskUsage": 0,
+                  "stargazerCount": 0,
+                  "description": "No branch protection and every security feature off.",
+                  "primaryLanguage": {
+                    "name": "Python"
+                  },
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                },
+                {
+                  "name": "scratch-notes",
+                  "owner": {
+                    "login": "test-org"
+                  },
+                  "isArchived": false,
+                  "isTemplate": false,
+                  "visibility": "PUBLIC",
+                  "defaultBranchRef": {
+                    "name": "main",
+                    "branchProtectionRule": null
+                  },
+                  "hasVulnerabilityAlertsEnabled": true,
+                  "createdAt": "2026-10-21T15:04:37Z",
+                  "updatedAt": "2026-10-21T15:06:06Z",
+                  "pushedAt": "2026-10-21T15:04:40Z",
+                  "diskUsage": 0,
+                  "stargazerCount": 0,
+                  "description": "Left out of collection by exclude_patterns in epack.yaml.",
+                  "primaryLanguage": null,
+                  "licenseInfo": null,
+                  "repositoryTopics": {
+                    "nodes": []
+                  }
+                }
+              ],
+              "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": "cursor-2"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "operation": "github.branch_rules.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/rules/branches/main?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4845"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "155"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.branch_rules.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/rules/branches/main?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"5bf32f3fd658f8785883b74f380f3f21fd6c1734e50256e7eabf1ead199e9f8d\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4844"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "156"
+        ]
+      },
+      "body": [
+        {
+          "type": "deletion",
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-pr-no-approvals",
+          "ruleset_id": 90000001
+        },
+        {
+          "type": "pull_request",
+          "parameters": {
+            "required_approving_review_count": 0,
+            "dismiss_stale_reviews_on_push": false,
+            "required_reviewers": [],
+            "require_code_owner_review": false,
+            "dismissal_restriction": {
+              "enabled": false,
+              "allowed_actors": []
+            },
+            "require_last_push_approval": false,
+            "required_review_thread_resolution": false,
+            "require_extra_approval_for_unattributed_changes": true,
+            "allowed_merge_methods": [
+              "merge",
+              "squash",
+              "rebase"
+            ]
+          },
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-pr-no-approvals",
+          "ruleset_id": 90000001
+        },
+        {
+          "type": "non_fast_forward",
+          "ruleset_source_type": "Repository",
+          "ruleset_source": "test-org/ruleset-pr-no-approvals",
+          "ruleset_id": 90000001
+        }
+      ]
+    },
+    {
+      "operation": "github.rulesets.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/rulesets/90000001?includes_parents=true",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"37b3c491c5d2655572b2e4fd2c6a540da5716193634fa753714d1cfe605eec18\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4843"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "157"
+        ]
+      },
+      "body": {
+        "id": 90000001,
+        "name": "require-pull-request",
+        "target": "branch",
+        "source_type": "Repository",
+        "source": "test-org/ruleset-pr-no-approvals",
+        "enforcement": "active",
+        "conditions": {
+          "ref_name": {
+            "exclude": [],
+            "include": [
+              "~DEFAULT_BRANCH"
+            ]
+          }
+        },
+        "rules": [
+          {
+            "type": "deletion"
+          },
+          {
+            "type": "pull_request",
+            "parameters": {
+              "required_approving_review_count": 0,
+              "dismiss_stale_reviews_on_push": false,
+              "required_reviewers": [],
+              "require_code_owner_review": false,
+              "dismissal_restriction": {
+                "enabled": false,
+                "allowed_actors": []
+              },
+              "require_last_push_approval": false,
+              "required_review_thread_resolution": false,
+              "require_extra_approval_for_unattributed_changes": true,
+              "allowed_merge_methods": [
+                "merge",
+                "squash",
+                "rebase"
+              ]
+            }
+          },
+          {
+            "type": "non_fast_forward"
+          }
+        ],
+        "node_id": "node-2",
+        "created_at": "2026-10-21T15:04:26.949Z",
+        "updated_at": "2026-10-21T15:04:26.989Z",
+        "current_user_can_bypass": "never",
+        "_links": {
+          "self": {
+            "href": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/rulesets/90000001"
+          },
+          "html": {
+            "href": "https://github.com/test-org/ruleset-pr-no-approvals/rules/90000001"
+          }
+        }
+      }
+    },
+    {
+      "operation": "github.branch_rules.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/rules/branches/main?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4842"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "158"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.branch_rules.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/rules/branches/main?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4841"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "159"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.branch_rules.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/rules/branches/main?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4840"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "160"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.repos.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"2a72ed6dbba30bb0bb5f3c78e58af315611680b4a2f472d20d6628e9ccfb5312\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4839"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "161"
+        ]
+      },
+      "body": {
+        "id": 9000000004,
+        "node_id": "node-3",
+        "name": "classic-pr-required",
+        "full_name": "test-org/classic-pr-required",
+        "private": false,
+        "owner": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/test-org/classic-pr-required",
+        "description": "Classic branch protection requiring a pull request with one approving review.",
+        "fork": false,
+        "url": "https://api.github.com/repos/test-org/classic-pr-required",
+        "forks_url": "https://api.github.com/repos/test-org/classic-pr-required/forks",
+        "keys_url": "https://api.github.com/repos/test-org/classic-pr-required/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/test-org/classic-pr-required/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/test-org/classic-pr-required/teams",
+        "hooks_url": "https://api.github.com/repos/test-org/classic-pr-required/hooks",
+        "issue_events_url": "https://api.github.com/repos/test-org/classic-pr-required/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/test-org/classic-pr-required/events",
+        "assignees_url": "https://api.github.com/repos/test-org/classic-pr-required/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/test-org/classic-pr-required/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/test-org/classic-pr-required/tags",
+        "blobs_url": "https://api.github.com/repos/test-org/classic-pr-required/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/test-org/classic-pr-required/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/test-org/classic-pr-required/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/test-org/classic-pr-required/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/test-org/classic-pr-required/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/test-org/classic-pr-required/languages",
+        "stargazers_url": "https://api.github.com/repos/test-org/classic-pr-required/stargazers",
+        "contributors_url": "https://api.github.com/repos/test-org/classic-pr-required/contributors",
+        "subscribers_url": "https://api.github.com/repos/test-org/classic-pr-required/subscribers",
+        "subscription_url": "https://api.github.com/repos/test-org/classic-pr-required/subscription",
+        "commits_url": "https://api.github.com/repos/test-org/classic-pr-required/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/test-org/classic-pr-required/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/test-org/classic-pr-required/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/test-org/classic-pr-required/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/test-org/classic-pr-required/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/test-org/classic-pr-required/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/test-org/classic-pr-required/merges",
+        "archive_url": "https://api.github.com/repos/test-org/classic-pr-required/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/test-org/classic-pr-required/downloads",
+        "issues_url": "https://api.github.com/repos/test-org/classic-pr-required/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/test-org/classic-pr-required/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/test-org/classic-pr-required/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/test-org/classic-pr-required/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/test-org/classic-pr-required/labels{/name}",
+        "releases_url": "https://api.github.com/repos/test-org/classic-pr-required/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/test-org/classic-pr-required/deployments",
+        "created_at": "2026-10-21T15:02:53Z",
+        "updated_at": "2026-10-21T15:28:43Z",
+        "pushed_at": "2026-10-21T15:03:23Z",
+        "git_url": "git://github.com/test-org/classic-pr-required.git",
+        "ssh_url": "user2@example.com:test-org/classic-pr-required.git",
+        "clone_url": "https://github.com/test-org/classic-pr-required.git",
+        "svn_url": "https://github.com/test-org/classic-pr-required",
+        "homepage": "",
+        "size": 0,
+        "stargazers_count": 0,
+        "watchers_count": 0,
+        "language": "Python",
+        "has_issues": false,
+        "has_projects": false,
+        "has_downloads": false,
+        "has_wiki": false,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 0,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 0,
+        "license": null,
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 0,
+        "open_issues": 0,
+        "watchers": 0,
+        "default_branch": "main",
+        "permissions": {
+          "admin": false,
+          "maintain": false,
+          "push": false,
+          "triage": false,
+          "pull": false
+        },
+        "temp_clone_token": "",
+        "custom_properties": {},
+        "organization": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "security_and_analysis": {
+          "secret_scanning": {
+            "status": "enabled"
+          },
+          "secret_scanning_push_protection": {
+            "status": "enabled"
+          },
+          "dependabot_security_updates": {
+            "status": "enabled"
+          },
+          "secret_scanning_non_provider_patterns": {
+            "status": "disabled"
+          },
+          "secret_scanning_validity_checks": {
+            "status": "disabled"
+          }
+        },
+        "network_count": 0,
+        "subscribers_count": 0
+      }
+    },
+    {
+      "operation": "github.code_scanning_default_setup.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/code-scanning/default-setup?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"3f9d19b23ef429f744052867b68deac83c3d1477f1381bc4db67518a504f2d43\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4838"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "162"
+        ]
+      },
+      "body": {
+        "state": "configured",
+        "languages": [
+          "python"
+        ],
+        "query_suite": "default",
+        "threat_model": "remote",
+        "updated_at": "2026-10-21T15:30:05Z",
+        "schedule": "weekly",
+        "runner_type": "standard",
+        "runner_label": ""
+      }
+    },
+    {
+      "operation": "github.repos.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"5c1118ba5249d6c95e2c060d5bed3786dd3c2d4ebd40d842e23475b66b0185d1\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4837"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "163"
+        ]
+      },
+      "body": {
+        "id": 9000000005,
+        "node_id": "node-4",
+        "name": "ruleset-pr-no-approvals",
+        "full_name": "test-org/ruleset-pr-no-approvals",
+        "private": false,
+        "owner": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/test-org/ruleset-pr-no-approvals",
+        "description": "Ruleset requiring a pull request with no approvals, plus a classic rule requiring only linear history.",
+        "fork": false,
+        "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals",
+        "forks_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/forks",
+        "keys_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/teams",
+        "hooks_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/hooks",
+        "issue_events_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/events",
+        "assignees_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/tags",
+        "blobs_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/languages",
+        "stargazers_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/stargazers",
+        "contributors_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/contributors",
+        "subscribers_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/subscribers",
+        "subscription_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/subscription",
+        "commits_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/merges",
+        "archive_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/downloads",
+        "issues_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/labels{/name}",
+        "releases_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/deployments",
+        "created_at": "2026-10-21T15:03:08Z",
+        "updated_at": "2026-10-21T15:04:31Z",
+        "pushed_at": "2026-10-21T15:04:07Z",
+        "git_url": "git://github.com/test-org/ruleset-pr-no-approvals.git",
+        "ssh_url": "user2@example.com:test-org/ruleset-pr-no-approvals.git",
+        "clone_url": "https://github.com/test-org/ruleset-pr-no-approvals.git",
+        "svn_url": "https://github.com/test-org/ruleset-pr-no-approvals",
+        "homepage": "",
+        "size": 0,
+        "stargazers_count": 0,
+        "watchers_count": 0,
+        "language": "Python",
+        "has_issues": false,
+        "has_projects": false,
+        "has_downloads": false,
+        "has_wiki": false,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 0,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 0,
+        "license": null,
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 0,
+        "open_issues": 0,
+        "watchers": 0,
+        "default_branch": "main",
+        "permissions": {
+          "admin": false,
+          "maintain": false,
+          "push": false,
+          "triage": false,
+          "pull": false
+        },
+        "temp_clone_token": "",
+        "custom_properties": {},
+        "organization": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "security_and_analysis": {
+          "secret_scanning": {
+            "status": "enabled"
+          },
+          "secret_scanning_push_protection": {
+            "status": "disabled"
+          },
+          "dependabot_security_updates": {
+            "status": "disabled"
+          },
+          "secret_scanning_non_provider_patterns": {
+            "status": "disabled"
+          },
+          "secret_scanning_validity_checks": {
+            "status": "disabled"
+          }
+        },
+        "network_count": 0,
+        "subscribers_count": 0
+      }
+    },
+    {
+      "operation": "github.code_scanning_default_setup.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/code-scanning/default-setup?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"d068899adbae87f0edf9cb86814afa11835a9e8aa6b0034f545caedf5a7cc9d0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4836"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "164"
+        ]
+      },
+      "body": {
+        "state": "not-configured",
+        "languages": [
+          "actions",
+          "python"
+        ],
+        "query_suite": "default",
+        "threat_model": "remote",
+        "updated_at": null,
+        "schedule": null,
+        "runner_type": "standard",
+        "runner_label": null
+      }
+    },
+    {
+      "operation": "github.code_scanning_analyses.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/code-scanning/analyses?per_page=1",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"597aca52490fdf7abc940981f96b82d66b0dbfb3bd227f93ed094b149443c924\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4777"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "223"
+        ]
+      },
+      "body": [
+        {
+          "ref": "refs/heads/main",
+          "commit_sha": "0000000000000000000000000000000000000000",
+          "analysis_key": ".github/workflows/codeql.yml:analyze",
+          "environment": "{}",
+          "category": ".github/workflows/codeql.yml:analyze",
+          "error": "",
+          "created_at": "2026-10-21T15:05:02Z",
+          "results_count": 0,
+          "rules_count": 43,
+          "id": 9000000009,
+          "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/code-scanning/analyses/9000000009",
+          "sarif_id": "00000000-0000-4000-8000-000000000001",
+          "tool": {
+            "name": "CodeQL",
+            "guid": null,
+            "version": "2.27.2"
+          },
+          "deletable": true,
+          "warning": ""
+        }
+      ]
+    },
+    {
+      "operation": "github.repos.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"350e4015d3ffd8aa6777609c8fc946b1e1944a1fbef0dafe2abf137716ec1032\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4776"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "224"
+        ]
+      },
+      "body": {
+        "id": 9000000006,
+        "node_id": "node-5",
+        "name": "ruleset-disabled",
+        "full_name": "test-org/ruleset-disabled",
+        "private": false,
+        "owner": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/test-org/ruleset-disabled",
+        "description": "Ruleset requiring a pull request, with enforcement disabled.",
+        "fork": false,
+        "url": "https://api.github.com/repos/test-org/ruleset-disabled",
+        "forks_url": "https://api.github.com/repos/test-org/ruleset-disabled/forks",
+        "keys_url": "https://api.github.com/repos/test-org/ruleset-disabled/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/test-org/ruleset-disabled/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/test-org/ruleset-disabled/teams",
+        "hooks_url": "https://api.github.com/repos/test-org/ruleset-disabled/hooks",
+        "issue_events_url": "https://api.github.com/repos/test-org/ruleset-disabled/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/test-org/ruleset-disabled/events",
+        "assignees_url": "https://api.github.com/repos/test-org/ruleset-disabled/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/test-org/ruleset-disabled/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/test-org/ruleset-disabled/tags",
+        "blobs_url": "https://api.github.com/repos/test-org/ruleset-disabled/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/test-org/ruleset-disabled/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/test-org/ruleset-disabled/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/test-org/ruleset-disabled/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/test-org/ruleset-disabled/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/test-org/ruleset-disabled/languages",
+        "stargazers_url": "https://api.github.com/repos/test-org/ruleset-disabled/stargazers",
+        "contributors_url": "https://api.github.com/repos/test-org/ruleset-disabled/contributors",
+        "subscribers_url": "https://api.github.com/repos/test-org/ruleset-disabled/subscribers",
+        "subscription_url": "https://api.github.com/repos/test-org/ruleset-disabled/subscription",
+        "commits_url": "https://api.github.com/repos/test-org/ruleset-disabled/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/test-org/ruleset-disabled/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/test-org/ruleset-disabled/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/test-org/ruleset-disabled/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/test-org/ruleset-disabled/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/test-org/ruleset-disabled/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/test-org/ruleset-disabled/merges",
+        "archive_url": "https://api.github.com/repos/test-org/ruleset-disabled/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/test-org/ruleset-disabled/downloads",
+        "issues_url": "https://api.github.com/repos/test-org/ruleset-disabled/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/test-org/ruleset-disabled/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/test-org/ruleset-disabled/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/test-org/ruleset-disabled/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/test-org/ruleset-disabled/labels{/name}",
+        "releases_url": "https://api.github.com/repos/test-org/ruleset-disabled/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/test-org/ruleset-disabled/deployments",
+        "created_at": "2026-10-21T15:03:28Z",
+        "updated_at": "2026-10-21T15:05:11Z",
+        "pushed_at": "2026-10-21T15:04:05Z",
+        "git_url": "git://github.com/test-org/ruleset-disabled.git",
+        "ssh_url": "user2@example.com:test-org/ruleset-disabled.git",
+        "clone_url": "https://github.com/test-org/ruleset-disabled.git",
+        "svn_url": "https://github.com/test-org/ruleset-disabled",
+        "homepage": "",
+        "size": 0,
+        "stargazers_count": 0,
+        "watchers_count": 0,
+        "language": "Python",
+        "has_issues": false,
+        "has_projects": false,
+        "has_downloads": false,
+        "has_wiki": false,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 0,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 0,
+        "license": null,
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 0,
+        "open_issues": 0,
+        "watchers": 0,
+        "default_branch": "main",
+        "permissions": {
+          "admin": false,
+          "maintain": false,
+          "push": false,
+          "triage": false,
+          "pull": false
+        },
+        "temp_clone_token": "",
+        "custom_properties": {},
+        "organization": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "security_and_analysis": {
+          "secret_scanning": {
+            "status": "enabled"
+          },
+          "secret_scanning_push_protection": {
+            "status": "disabled"
+          },
+          "dependabot_security_updates": {
+            "status": "disabled"
+          },
+          "secret_scanning_non_provider_patterns": {
+            "status": "disabled"
+          },
+          "secret_scanning_validity_checks": {
+            "status": "disabled"
+          }
+        },
+        "network_count": 0,
+        "subscribers_count": 0
+      }
+    },
+    {
+      "operation": "github.code_scanning_default_setup.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/code-scanning/default-setup?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"002fd6bbab4dc42b0c4b6155a133310cb97ef2630211b255e9fe7c3a3ce494a3\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4835"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "165"
+        ]
+      },
+      "body": {
+        "state": "configured",
+        "languages": [
+          "python"
+        ],
+        "query_suite": "default",
+        "threat_model": "remote",
+        "updated_at": "2026-10-21T15:08:08Z",
+        "schedule": "weekly",
+        "runner_type": "standard",
+        "runner_label": ""
+      }
+    },
+    {
+      "operation": "github.repos.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"d40d8302a63ddfe96308ff36163320ebb139491e5d3c9e6218d7717926286140\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4775"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "225"
+        ]
+      },
+      "body": {
+        "id": 9000000007,
+        "node_id": "node-6",
+        "name": "classic-no-pr",
+        "full_name": "test-org/classic-no-pr",
+        "private": false,
+        "owner": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/test-org/classic-no-pr",
+        "description": "Classic branch protection that blocks force pushes and deletions but requires no pull request.",
+        "fork": false,
+        "url": "https://api.github.com/repos/test-org/classic-no-pr",
+        "forks_url": "https://api.github.com/repos/test-org/classic-no-pr/forks",
+        "keys_url": "https://api.github.com/repos/test-org/classic-no-pr/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/test-org/classic-no-pr/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/test-org/classic-no-pr/teams",
+        "hooks_url": "https://api.github.com/repos/test-org/classic-no-pr/hooks",
+        "issue_events_url": "https://api.github.com/repos/test-org/classic-no-pr/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/test-org/classic-no-pr/events",
+        "assignees_url": "https://api.github.com/repos/test-org/classic-no-pr/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/test-org/classic-no-pr/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/test-org/classic-no-pr/tags",
+        "blobs_url": "https://api.github.com/repos/test-org/classic-no-pr/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/test-org/classic-no-pr/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/test-org/classic-no-pr/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/test-org/classic-no-pr/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/test-org/classic-no-pr/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/test-org/classic-no-pr/languages",
+        "stargazers_url": "https://api.github.com/repos/test-org/classic-no-pr/stargazers",
+        "contributors_url": "https://api.github.com/repos/test-org/classic-no-pr/contributors",
+        "subscribers_url": "https://api.github.com/repos/test-org/classic-no-pr/subscribers",
+        "subscription_url": "https://api.github.com/repos/test-org/classic-no-pr/subscription",
+        "commits_url": "https://api.github.com/repos/test-org/classic-no-pr/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/test-org/classic-no-pr/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/test-org/classic-no-pr/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/test-org/classic-no-pr/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/test-org/classic-no-pr/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/test-org/classic-no-pr/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/test-org/classic-no-pr/merges",
+        "archive_url": "https://api.github.com/repos/test-org/classic-no-pr/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/test-org/classic-no-pr/downloads",
+        "issues_url": "https://api.github.com/repos/test-org/classic-no-pr/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/test-org/classic-no-pr/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/test-org/classic-no-pr/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/test-org/classic-no-pr/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/test-org/classic-no-pr/labels{/name}",
+        "releases_url": "https://api.github.com/repos/test-org/classic-no-pr/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/test-org/classic-no-pr/deployments",
+        "created_at": "2026-10-21T15:03:49Z",
+        "updated_at": "2026-10-21T15:05:31Z",
+        "pushed_at": "2026-10-21T15:04:33Z",
+        "git_url": "git://github.com/test-org/classic-no-pr.git",
+        "ssh_url": "user2@example.com:test-org/classic-no-pr.git",
+        "clone_url": "https://github.com/test-org/classic-no-pr.git",
+        "svn_url": "https://github.com/test-org/classic-no-pr",
+        "homepage": "",
+        "size": 0,
+        "stargazers_count": 0,
+        "watchers_count": 0,
+        "language": "Python",
+        "has_issues": false,
+        "has_projects": false,
+        "has_downloads": false,
+        "has_wiki": false,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 0,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 0,
+        "license": null,
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 0,
+        "open_issues": 0,
+        "watchers": 0,
+        "default_branch": "main",
+        "permissions": {
+          "admin": false,
+          "maintain": false,
+          "push": false,
+          "triage": false,
+          "pull": false
+        },
+        "temp_clone_token": "",
+        "custom_properties": {},
+        "organization": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "security_and_analysis": {
+          "secret_scanning": {
+            "status": "enabled"
+          },
+          "secret_scanning_push_protection": {
+            "status": "disabled"
+          },
+          "dependabot_security_updates": {
+            "status": "disabled"
+          },
+          "secret_scanning_non_provider_patterns": {
+            "status": "disabled"
+          },
+          "secret_scanning_validity_checks": {
+            "status": "disabled"
+          }
+        },
+        "network_count": 0,
+        "subscribers_count": 0
+      }
+    },
+    {
+      "operation": "github.code_scanning_default_setup.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/code-scanning/default-setup?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e776764dd42658b97c3033d9afd5d24522265eeb2a7e045d52eafda8b3e7d279\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4834"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "166"
+        ]
+      },
+      "body": {
+        "state": "not-configured",
+        "languages": [
+          "python"
+        ],
+        "query_suite": "default",
+        "threat_model": "remote",
+        "updated_at": null,
+        "schedule": null,
+        "runner_type": "standard",
+        "runner_label": null
+      }
+    },
+    {
+      "operation": "github.code_scanning_analyses.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/code-scanning/analyses?per_page=1",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4774"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "226"
+        ]
+      },
+      "body": {
+        "message": "no analysis found",
+        "documentation_url": "https://docs.github.com/rest/code-scanning/code-scanning#list-code-scanning-analyses-for-a-repository",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repos.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"d336585038e2db56cf1c9ac76a6bdfc0532929d1d2030c3678d37436f790a618\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4773"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "227"
+        ]
+      },
+      "body": {
+        "id": 9000000008,
+        "node_id": "node-7",
+        "name": "unprotected",
+        "full_name": "test-org/unprotected",
+        "private": false,
+        "owner": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "html_url": "https://github.com/test-org/unprotected",
+        "description": "No branch protection and every security feature off.",
+        "fork": false,
+        "url": "https://api.github.com/repos/test-org/unprotected",
+        "forks_url": "https://api.github.com/repos/test-org/unprotected/forks",
+        "keys_url": "https://api.github.com/repos/test-org/unprotected/keys{/key_id}",
+        "collaborators_url": "https://api.github.com/repos/test-org/unprotected/collaborators{/collaborator}",
+        "teams_url": "https://api.github.com/repos/test-org/unprotected/teams",
+        "hooks_url": "https://api.github.com/repos/test-org/unprotected/hooks",
+        "issue_events_url": "https://api.github.com/repos/test-org/unprotected/issues/events{/number}",
+        "events_url": "https://api.github.com/repos/test-org/unprotected/events",
+        "assignees_url": "https://api.github.com/repos/test-org/unprotected/assignees{/user}",
+        "branches_url": "https://api.github.com/repos/test-org/unprotected/branches{/branch}",
+        "tags_url": "https://api.github.com/repos/test-org/unprotected/tags",
+        "blobs_url": "https://api.github.com/repos/test-org/unprotected/git/blobs{/sha}",
+        "git_tags_url": "https://api.github.com/repos/test-org/unprotected/git/tags{/sha}",
+        "git_refs_url": "https://api.github.com/repos/test-org/unprotected/git/refs{/sha}",
+        "trees_url": "https://api.github.com/repos/test-org/unprotected/git/trees{/sha}",
+        "statuses_url": "https://api.github.com/repos/test-org/unprotected/statuses/{sha}",
+        "languages_url": "https://api.github.com/repos/test-org/unprotected/languages",
+        "stargazers_url": "https://api.github.com/repos/test-org/unprotected/stargazers",
+        "contributors_url": "https://api.github.com/repos/test-org/unprotected/contributors",
+        "subscribers_url": "https://api.github.com/repos/test-org/unprotected/subscribers",
+        "subscription_url": "https://api.github.com/repos/test-org/unprotected/subscription",
+        "commits_url": "https://api.github.com/repos/test-org/unprotected/commits{/sha}",
+        "git_commits_url": "https://api.github.com/repos/test-org/unprotected/git/commits{/sha}",
+        "comments_url": "https://api.github.com/repos/test-org/unprotected/comments{/number}",
+        "issue_comment_url": "https://api.github.com/repos/test-org/unprotected/issues/comments{/number}",
+        "contents_url": "https://api.github.com/repos/test-org/unprotected/contents/{+path}",
+        "compare_url": "https://api.github.com/repos/test-org/unprotected/compare/{base}...{head}",
+        "merges_url": "https://api.github.com/repos/test-org/unprotected/merges",
+        "archive_url": "https://api.github.com/repos/test-org/unprotected/{archive_format}{/ref}",
+        "downloads_url": "https://api.github.com/repos/test-org/unprotected/downloads",
+        "issues_url": "https://api.github.com/repos/test-org/unprotected/issues{/number}",
+        "pulls_url": "https://api.github.com/repos/test-org/unprotected/pulls{/number}",
+        "milestones_url": "https://api.github.com/repos/test-org/unprotected/milestones{/number}",
+        "notifications_url": "https://api.github.com/repos/test-org/unprotected/notifications{?since,all,participating}",
+        "labels_url": "https://api.github.com/repos/test-org/unprotected/labels{/name}",
+        "releases_url": "https://api.github.com/repos/test-org/unprotected/releases{/id}",
+        "deployments_url": "https://api.github.com/repos/test-org/unprotected/deployments",
+        "created_at": "2026-10-21T15:04:12Z",
+        "updated_at": "2026-10-21T15:05:49Z",
+        "pushed_at": "2026-10-21T15:04:49Z",
+        "git_url": "git://github.com/test-org/unprotected.git",
+        "ssh_url": "user2@example.com:test-org/unprotected.git",
+        "clone_url": "https://github.com/test-org/unprotected.git",
+        "svn_url": "https://github.com/test-org/unprotected",
+        "homepage": "",
+        "size": 0,
+        "stargazers_count": 0,
+        "watchers_count": 0,
+        "language": "Python",
+        "has_issues": false,
+        "has_projects": false,
+        "has_downloads": false,
+        "has_wiki": false,
+        "has_pages": false,
+        "has_discussions": false,
+        "forks_count": 0,
+        "mirror_url": null,
+        "archived": false,
+        "disabled": false,
+        "open_issues_count": 0,
+        "license": null,
+        "allow_forking": true,
+        "is_template": false,
+        "web_commit_signoff_required": false,
+        "has_pull_requests": true,
+        "pull_request_creation_policy": "all",
+        "topics": [],
+        "visibility": "public",
+        "forks": 0,
+        "open_issues": 0,
+        "watchers": 0,
+        "default_branch": "main",
+        "permissions": {
+          "admin": false,
+          "maintain": false,
+          "push": false,
+          "triage": false,
+          "pull": false
+        },
+        "temp_clone_token": "",
+        "custom_properties": {},
+        "organization": {
+          "login": "test-org",
+          "id": 900000003,
+          "node_id": "node-1",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/test-org",
+          "html_url": "https://github.com/test-org",
+          "followers_url": "https://api.github.com/users/test-org/followers",
+          "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+          "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+          "organizations_url": "https://api.github.com/users/test-org/orgs",
+          "repos_url": "https://api.github.com/users/test-org/repos",
+          "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/test-org/received_events",
+          "type": "Organization",
+          "user_view_type": "public",
+          "site_admin": false
+        },
+        "security_and_analysis": {
+          "secret_scanning": {
+            "status": "disabled"
+          },
+          "secret_scanning_push_protection": {
+            "status": "disabled"
+          },
+          "dependabot_security_updates": {
+            "status": "disabled"
+          },
+          "secret_scanning_non_provider_patterns": {
+            "status": "disabled"
+          },
+          "secret_scanning_validity_checks": {
+            "status": "disabled"
+          }
+        },
+        "network_count": 0,
+        "subscribers_count": 0
+      }
+    },
+    {
+      "operation": "github.code_scanning_default_setup.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/code-scanning/default-setup?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e776764dd42658b97c3033d9afd5d24522265eeb2a7e045d52eafda8b3e7d279\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4833"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "167"
+        ]
+      },
+      "body": {
+        "state": "not-configured",
+        "languages": [
+          "python"
+        ],
+        "query_suite": "default",
+        "threat_model": "remote",
+        "updated_at": null,
+        "schedule": null,
+        "runner_type": "standard",
+        "runner_label": null
+      }
+    },
+    {
+      "operation": "github.code_scanning_analyses.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/code-scanning/analyses?per_page=1",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4772"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "228"
+        ]
+      },
+      "body": {
+        "message": "no analysis found",
+        "documentation_url": "https://docs.github.com/rest/code-scanning/code-scanning#list-code-scanning-analyses-for-a-repository",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.org_settings.get",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org?",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"af4245958d6e8aea60608162c828b67a8078b94428fbb3fc87235368e25b669c\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4771"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "229"
+        ]
+      },
+      "body": {
+        "login": "test-org",
+        "id": 900000003,
+        "node_id": "node-1",
+        "url": "https://api.github.com/orgs/test-org",
+        "repos_url": "https://api.github.com/orgs/test-org/repos",
+        "events_url": "https://api.github.com/orgs/test-org/events",
+        "hooks_url": "https://api.github.com/orgs/test-org/hooks",
+        "issues_url": "https://api.github.com/orgs/test-org/issues",
+        "members_url": "https://api.github.com/orgs/test-org/members{/member}",
+        "public_members_url": "https://api.github.com/orgs/test-org/public_members{/member}",
+        "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+        "description": null,
+        "is_verified": false,
+        "has_organization_projects": true,
+        "has_repository_projects": true,
+        "public_repos": 6,
+        "public_gists": 0,
+        "followers": 0,
+        "following": 0,
+        "html_url": "https://github.com/test-org",
+        "created_at": "2026-10-21T14:31:14Z",
+        "updated_at": "2026-10-21T14:31:14Z",
+        "archived_at": null,
+        "type": "Organization",
+        "total_private_repos": 0,
+        "owned_private_repos": 0,
+        "private_gists": 0,
+        "disk_usage": 0,
+        "collaborators": 0,
+        "billing_email": "user1@example.com",
+        "default_repository_permission": "write",
+        "members_can_create_repositories": true,
+        "two_factor_requirement_enabled": false,
+        "members_allowed_repository_creation_type": "all",
+        "members_can_create_public_repositories": true,
+        "members_can_create_private_repositories": true,
+        "members_can_create_internal_repositories": false,
+        "members_can_create_pages": true,
+        "members_can_fork_private_repositories": false,
+        "web_commit_signoff_required": false,
+        "deploy_keys_enabled_for_repositories": false,
+        "members_can_delete_repositories": true,
+        "members_can_change_repo_visibility": true,
+        "members_can_invite_outside_collaborators": true,
+        "members_can_delete_issues": false,
+        "display_commenter_full_name_setting_enabled": false,
+        "readers_can_create_discussions": true,
+        "members_can_create_teams": true,
+        "members_can_view_dependency_insights": true,
+        "default_repository_branch": "main",
+        "members_can_create_public_pages": true,
+        "members_can_create_private_pages": true,
+        "plan": {
+          "name": "free",
+          "space": 976562499,
+          "private_repos": 10000,
+          "filled_seats": 1,
+          "seats": 0
+        },
+        "advanced_security_enabled_for_new_repositories": false,
+        "dependabot_alerts_enabled_for_new_repositories": false,
+        "dependabot_security_updates_enabled_for_new_repositories": false,
+        "dependency_graph_enabled_for_new_repositories": false,
+        "secret_scanning_enabled_for_new_repositories": false,
+        "secret_scanning_push_protection_enabled_for_new_repositories": false,
+        "secret_scanning_push_protection_custom_link_enabled": false,
+        "secret_scanning_push_protection_custom_link": null,
+        "secret_scanning_validity_checks_enabled": false
+      }
+    },
+    {
+      "operation": "github.secret_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/secret-scanning/alerts",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4770"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "230"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.code_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/code-scanning/alerts?per_page=100&state=open",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4832"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "168"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.dependabot_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/dependabot/alerts?per_page=100&state=open",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4831"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "169"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.secret_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/secret-scanning/alerts",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4769"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "231"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.code_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/code-scanning/alerts?per_page=100&state=open",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4830"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "170"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.dependabot_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/dependabot/alerts?per_page=100&state=open",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4829"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "171"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.secret_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/secret-scanning/alerts",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4768"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "232"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.code_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/code-scanning/alerts?per_page=100&state=open",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4828"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "172"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.dependabot_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/dependabot/alerts?per_page=100&state=open",
+      "status": 403,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4827"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "173"
+        ]
+      },
+      "body": {
+        "message": "Dependabot alerts are disabled for this repository.",
+        "documentation_url": "https://docs.github.com/rest/dependabot/alerts#list-dependabot-alerts-for-a-repository",
+        "status": "403"
+      }
+    },
+    {
+      "operation": "github.secret_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/secret-scanning/alerts",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4767"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "233"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.code_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/code-scanning/alerts?per_page=100&state=open",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4826"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "174"
+        ]
+      },
+      "body": {
+        "message": "no analysis found",
+        "documentation_url": "https://docs.github.com/rest/code-scanning/code-scanning#list-code-scanning-alerts-for-a-repository",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.dependabot_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/dependabot/alerts?per_page=100&state=open",
+      "status": 403,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4825"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "175"
+        ]
+      },
+      "body": {
+        "message": "Dependabot alerts are disabled for this repository.",
+        "documentation_url": "https://docs.github.com/rest/dependabot/alerts#list-dependabot-alerts-for-a-repository",
+        "status": "403"
+      }
+    },
+    {
+      "operation": "github.secret_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/secret-scanning/alerts",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4766"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "234"
+        ]
+      },
+      "body": {
+        "message": "Secret scanning is disabled on this repository.",
+        "documentation_url": "https://docs.github.com/rest/secret-scanning/secret-scanning#list-secret-scanning-alerts-for-a-repository",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.code_scanning_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/code-scanning/alerts?per_page=100&state=open",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4824"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "176"
+        ]
+      },
+      "body": {
+        "message": "no analysis found",
+        "documentation_url": "https://docs.github.com/rest/code-scanning/code-scanning#list-code-scanning-alerts-for-a-repository",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.dependabot_alerts.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/dependabot/alerts?per_page=100&state=open",
+      "status": 403,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4823"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "177"
+        ]
+      },
+      "body": {
+        "message": "Dependabot alerts are disabled for this repository.",
+        "documentation_url": "https://docs.github.com/rest/dependabot/alerts#list-dependabot-alerts-for-a-repository",
+        "status": "403"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/contents/.github/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4765"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "235"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/contents/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4764"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "236"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/contents/docs/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4763"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "237"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/contents/.github/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4762"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "238"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/contents/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4761"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "239"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/contents/docs/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4760"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "240"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/contents/.github/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4759"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "241"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/contents/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4758"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "242"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/contents/docs/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4757"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "243"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/contents/.github/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4756"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "244"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/contents/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4755"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "245"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/contents/docs/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4754"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "246"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/contents/.github/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4753"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "247"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/contents/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4752"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "248"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.repo_contents.get",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/contents/docs/CODEOWNERS?",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4751"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "249"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/repos/contents#get-repository-content",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.org_hooks.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/hooks?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "500"
+        ],
+        "X-Ratelimit-Remaining": [
+          "493"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792598535"
+        ],
+        "X-Ratelimit-Resource": [
+          "webhook_deliveries"
+        ],
+        "X-Ratelimit-Used": [
+          "7"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.repo_hooks.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/hooks?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "500"
+        ],
+        "X-Ratelimit-Remaining": [
+          "492"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792598535"
+        ],
+        "X-Ratelimit-Resource": [
+          "webhook_deliveries"
+        ],
+        "X-Ratelimit-Used": [
+          "8"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.repo_hooks.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/hooks?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "500"
+        ],
+        "X-Ratelimit-Remaining": [
+          "491"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792598535"
+        ],
+        "X-Ratelimit-Resource": [
+          "webhook_deliveries"
+        ],
+        "X-Ratelimit-Used": [
+          "9"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.repo_hooks.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/hooks?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "500"
+        ],
+        "X-Ratelimit-Remaining": [
+          "490"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792598535"
+        ],
+        "X-Ratelimit-Resource": [
+          "webhook_deliveries"
+        ],
+        "X-Ratelimit-Used": [
+          "10"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.repo_hooks.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/hooks?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "500"
+        ],
+        "X-Ratelimit-Remaining": [
+          "489"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792598535"
+        ],
+        "X-Ratelimit-Resource": [
+          "webhook_deliveries"
+        ],
+        "X-Ratelimit-Used": [
+          "11"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.repo_hooks.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/hooks?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "500"
+        ],
+        "X-Ratelimit-Remaining": [
+          "488"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792598535"
+        ],
+        "X-Ratelimit-Resource": [
+          "webhook_deliveries"
+        ],
+        "X-Ratelimit-Used": [
+          "12"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.deploy_keys.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/keys?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4750"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "250"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.deploy_keys.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/keys?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4749"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "251"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.deploy_keys.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/keys?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4748"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "252"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.deploy_keys.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/keys?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4747"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "253"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.deploy_keys.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/keys?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4746"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "254"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.org_runners.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/actions/runners?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e221fcbf68e56a6d9e6720202007de8c3f92f5e827893fa8bcd803cfa5104274\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4822"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "178"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "runners": []
+      }
+    },
+    {
+      "operation": "github.org_actions_secrets.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/actions/secrets?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"06a770fc5af25ae4aea86f834ce37c887703e05f8b7e352f9d6d708df5c3d660\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4821"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "179"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "secrets": []
+      }
+    },
+    {
+      "operation": "github.repo_runners.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/actions/runners?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e221fcbf68e56a6d9e6720202007de8c3f92f5e827893fa8bcd803cfa5104274\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4820"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "180"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "runners": []
+      }
+    },
+    {
+      "operation": "github.repo_runners.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/actions/runners?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e221fcbf68e56a6d9e6720202007de8c3f92f5e827893fa8bcd803cfa5104274\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4819"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "181"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "runners": []
+      }
+    },
+    {
+      "operation": "github.repo_runners.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/actions/runners?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e221fcbf68e56a6d9e6720202007de8c3f92f5e827893fa8bcd803cfa5104274\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4818"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "182"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "runners": []
+      }
+    },
+    {
+      "operation": "github.repo_runners.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/actions/runners?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e221fcbf68e56a6d9e6720202007de8c3f92f5e827893fa8bcd803cfa5104274\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4817"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "183"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "runners": []
+      }
+    },
+    {
+      "operation": "github.repo_runners.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/actions/runners?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"e221fcbf68e56a6d9e6720202007de8c3f92f5e827893fa8bcd803cfa5104274\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4816"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "184"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "runners": []
+      }
+    },
+    {
+      "operation": "github.environments.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-pr-required/environments?page=1&per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"82b4bb8ba2af5e49680c13c2c043fc1767db9d41b27b3c36b90a88f851a30a8d\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4745"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "255"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "environments": []
+      }
+    },
+    {
+      "operation": "github.environments.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-pr-no-approvals/environments?page=1&per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"82b4bb8ba2af5e49680c13c2c043fc1767db9d41b27b3c36b90a88f851a30a8d\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4744"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "256"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "environments": []
+      }
+    },
+    {
+      "operation": "github.environments.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/ruleset-disabled/environments?page=1&per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"82b4bb8ba2af5e49680c13c2c043fc1767db9d41b27b3c36b90a88f851a30a8d\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4743"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "257"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "environments": []
+      }
+    },
+    {
+      "operation": "github.environments.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/classic-no-pr/environments?page=1&per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"82b4bb8ba2af5e49680c13c2c043fc1767db9d41b27b3c36b90a88f851a30a8d\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4742"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "258"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "environments": []
+      }
+    },
+    {
+      "operation": "github.environments.list",
+      "method": "GET",
+      "url": "https://api.github.com/repos/test-org/unprotected/environments?page=1&per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"82b4bb8ba2af5e49680c13c2c043fc1767db9d41b27b3c36b90a88f851a30a8d\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4741"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "259"
+        ]
+      },
+      "body": {
+        "total_count": 0,
+        "environments": []
+      }
+    },
+    {
+      "operation": "github.audit_log.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/audit-log?per_page=100&phrase=created%3A%3E%3D2026-10-14",
+      "status": 404,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "1750"
+        ],
+        "X-Ratelimit-Remaining": [
+          "1744"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599337"
+        ],
+        "X-Ratelimit-Resource": [
+          "audit_log"
+        ],
+        "X-Ratelimit-Used": [
+          "6"
+        ]
+      },
+      "body": {
+        "message": "Not Found",
+        "documentation_url": "https://docs.github.com/rest/orgs/orgs#get-the-audit-log-for-an-organization",
+        "status": "404"
+      }
+    },
+    {
+      "operation": "github.org_installations.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/installations?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"ff18c204b52b7c1f91f26e6faeec0581518b28a8c13ac9d6104dd1f66d4a9083\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4740"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "260"
+        ]
+      },
+      "body": {
+        "total_count": 1,
+        "installations": [
+          {
+            "id": 78901234,
+            "client_id": "client-id-1",
+            "account": {
+              "login": "test-org",
+              "id": 900000003,
+              "node_id": "node-1",
+              "avatar_url": "https://avatars.githubusercontent.com/u/900000003?v=4",
+              "gravatar_id": "",
+              "url": "https://api.github.com/users/test-org",
+              "html_url": "https://github.com/test-org",
+              "followers_url": "https://api.github.com/users/test-org/followers",
+              "following_url": "https://api.github.com/users/test-org/following{/other_user}",
+              "gists_url": "https://api.github.com/users/test-org/gists{/gist_id}",
+              "starred_url": "https://api.github.com/users/test-org/starred{/owner}{/repo}",
+              "subscriptions_url": "https://api.github.com/users/test-org/subscriptions",
+              "organizations_url": "https://api.github.com/users/test-org/orgs",
+              "repos_url": "https://api.github.com/users/test-org/repos",
+              "events_url": "https://api.github.com/users/test-org/events{/privacy}",
+              "received_events_url": "https://api.github.com/users/test-org/received_events",
+              "type": "Organization",
+              "user_view_type": "public",
+              "site_admin": false
+            },
+            "repository_selection": "all",
+            "access_tokens_url": "https://api.github.com/app/installations/78901234/access_tokens",
+            "repositories_url": "https://api.github.com/installation/repositories",
+            "html_url": "https://github.com/organizations/test-org/settings/installations/78901234",
+            "app_id": 123456,
+            "app_slug": "sandbox-app-1",
+            "target_id": 900000003,
+            "target_type": "Organization",
+            "permissions": {
+              "actions": "read",
+              "members": "read",
+              "contents": "read",
+              "metadata": "read",
+              "administration": "read",
+              "security_events": "read",
+              "repository_hooks": "read",
+              "organization_hooks": "read",
+              "organization_secrets": "read",
+              "vulnerability_alerts": "read",
+              "secret_scanning_alerts": "read",
+              "organization_administration": "read",
+              "organization_self_hosted_runners": "read"
+            },
+            "events": [],
+            "created_at": "2026-10-21T15:10:43.000Z",
+            "updated_at": "2026-10-21T15:15:38.000Z",
+            "single_file_name": null,
+            "has_multiple_single_files": false,
+            "single_file_paths": [],
+            "suspended_by": null,
+            "suspended_at": null
+          }
+        ]
+      }
+    },
+    {
+      "operation": "github.org_personal_access_tokens.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/personal-access-tokens?per_page=100",
+      "status": 403,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4739"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "261"
+        ]
+      },
+      "body": {
+        "message": "Resource not accessible by integration",
+        "documentation_url": "https://docs.github.com/rest/orgs/personal-access-tokens#list-fine-grained-personal-access-tokens-with-access-to-organization-resources",
+        "status": "403"
+      }
+    },
+    {
+      "operation": "github.org_members.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/members?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"84969024fa6be38b3c89234748e3fd84f9d8e0a164043dc0e63e78a08727baa8\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4738"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "262"
+        ]
+      },
+      "body": [
+        {
+          "login": "member-1",
+          "id": 900000002,
+          "node_id": "node-8",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000002?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/member-1",
+          "html_url": "https://github.com/member-1",
+          "followers_url": "https://api.github.com/users/member-1/followers",
+          "following_url": "https://api.github.com/users/member-1/following{/other_user}",
+          "gists_url": "https://api.github.com/users/member-1/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/member-1/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/member-1/subscriptions",
+          "organizations_url": "https://api.github.com/users/member-1/orgs",
+          "repos_url": "https://api.github.com/users/member-1/repos",
+          "events_url": "https://api.github.com/users/member-1/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/member-1/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        }
+      ]
+    },
+    {
+      "operation": "github.member_names.list",
+      "method": "POST",
+      "url": "https://api.github.com/graphql?",
+      "request_body": {
+        "query": "query($cursor:String$org:String!){organization(login: $org){membersWithRole(first: 100, after: $cursor){nodes{login,name},pageInfo{hasNextPage,endCursor}}}}",
+        "variables": {
+          "cursor": null,
+          "org": "test-org"
+        }
+      },
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4989"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599338"
+        ],
+        "X-Ratelimit-Resource": [
+          "graphql"
+        ],
+        "X-Ratelimit-Used": [
+          "11"
+        ]
+      },
+      "body": {
+        "data": {
+          "organization": {
+            "membersWithRole": {
+              "nodes": [
+                {
+                  "login": "member-1",
+                  "name": null
+                }
+              ],
+              "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": "cursor-1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "operation": "github.org_admins.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/members?per_page=100&role=admin",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "W/\"84969024fa6be38b3c89234748e3fd84f9d8e0a164043dc0e63e78a08727baa8\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4737"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "263"
+        ]
+      },
+      "body": [
+        {
+          "login": "member-1",
+          "id": 900000002,
+          "node_id": "node-8",
+          "avatar_url": "https://avatars.githubusercontent.com/u/900000002?v=4",
+          "gravatar_id": "",
+          "url": "https://api.github.com/users/member-1",
+          "html_url": "https://github.com/member-1",
+          "followers_url": "https://api.github.com/users/member-1/followers",
+          "following_url": "https://api.github.com/users/member-1/following{/other_user}",
+          "gists_url": "https://api.github.com/users/member-1/gists{/gist_id}",
+          "starred_url": "https://api.github.com/users/member-1/starred{/owner}{/repo}",
+          "subscriptions_url": "https://api.github.com/users/member-1/subscriptions",
+          "organizations_url": "https://api.github.com/users/member-1/orgs",
+          "repos_url": "https://api.github.com/users/member-1/repos",
+          "events_url": "https://api.github.com/users/member-1/events{/privacy}",
+          "received_events_url": "https://api.github.com/users/member-1/received_events",
+          "type": "User",
+          "user_view_type": "public",
+          "site_admin": false
+        }
+      ]
+    },
+    {
+      "operation": "github.outside_collaborators.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/outside_collaborators?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4815"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599322"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "185"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.org_members_2fa_disabled.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/members?filter=2fa_disabled&per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4736"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "264"
+        ]
+      },
+      "body": []
+    },
+    {
+      "operation": "github.org_invitations.list",
+      "method": "GET",
+      "url": "https://api.github.com/orgs/test-org/invitations?per_page=100",
+      "status": 200,
+      "header": {
+        "Content-Type": [
+          "application/json; charset=utf-8"
+        ],
+        "Etag": [
+          "\"9dc94ddc116ea6b0f8e12b118366f07ab2762cc2ce14a269706526cd078456c0\""
+        ],
+        "X-Ratelimit-Limit": [
+          "5000"
+        ],
+        "X-Ratelimit-Remaining": [
+          "4735"
+        ],
+        "X-Ratelimit-Reset": [
+          "1792599319"
+        ],
+        "X-Ratelimit-Resource": [
+          "core"
+        ],
+        "X-Ratelimit-Used": [
+          "265"
+        ]
+      },
+      "body": []
+    }
+  ]
+}
