@@ -1365,6 +1365,134 @@
           "internal/collector/surface_collectors.go:600"
         ]
       },
+      "/apps/per_installation/*/permissions/actions": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
+      "/apps/per_installation/*/permissions/administration": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
       "/apps/per_installation/*/permissions/contents": {
         "operations": [
           "github.org_installations.list"
@@ -1433,6 +1561,70 @@
         ],
         "gaps": [
           "internal/collector/surface_collectors.go:600"
+        ]
+      },
+      "/apps/per_installation/*/permissions/members": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
         ]
       },
       "/apps/per_installation/*/permissions/metadata": {
@@ -1505,6 +1697,262 @@
           "internal/collector/surface_collectors.go:600"
         ]
       },
+      "/apps/per_installation/*/permissions/organization_administration": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
+      "/apps/per_installation/*/permissions/organization_hooks": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
+      "/apps/per_installation/*/permissions/organization_secrets": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
+      "/apps/per_installation/*/permissions/organization_self_hosted_runners": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
       "/apps/per_installation/*/permissions/pull_requests": {
         "operations": [
           "github.org_installations.list"
@@ -1573,6 +2021,262 @@
         ],
         "gaps": [
           "internal/collector/surface_collectors.go:600"
+        ]
+      },
+      "/apps/per_installation/*/permissions/repository_hooks": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
+      "/apps/per_installation/*/permissions/secret_scanning_alerts": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
+      "/apps/per_installation/*/permissions/security_events": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
+        ]
+      },
+      "/apps/per_installation/*/permissions/vulnerability_alerts": {
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:252"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:260"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:262"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:28"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:595"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:596"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:604"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:609"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:884"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:885"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:886"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:890"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:901"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:908"
+          }
         ]
       },
       "/apps/per_installation/*/repository_selection": {
@@ -8037,6 +8741,90 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:144"
+        ]
+      },
+      "/repositories/per_repo/*/effective_branch_protection/supplied_by/linear_history/*": {
+        "code": [
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:81"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:98"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:127"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:154"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:155"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:163"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:167"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:168"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:169"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:170"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:308"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:309"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/branch_protection.go:310"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:312"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:313"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/branch_protection.go:314"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/branch_protection.go:315"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/branch_protection.go:318"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/rulesets.go:115"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/rulesets.go:120"
+          }
         ]
       },
       "/repositories/per_repo/*/effective_branch_protection/supplied_by/pull_request_required/*": {
