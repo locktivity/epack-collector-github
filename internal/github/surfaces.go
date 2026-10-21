@@ -8,14 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
+	"sort"
 	"strings"
 
-	"github.com/shurcooL/githubv4"
+	"github.com/locktivity/epack/componentsdk"
 )
 
 // ErrNotFound is returned when the API returns 404 Not Found. Surfaces use it
@@ -50,55 +49,9 @@ func is403FeatureDisabled(body string) bool {
 	return false
 }
 
-// classifyStatus maps a non-200 REST response to a sentinel-wrapped error:
-// 404→ErrNotFound; 403→ErrFeatureUnavailable when the body says the feature is
-// off, otherwise ErrPermissionDenied; anything else→a generic error. Callers
-// that treat 404 as "empty/feature off" branch on errors.Is(ErrNotFound).
-func classifyStatus(resp *http.Response, path string) error {
-	switch resp.StatusCode {
-	case http.StatusForbidden:
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		if is403FeatureDisabled(string(body)) {
-			return fmt.Errorf("%w: %s (403: feature not enabled)", ErrFeatureUnavailable, path)
-		}
-		return fmt.Errorf("%w: %s (status 403)", ErrPermissionDenied, path)
-	case http.StatusNotFound:
-		return fmt.Errorf("%w: %s (status 404)", ErrNotFound, path)
-	default:
-		return fmt.Errorf("%s returned status %d", path, resp.StatusCode)
-	}
-}
-
-// getJSON performs a GET against the REST API and decodes the body into out.
-// It maps 403→ErrPermissionDenied and 404→ErrNotFound so callers can branch
-// on expected outcomes.
-func (c *Client) getJSON(ctx context.Context, path string, out any) error {
-	url := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-	setAPIHeaders(req)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return classifyStatus(resp, path)
-	}
-	if out == nil {
-		return nil
-	}
-	return json.NewDecoder(resp.Body).Decode(out)
-}
-
 // OrgSettings holds org-level access-control settings surfaced at audit level.
-// Pointer fields are nil when the API does not reliably expose the value
-// (matching the existing 2FA-nullable convention).
+// GitHub returns them only to organization owners (organization
+// administration for an App), so an empty field means it was withheld.
 type OrgSettings struct {
 	DefaultRepositoryPermission  string
 	MembersCanCreateRepositories *bool
@@ -113,12 +66,17 @@ type OrgSettings struct {
 // (https://github.com/orgs/community/discussions/45063). Surfacing an
 // unreliable flag would be worse than omitting it.
 func (c *Client) GetOrgSettings(ctx context.Context, org string) (*OrgSettings, error) {
+	path := "/orgs/" + org
 	var body struct {
+		Login                        string `json:"login"`
 		DefaultRepositoryPermission  string `json:"default_repository_permission"`
 		MembersCanCreateRepositories *bool  `json:"members_can_create_repositories"`
 	}
-	if err := c.getJSON(ctx, fmt.Sprintf("/orgs/%s", org), &body); err != nil {
+	if err := c.getJSON(ctx, "github.org_settings.get", path, &body); err != nil {
 		return nil, err
+	}
+	if body.Login == "" {
+		return nil, invalidResponse("%s response has no login", path)
 	}
 	return &OrgSettings{
 		DefaultRepositoryPermission:  body.DefaultRepositoryPermission,
@@ -126,144 +84,37 @@ func (c *Client) GetOrgSettings(ctx context.Context, org string) (*OrgSettings, 
 	}, nil
 }
 
-// AlertType identifies a GitHub Advanced Security alert endpoint.
-type AlertType string
-
-const (
-	AlertSecretScanning AlertType = "secret-scanning"
-	AlertCodeScanning   AlertType = "code-scanning"
-	AlertDependabot     AlertType = "dependabot"
-)
-
-var linkLastPageRe = regexp.MustCompile(`[?&]page=(\d+)[^>]*>;\s*rel="last"`)
-
-// getOpenAlertTotal returns the count of open alerts for a repo+type using the
-// per_page=1 + Link-header trick: the "last" page number equals the total. On
-// 404 (feature not enabled for the repo) it returns 0 with no error.
-func (c *Client) getOpenAlertTotal(ctx context.Context, owner, repo string, alertType AlertType) (int, error) {
-	path := fmt.Sprintf("/repos/%s/%s/%s/alerts?state=open&per_page=1", owner, repo, alertType)
-	url := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return 0, err
-	}
-	setAPIHeaders(req)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		err := classifyStatus(resp, path)
-		if errors.Is(err, ErrNotFound) {
-			// Feature not enabled for this repo: zero open alerts, not an error.
-			return 0, nil
-		}
-		return 0, err
-	}
-	// If there's a "last" page, total == last page number (per_page=1).
-	if m := linkLastPageRe.FindStringSubmatch(resp.Header.Get("Link")); m != nil {
-		if n, convErr := strconv.Atoi(m[1]); convErr == nil {
-			return n, nil
-		}
-	}
-	// No Link header: the result fits on one page. Count the items.
-	var items []json.RawMessage
-	if decErr := json.NewDecoder(resp.Body).Decode(&items); decErr != nil {
-		return 0, nil
-	}
-	return len(items), nil
-}
-
-// GetOpenAlertCounts returns the open-alert totals for a repo across the three
-// Advanced Security alert types. If any type fails, the returned error favors a
-// permission denial (actionable: grant the scope) over a feature-not-enabled
-// signal (informational); callers record the matching diagnostic and continue
-// with whatever counts succeeded.
-func (c *Client) GetOpenAlertCounts(ctx context.Context, owner, repo string) (*AlertCounts, error) {
-	counts := &AlertCounts{}
-	var permErr, featErr error
-	for _, t := range []AlertType{AlertSecretScanning, AlertCodeScanning, AlertDependabot} {
-		n, err := c.getOpenAlertTotal(ctx, owner, repo, t)
-		if err != nil {
-			switch {
-			case errors.Is(err, ErrPermissionDenied) && permErr == nil:
-				permErr = err
-			case errors.Is(err, ErrFeatureUnavailable) && featErr == nil:
-				featErr = err
-			}
-			continue
-		}
-		switch t {
-		case AlertSecretScanning:
-			counts.SecretScanningOpen = n
-		case AlertCodeScanning:
-			counts.CodeScanningOpen = n
-		case AlertDependabot:
-			counts.DependabotOpen = n
-		}
-	}
-	if permErr != nil {
-		return counts, permErr
-	}
-	return counts, featErr
-}
-
-// AlertCounts holds open-alert totals for a repository.
-type AlertCounts struct {
-	SecretScanningOpen int
-	CodeScanningOpen   int
-	DependabotOpen     int
-}
-
-// AlertFetchCap bounds how many alerts of one type are fetched per repo, so a
-// long-neglected inventory can't blow the per-collector output limit. The
-// collector truncates to its own cap and flags it; this is the upstream guard.
+// AlertFetchCap bounds how many alerts of one type are listed per repo, so a
+// long-neglected inventory can't blow the per-collector output limit. A list
+// that reaches it comes back marked as possibly holding more.
 const AlertFetchCap = 5001
 
 var linkNextRe = regexp.MustCompile(`<([^>]+)>;\s*rel="next"`)
 
 // getPagedRaw follows Link rel="next" pagination accumulating raw JSON array
-// elements, stopping at maxItems. 404 → empty (feature not enabled). 403 →
-// ErrPermissionDenied, or ErrFeatureUnavailable when the body says the feature
-// is off. The returned bool reports whether more pages existed beyond maxItems.
-func (c *Client) getPagedRaw(ctx context.Context, firstPath string, maxItems int) ([]json.RawMessage, bool, error) {
+// elements, stopping at maxItems. Any failure, including on a later page,
+// returns an error and no items. The returned bool reports that the list
+// reached maxItems, so it may hold more.
+func (c *Client) getPagedRaw(ctx context.Context, op, firstPath string, maxItems int) ([]json.RawMessage, bool, error) {
 	var all []json.RawMessage
 	next := c.baseURL + firstPath
 
 	for next != "" {
-		req, err := http.NewRequestWithContext(ctx, "GET", next, nil)
+		resp, err := c.do(ctx, componentsdk.Operation{Name: op}, http.MethodGet, next, nil)
 		if err != nil {
 			return nil, false, err
 		}
-		setAPIHeaders(req)
-
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			return nil, false, err
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			err := classifyStatus(resp, firstPath)
-			_ = resp.Body.Close()
-			if errors.Is(err, ErrNotFound) {
-				// Feature not enabled: return whatever pages accumulated so far.
-				return all, false, nil
-			}
-			return nil, false, err
-		}
-
-		var page []json.RawMessage
+		var page *[]json.RawMessage
 		decErr := json.NewDecoder(resp.Body).Decode(&page)
 		link := resp.Header.Get("Link")
 		_ = resp.Body.Close()
 		if decErr != nil {
-			return all, false, nil
+			return nil, false, componentsdk.ResponseError(resp, fmt.Errorf("%s: decoding response: %w", trimQuery(firstPath), decErr))
 		}
-		all = append(all, page...)
+		if page == nil {
+			return nil, false, componentsdk.ResponseError(resp, invalidResponse("%s response is not a list", trimQuery(firstPath)))
+		}
+		all = append(all, *page...)
 		if len(all) >= maxItems {
 			return all[:maxItems], true, nil
 		}
@@ -273,6 +124,64 @@ func (c *Client) getPagedRaw(ctx context.Context, firstPath string, maxItems int
 		}
 	}
 	return all, false, nil
+}
+
+// InventoryFetchCap bounds how many runners, Actions secrets, or App
+// installations one list reads.
+const InventoryFetchCap = 10000
+
+// getPagedTotal follows Link rel="next" pagination over a list whose pages
+// hold their items under key beside total_count, such as
+// {"total_count": 2, "runners": [...]}, stopping at maxItems. It returns the
+// items read and the total GitHub reports, which is larger when maxItems cut
+// the list short. Any failure, including on a later page, returns an error
+// and no items.
+func (c *Client) getPagedTotal(ctx context.Context, op, firstPath, key string, maxItems int) ([]json.RawMessage, int, error) {
+	var all []json.RawMessage
+	total := 0
+	next := c.baseURL + firstPath
+
+	for next != "" {
+		resp, err := c.do(ctx, componentsdk.Operation{Name: op}, http.MethodGet, next, nil)
+		if err != nil {
+			return nil, 0, err
+		}
+		var page map[string]json.RawMessage
+		decErr := json.NewDecoder(resp.Body).Decode(&page)
+		link := resp.Header.Get("Link")
+		_ = resp.Body.Close()
+		if decErr != nil {
+			return nil, 0, componentsdk.ResponseError(resp, fmt.Errorf("%s: decoding response: %w", trimQuery(firstPath), decErr))
+		}
+		var items []json.RawMessage
+		if raw, ok := page[key]; !ok || json.Unmarshal(raw, &items) != nil || items == nil {
+			return nil, 0, componentsdk.ResponseError(resp, invalidResponse("%s response has no %s list", trimQuery(firstPath), key))
+		}
+		var count *int
+		if raw, ok := page["total_count"]; !ok || json.Unmarshal(raw, &count) != nil || count == nil {
+			return nil, 0, componentsdk.ResponseError(resp, invalidResponse("%s response has no total_count", trimQuery(firstPath)))
+		}
+		total = *count
+		all = append(all, items...)
+		if len(all) >= maxItems {
+			return all[:maxItems], total, nil
+		}
+		next = ""
+		if m := linkNextRe.FindStringSubmatch(link); m != nil {
+			next = m[1]
+		}
+	}
+	return all, total, nil
+}
+
+// getAlertPages lists one alert type for a repo. A 404 means the feature is
+// not enabled for the repository, so it has no alerts.
+func (c *Client) getAlertPages(ctx context.Context, op, path string) ([]json.RawMessage, bool, error) {
+	raw, more, err := c.getPagedRaw(ctx, op, path, AlertFetchCap)
+	if errors.Is(err, ErrNotFound) {
+		return nil, false, nil
+	}
+	return raw, more, err
 }
 
 // SecretScanningAlert is the metadata for one open secret-scanning alert.
@@ -316,8 +225,8 @@ type DependabotAlert struct {
 
 // ListSecretScanningAlerts returns open secret-scanning alerts for a repo.
 func (c *Client) ListSecretScanningAlerts(ctx context.Context, owner, repo string) ([]SecretScanningAlert, bool, error) {
-	path := fmt.Sprintf("/repos/%s/%s/secret-scanning/alerts?state=open&per_page=100", owner, repo)
-	raw, more, err := c.getPagedRaw(ctx, path, AlertFetchCap)
+	path := fmt.Sprintf("/repos/%s/%s/secret-scanning/alerts?state=open&per_page=100&hide_secret=true", owner, repo)
+	raw, more, err := c.getAlertPages(ctx, "github.secret_scanning_alerts.list", path)
 	if err != nil {
 		return nil, false, err
 	}
@@ -334,8 +243,8 @@ func (c *Client) ListSecretScanningAlerts(ctx context.Context, owner, repo strin
 				Login string `json:"login"`
 			} `json:"resolved_by"`
 		}
-		if json.Unmarshal(r, &a) != nil {
-			continue
+		if err := json.Unmarshal(r, &a); err != nil {
+			return nil, false, fmt.Errorf("%s: decoding alert: %w", trimQuery(path), err)
 		}
 		alert := SecretScanningAlert{
 			Repository: owner + "/" + repo,
@@ -357,7 +266,7 @@ func (c *Client) ListSecretScanningAlerts(ctx context.Context, owner, repo strin
 // ListCodeScanningAlerts returns open code-scanning alerts for a repo.
 func (c *Client) ListCodeScanningAlerts(ctx context.Context, owner, repo string) ([]CodeScanningAlert, bool, error) {
 	path := fmt.Sprintf("/repos/%s/%s/code-scanning/alerts?state=open&per_page=100", owner, repo)
-	raw, more, err := c.getPagedRaw(ctx, path, AlertFetchCap)
+	raw, more, err := c.getAlertPages(ctx, "github.code_scanning_alerts.list", path)
 	if err != nil {
 		return nil, false, err
 	}
@@ -381,8 +290,8 @@ func (c *Client) ListCodeScanningAlerts(ctx context.Context, owner, repo string)
 				} `json:"location"`
 			} `json:"most_recent_instance"`
 		}
-		if json.Unmarshal(r, &a) != nil {
-			continue
+		if err := json.Unmarshal(r, &a); err != nil {
+			return nil, false, fmt.Errorf("%s: decoding alert: %w", trimQuery(path), err)
 		}
 		alert := CodeScanningAlert{
 			Repository:      owner + "/" + repo,
@@ -407,7 +316,7 @@ func (c *Client) ListCodeScanningAlerts(ctx context.Context, owner, repo string)
 // ListDependabotAlerts returns open Dependabot alerts for a repo.
 func (c *Client) ListDependabotAlerts(ctx context.Context, owner, repo string) ([]DependabotAlert, bool, error) {
 	path := fmt.Sprintf("/repos/%s/%s/dependabot/alerts?state=open&per_page=100", owner, repo)
-	raw, more, err := c.getPagedRaw(ctx, path, AlertFetchCap)
+	raw, more, err := c.getAlertPages(ctx, "github.dependabot_alerts.list", path)
 	if err != nil {
 		return nil, false, err
 	}
@@ -428,8 +337,8 @@ func (c *Client) ListDependabotAlerts(ctx context.Context, owner, repo string) (
 				} `json:"package"`
 			} `json:"security_vulnerability"`
 		}
-		if json.Unmarshal(r, &a) != nil {
-			continue
+		if err := json.Unmarshal(r, &a); err != nil {
+			return nil, false, fmt.Errorf("%s: decoding alert: %w", trimQuery(path), err)
 		}
 		out = append(out, DependabotAlert{
 			Repository: owner + "/" + repo,
@@ -449,8 +358,8 @@ func (c *Client) ListDependabotAlerts(ctx context.Context, owner, repo string) (
 const MemberFetchCap = 50000
 
 // getAllLogins pages a members-style endpoint and extracts the "login" field.
-func (c *Client) getAllLogins(ctx context.Context, firstPath string) ([]string, error) {
-	raw, _, err := c.getPagedRaw(ctx, firstPath, MemberFetchCap)
+func (c *Client) getAllLogins(ctx context.Context, op, firstPath string) ([]string, error) {
+	raw, _, err := c.getPagedRaw(ctx, op, firstPath, MemberFetchCap)
 	if err != nil {
 		return nil, err
 	}
@@ -466,28 +375,42 @@ func (c *Client) getAllLogins(ctx context.Context, firstPath string) ([]string, 
 	return logins, nil
 }
 
-// OrgMembership holds the member rosters needed for the Members surface.
+// OrgMembership holds the member rosters needed for the Members surface. Each
+// roster beyond the member list keeps the error that stopped its read.
 type OrgMembership struct {
-	Members              []string
-	Admins               []string
-	OutsideCollaborators []string
+	Members                 []string
+	Admins                  []string
+	AdminsErr               error
+	OutsideCollaborators    []string
+	OutsideCollaboratorsErr error
 	// TwoFADisabled is the set of members without 2FA, populated only when the
 	// caller is an org owner; nil means the signal was unavailable (so per-user
-	// 2FA flags stay unknown rather than wrongly reporting "enabled").
+	// 2FA flags stay unknown rather than wrongly reporting "enabled"), and
+	// TwoFAErr says why.
 	TwoFADisabled      map[string]bool
+	TwoFAErr           error
 	PendingInvitations int
+	InvitationsErr     error
 	// Names maps login to public-profile display name. Logins whose profile has
 	// no name set are absent; nil means the lookup itself was unavailable.
 	Names map[string]string
+	// NamesErr is why the bulk member name query failed, leaving members'
+	// names unknown.
+	NamesErr error
+	// UnnamedCollaborators lists outside collaborators whose names were not
+	// looked up because an earlier lookup failed with NameLookupErr.
+	UnnamedCollaborators []string
+	NameLookupErr        error
 	// NamesIncomplete lists reasons name coverage is partial for causes other
 	// than users not setting a name (bulk query failed, lookup cap, lookup
 	// error), so consumers don't read an absent name as "not set".
 	NamesIncomplete []string
 }
 
-// GetOrgMembership fetches member rosters. Requires members:read.
+// GetOrgMembership fetches member rosters. Requires members:read. It returns
+// an error only when the member list itself could not be read.
 func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembership, error) {
-	members, err := c.getAllLogins(ctx, fmt.Sprintf("/orgs/%s/members?per_page=100", org))
+	members, err := c.getAllLogins(ctx, "github.org_members.list", fmt.Sprintf("/orgs/%s/members?per_page=100", org))
 	if err != nil {
 		return nil, err
 	}
@@ -496,32 +419,37 @@ func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembersh
 	if names, nerr := c.getMemberNames(ctx, org); nerr == nil {
 		result.Names = names
 	} else {
+		result.NamesErr = nerr
 		result.NamesIncomplete = append(result.NamesIncomplete, "bulk member name query failed")
 	}
 
-	if admins, aerr := c.getAllLogins(ctx, fmt.Sprintf("/orgs/%s/members?role=admin&per_page=100", org)); aerr == nil {
-		result.Admins = admins
-	}
-	if oc, oerr := c.getAllLogins(ctx, fmt.Sprintf("/orgs/%s/outside_collaborators?per_page=100", org)); oerr == nil {
-		result.OutsideCollaborators = oc
-		names, incomplete := c.collaboratorNames(ctx, oc)
-		for l, n := range names {
+	result.Admins, result.AdminsErr = c.getAllLogins(ctx, "github.org_admins.list", fmt.Sprintf("/orgs/%s/members?role=admin&per_page=100", org))
+	result.OutsideCollaborators, result.OutsideCollaboratorsErr = c.getAllLogins(ctx, "github.outside_collaborators.list", fmt.Sprintf("/orgs/%s/outside_collaborators?per_page=100", org))
+	if result.OutsideCollaboratorsErr == nil {
+		lookup := c.collaboratorNames(ctx, result.OutsideCollaborators)
+		for l, n := range lookup.names {
 			if result.Names == nil {
-				result.Names = make(map[string]string, len(names))
+				result.Names = make(map[string]string, len(lookup.names))
 			}
 			result.Names[l] = n
 		}
-		result.NamesIncomplete = append(result.NamesIncomplete, incomplete...)
+		result.NamesIncomplete = append(result.NamesIncomplete, lookup.incomplete...)
+		result.UnnamedCollaborators = lookup.unread
+		result.NameLookupErr = lookup.err
 	}
-	if disabled, derr := c.getAllLogins(ctx, fmt.Sprintf("/orgs/%s/members?filter=2fa_disabled&per_page=100", org)); derr == nil {
+	if disabled, derr := c.getAllLogins(ctx, "github.org_members_2fa_disabled.list", fmt.Sprintf("/orgs/%s/members?filter=2fa_disabled&per_page=100", org)); derr == nil {
 		set := make(map[string]bool, len(disabled))
 		for _, l := range disabled {
 			set[l] = true
 		}
 		result.TwoFADisabled = set
+	} else {
+		result.TwoFAErr = derr
 	}
-	if inv, _, ierr := c.getPagedRaw(ctx, fmt.Sprintf("/orgs/%s/invitations?per_page=100", org), MemberFetchCap); ierr == nil {
+	if inv, _, ierr := c.getPagedRaw(ctx, "github.org_invitations.list", fmt.Sprintf("/orgs/%s/invitations?per_page=100", org), MemberFetchCap); ierr == nil {
 		result.PendingInvitations = len(inv)
+	} else {
+		result.InvitationsErr = ierr
 	}
 
 	return result, nil
@@ -532,31 +460,38 @@ func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembersh
 // profile data, so this needs no permissions beyond members:read. Outside
 // collaborators are absent from membersWithRole; collaboratorNames covers them.
 func (c *Client) getMemberNames(ctx context.Context, org string) (map[string]string, error) {
-	if c.graphql == nil {
-		return nil, errors.New("graphql client not configured")
-	}
-
 	names := make(map[string]string)
-	var cursor *githubv4.String
+	var cursor *string
 
 	for pages := 0; pages < MemberFetchCap/100; pages++ {
-		var query MembersWithRoleQuery
-		variables := map[string]interface{}{
-			"org":    githubv4.String(org),
-			"cursor": cursor,
+		var data struct {
+			Organization *struct {
+				MembersWithRole *struct {
+					Nodes *[]struct {
+						Login string
+						Name  string
+					}
+					PageInfo pageInfo
+				}
+			}
 		}
-		if err := c.graphql.Query(ctx, &query, variables); err != nil {
+		if err := c.graphQL(ctx, "github.member_names.list", membersQuery, map[string]any{"org": org, "cursor": cursor}, &data); err != nil {
 			return nil, err
 		}
-		for _, n := range query.Organization.MembersWithRole.Nodes {
+		if data.Organization == nil || data.Organization.MembersWithRole == nil || data.Organization.MembersWithRole.Nodes == nil {
+			return nil, invalidResponse("graphql members response has no member list")
+		}
+		page := data.Organization.MembersWithRole
+		for _, n := range *page.Nodes {
 			if n.Login != "" && n.Name != "" {
 				names[n.Login] = n.Name
 			}
 		}
-		if !query.Organization.MembersWithRole.PageInfo.HasNextPage {
+		if !page.PageInfo.HasNextPage {
 			break
 		}
-		cursor = &query.Organization.MembersWithRole.PageInfo.EndCursor
+		next := page.PageInfo.EndCursor
+		cursor = &next
 	}
 
 	return names, nil
@@ -566,51 +501,70 @@ func (c *Client) getMemberNames(ctx context.Context, org string) (map[string]str
 // collaborators, who have no bulk name API.
 const CollaboratorNameLookupCap = 200
 
+// nameLookup is the outcome of looking up outside collaborators' names.
+type nameLookup struct {
+	names map[string]string
+	// incomplete describes any resulting coverage gap.
+	incomplete []string
+	// unread lists the logins left unlooked-up after a lookup failed with err.
+	unread []string
+	err    error
+}
+
 // collaboratorNames resolves display names for outside collaborators one login
 // at a time. A failed lookup aborts the pass: one failure usually means rate
 // limiting, so pressing on would just fail the rest too. Deleted users (404)
-// are skipped. Returned reasons describe any resulting coverage gap.
-func (c *Client) collaboratorNames(ctx context.Context, logins []string) (map[string]string, []string) {
-	var incomplete []string
+// are skipped.
+func (c *Client) collaboratorNames(ctx context.Context, logins []string) nameLookup {
+	var out nameLookup
 	if len(logins) > CollaboratorNameLookupCap {
-		incomplete = append(incomplete, fmt.Sprintf("outside-collaborator name lookups capped at %d of %d", CollaboratorNameLookupCap, len(logins)))
+		out.incomplete = append(out.incomplete, fmt.Sprintf("outside-collaborator name lookups capped at %d of %d", CollaboratorNameLookupCap, len(logins)))
 		logins = logins[:CollaboratorNameLookupCap]
 	}
 
-	names := make(map[string]string, len(logins))
-	for _, login := range logins {
+	out.names = make(map[string]string, len(logins))
+	for i, login := range logins {
 		name, err := c.getUserName(ctx, login)
 		if err != nil {
-			incomplete = append(incomplete, "outside-collaborator name lookups aborted: "+err.Error())
+			out.incomplete = append(out.incomplete, "outside-collaborator name lookups aborted: "+err.Error())
+			out.unread = logins[i:]
+			out.err = err
 			break
 		}
 		if name != "" {
-			names[login] = name
+			out.names[login] = name
 		}
 	}
-	return names, incomplete
+	return out
 }
 
 // getUserName fetches one user's public-profile display name. A 404 (deleted
 // or suspended user) is "no name", not an error.
 func (c *Client) getUserName(ctx context.Context, login string) (string, error) {
+	path := "/users/" + login
 	var user struct {
-		Name string `json:"name"`
+		Login string `json:"login"`
+		Name  string `json:"name"`
 	}
-	if err := c.getJSON(ctx, "/users/"+login, &user); err != nil {
+	if err := c.getJSON(ctx, "github.users.get", path, &user); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return "", nil
 		}
 		return "", err
 	}
+	if user.Login == "" {
+		return "", invalidResponse("%s response has no login", path)
+	}
 	return user.Name, nil
 }
 
-// GetCodeownersInfo reports whether a CODEOWNERS file exists (and its path) and,
-// when wantHash is true (internal), a SHA-256 of its contents. File bytes are
-// hashed in-process and never emitted.
+// GetCodeownersInfo reports whether a CODEOWNERS file exists and the path of
+// the one GitHub uses, which is the first it finds in .github/, the root, or
+// docs/, in that order. When wantHash is true (internal), it also returns a
+// SHA-256 of the file's contents. File bytes are hashed in-process and never
+// emitted. A file too large to hash is reported present without a hash.
 func (c *Client) GetCodeownersInfo(ctx context.Context, owner, repo string, wantHash bool) (present bool, path string, hash string, err error) {
-	for _, p := range []string{".github/CODEOWNERS", "docs/CODEOWNERS", "CODEOWNERS"} {
+	for _, p := range []string{".github/CODEOWNERS", "CODEOWNERS", "docs/CODEOWNERS"} {
 		bytes, ferr := c.getFileContents(ctx, owner, repo, p)
 		if errors.Is(ferr, ErrNotFound) {
 			continue
@@ -618,7 +572,7 @@ func (c *Client) GetCodeownersInfo(ctx context.Context, owner, repo string, want
 		if ferr != nil {
 			return false, "", "", ferr
 		}
-		if !wantHash {
+		if !wantHash || bytes == nil {
 			return true, p, "", nil
 		}
 		sum := sha256.Sum256(bytes)
@@ -631,24 +585,29 @@ func (c *Client) GetCodeownersInfo(ctx context.Context, owner, repo string, want
 // reported present without a hash.
 const codeownersMaxBytes = 1 << 20
 
-// getFileContents fetches and base64-decodes a repo file. Bytes are used only
-// for hashing by the single CODEOWNERS caller.
+// getFileContents fetches and base64-decodes a repo file. It returns nil bytes
+// for a file too large to hash or whose content GitHub did not inline. Bytes
+// are used only for hashing by the single CODEOWNERS caller.
 func (c *Client) getFileContents(ctx context.Context, owner, repo, path string) ([]byte, error) {
+	route := fmt.Sprintf("/repos/%s/%s/contents/%s", owner, repo, path)
 	var body struct {
 		Encoding string `json:"encoding"`
 		Content  string `json:"content"`
-		Size     int    `json:"size"`
+		Size     *int   `json:"size"`
 	}
-	if err := c.getJSON(ctx, fmt.Sprintf("/repos/%s/%s/contents/%s", owner, repo, path), &body); err != nil {
+	if err := c.getJSON(ctx, "github.repo_contents.get", route, &body); err != nil {
 		return nil, err
 	}
-	if body.Size > codeownersMaxBytes || body.Encoding != "base64" {
-		return nil, ErrNotFound
+	if body.Size == nil {
+		return nil, invalidResponse("%s response has no size", route)
+	}
+	if *body.Size > codeownersMaxBytes || body.Encoding != "base64" {
+		return nil, nil
 	}
 	// LINT-ALLOW: bytes are SHA-256 hashed by the caller and immediately discarded; never emitted.
 	decoded, err := base64.StdEncoding.DecodeString(strings.ReplaceAll(body.Content, "\n", ""))
 	if err != nil {
-		return nil, err
+		return nil, componentsdk.CodeError(componentsdk.CodeInvalidResponse, fmt.Errorf("%s: decoding content: %w", route, err))
 	}
 	return decoded, nil
 }
@@ -665,8 +624,8 @@ type Hook struct {
 	LastResponseStatus string   `json:"last_response_status,omitempty"`
 }
 
-func (c *Client) listHooks(ctx context.Context, path string) ([]Hook, error) {
-	raw, _, err := c.getPagedRaw(ctx, path, 200)
+func (c *Client) listHooks(ctx context.Context, op, path string) ([]Hook, error) {
+	raw, _, err := c.getPagedRaw(ctx, op, path, 200)
 	if err != nil {
 		return nil, err
 	}
@@ -685,8 +644,8 @@ func (c *Client) listHooks(ctx context.Context, path string) ([]Hook, error) {
 				Status string `json:"status"`
 			} `json:"last_response"`
 		}
-		if json.Unmarshal(r, &h) != nil {
-			continue
+		if err := json.Unmarshal(r, &h); err != nil {
+			return nil, fmt.Errorf("%s: decoding hook: %w", trimQuery(path), err)
 		}
 		out = append(out, Hook{
 			ID:                 h.ID,
@@ -703,12 +662,12 @@ func (c *Client) listHooks(ctx context.Context, path string) ([]Hook, error) {
 
 // ListOrgHooks returns org-level webhooks. Requires organization_hooks:read.
 func (c *Client) ListOrgHooks(ctx context.Context, org string) ([]Hook, error) {
-	return c.listHooks(ctx, fmt.Sprintf("/orgs/%s/hooks?per_page=100", org))
+	return c.listHooks(ctx, "github.org_hooks.list", fmt.Sprintf("/orgs/%s/hooks?per_page=100", org))
 }
 
 // ListRepoHooks returns repo-level webhooks. Requires repository_hooks:read.
 func (c *Client) ListRepoHooks(ctx context.Context, owner, repo string) ([]Hook, error) {
-	return c.listHooks(ctx, fmt.Sprintf("/repos/%s/%s/hooks?per_page=100", owner, repo))
+	return c.listHooks(ctx, "github.repo_hooks.list", fmt.Sprintf("/repos/%s/%s/hooks?per_page=100", owner, repo))
 }
 
 // hostOnly extracts the host from a URL, dropping path/query/secret material.
@@ -733,7 +692,8 @@ type DeployKey struct {
 
 // ListRepoDeployKeys returns deploy keys for a repo. Requires administration:read.
 func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]DeployKey, error) {
-	raw, _, err := c.getPagedRaw(ctx, fmt.Sprintf("/repos/%s/%s/keys?per_page=100", owner, repo), 1000)
+	path := fmt.Sprintf("/repos/%s/%s/keys?per_page=100", owner, repo)
+	raw, _, err := c.getPagedRaw(ctx, "github.deploy_keys.list", path, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -747,8 +707,8 @@ func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]
 			LastUsed  string `json:"last_used"`
 			Key       string `json:"key"`
 		}
-		if json.Unmarshal(r, &k) != nil {
-			continue
+		if err := json.Unmarshal(r, &k); err != nil {
+			return nil, fmt.Errorf("%s: decoding deploy key: %w", trimQuery(path), err)
 		}
 		dk := DeployKey{
 			Repository: owner + "/" + repo,
@@ -777,9 +737,14 @@ type Runner struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-func (c *Client) listRunners(ctx context.Context, path string) ([]Runner, error) {
-	var body struct {
-		Runners []struct {
+func (c *Client) listRunners(ctx context.Context, op, path string) ([]Runner, int, error) {
+	raw, total, err := c.getPagedTotal(ctx, op, path, "runners", InventoryFetchCap)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]Runner, 0, len(raw))
+	for _, item := range raw {
+		var r struct {
 			ID     int64  `json:"id"`
 			Name   string `json:"name"`
 			OS     string `json:"os"`
@@ -788,49 +753,52 @@ func (c *Client) listRunners(ctx context.Context, path string) ([]Runner, error)
 			Labels []struct {
 				Name string `json:"name"`
 			} `json:"labels"`
-		} `json:"runners"`
-	}
-	if err := c.getJSON(ctx, path, &body); err != nil {
-		return nil, err
-	}
-	out := make([]Runner, 0, len(body.Runners))
-	for _, r := range body.Runners {
+		}
+		if err := json.Unmarshal(item, &r); err != nil {
+			return nil, 0, fmt.Errorf("%s: decoding runner: %w", trimQuery(path), err)
+		}
 		labels := make([]string, 0, len(r.Labels))
 		for _, l := range r.Labels {
 			labels = append(labels, l.Name)
 		}
 		out = append(out, Runner{ID: r.ID, Name: r.Name, OS: r.OS, Status: r.Status, Busy: r.Busy, Labels: labels})
 	}
-	return out, nil
+	return out, total, nil
 }
 
-// ListOrgRunners returns org-level self-hosted runners. Requires
+// ListOrgRunners returns org-level self-hosted runners, up to
+// InventoryFetchCap, and the count GitHub reports. Requires
 // organization_self_hosted_runners:read.
-func (c *Client) ListOrgRunners(ctx context.Context, org string) ([]Runner, error) {
-	return c.listRunners(ctx, fmt.Sprintf("/orgs/%s/actions/runners?per_page=100", org))
+func (c *Client) ListOrgRunners(ctx context.Context, org string) ([]Runner, int, error) {
+	return c.listRunners(ctx, "github.org_runners.list", fmt.Sprintf("/orgs/%s/actions/runners?per_page=100", org))
 }
 
-// ListRepoRunners returns repo-level self-hosted runners. Requires actions:read.
-func (c *Client) ListRepoRunners(ctx context.Context, owner, repo string) ([]Runner, error) {
-	return c.listRunners(ctx, fmt.Sprintf("/repos/%s/%s/actions/runners?per_page=100", owner, repo))
+// ListRepoRunners returns repo-level self-hosted runners, up to
+// InventoryFetchCap, and the count GitHub reports. Requires actions:read.
+func (c *Client) ListRepoRunners(ctx context.Context, owner, repo string) ([]Runner, int, error) {
+	return c.listRunners(ctx, "github.repo_runners.list", fmt.Sprintf("/repos/%s/%s/actions/runners?per_page=100", owner, repo))
 }
 
 // ListOrgActionsSecretNames returns org-level Actions secret names (never
-// values). Requires organization_secrets:read.
-func (c *Client) ListOrgActionsSecretNames(ctx context.Context, org string) ([]string, error) {
-	var body struct {
-		Secrets []struct {
+// values), up to InventoryFetchCap, and the count GitHub reports. Requires
+// organization_secrets:read.
+func (c *Client) ListOrgActionsSecretNames(ctx context.Context, org string) ([]string, int, error) {
+	path := fmt.Sprintf("/orgs/%s/actions/secrets?per_page=100", org)
+	raw, total, err := c.getPagedTotal(ctx, "github.org_actions_secrets.list", path, "secrets", InventoryFetchCap)
+	if err != nil {
+		return nil, 0, err
+	}
+	names := make([]string, 0, len(raw))
+	for _, item := range raw {
+		var s struct {
 			Name string `json:"name"`
-		} `json:"secrets"`
-	}
-	if err := c.getJSON(ctx, fmt.Sprintf("/orgs/%s/actions/secrets?per_page=100", org), &body); err != nil {
-		return nil, err
-	}
-	names := make([]string, 0, len(body.Secrets))
-	for _, s := range body.Secrets {
+		}
+		if err := json.Unmarshal(item, &s); err != nil {
+			return nil, 0, fmt.Errorf("%s: decoding secret: %w", trimQuery(path), err)
+		}
 		names = append(names, s.Name)
 	}
-	return names, nil
+	return names, total, nil
 }
 
 // AuditEvent is one security-relevant org audit-log event (internal level).
@@ -850,14 +818,17 @@ var AuditLogCategories = []string{
 }
 
 // GetOrgAuditLog fetches security-relevant audit events since sinceISO.
-// Returns ErrFeatureUnavailable on non-Enterprise orgs. maxEvents bounds fetch.
+// Returns ErrFeatureUnavailable, coded not_licensed, when GitHub answers 404,
+// as it does for organizations without Enterprise Cloud. maxEvents bounds
+// fetch.
 func (c *Client) GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEvents int) ([]AuditEvent, bool, error) {
 	phrase := "created:>=" + sinceISO
 	path := fmt.Sprintf("/orgs/%s/audit-log?phrase=%s&per_page=100", org, url.QueryEscape(phrase))
-	raw, more, err := c.getPagedRaw(ctx, path, maxEvents)
+	raw, more, err := c.getPagedRaw(ctx, "github.audit_log.list", path, maxEvents)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrPermissionDenied) {
-			return nil, false, ErrFeatureUnavailable
+		if errors.Is(err, ErrNotFound) {
+			return nil, false, componentsdk.CodeError(componentsdk.CodeNotLicensed,
+				fmt.Errorf("%w: the audit log API requires GitHub Enterprise Cloud", ErrFeatureUnavailable))
 		}
 		return nil, false, err
 	}
@@ -869,8 +840,8 @@ func (c *Client) GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEv
 			Repo      string `json:"repo"`
 			CreatedAt int64  `json:"created_at"`
 		}
-		if json.Unmarshal(r, &e) != nil {
-			continue
+		if err := json.Unmarshal(r, &e); err != nil {
+			return nil, false, fmt.Errorf("%s: decoding audit event: %w", trimQuery(path), err)
 		}
 		if !isSecurityRelevantAction(e.Action) {
 			continue
@@ -906,11 +877,18 @@ type Installation struct {
 	Events              []string          `json:"events,omitempty"`
 }
 
-// ListOrgInstallations returns Apps installed in the org. Requires
+// ListOrgInstallations returns Apps installed in the org, up to
+// InventoryFetchCap, and the count GitHub reports. Requires
 // organization_administration:read.
-func (c *Client) ListOrgInstallations(ctx context.Context, org string) ([]Installation, error) {
-	var body struct {
-		Installations []struct {
+func (c *Client) ListOrgInstallations(ctx context.Context, org string) ([]Installation, int, error) {
+	path := fmt.Sprintf("/orgs/%s/installations?per_page=100", org)
+	raw, total, err := c.getPagedTotal(ctx, "github.org_installations.list", path, "installations", InventoryFetchCap)
+	if err != nil {
+		return nil, 0, err
+	}
+	out := make([]Installation, 0, len(raw))
+	for _, item := range raw {
+		var i struct {
 			AppSlug             string            `json:"app_slug"`
 			AppID               int64             `json:"app_id"`
 			SuspendedAt         *string           `json:"suspended_at"`
@@ -919,13 +897,10 @@ func (c *Client) ListOrgInstallations(ctx context.Context, org string) ([]Instal
 			UpdatedAt           string            `json:"updated_at"`
 			RepositorySelection string            `json:"repository_selection"`
 			Events              []string          `json:"events"`
-		} `json:"installations"`
-	}
-	if err := c.getJSON(ctx, fmt.Sprintf("/orgs/%s/installations?per_page=100", org), &body); err != nil {
-		return nil, err
-	}
-	out := make([]Installation, 0, len(body.Installations))
-	for _, i := range body.Installations {
+		}
+		if err := json.Unmarshal(item, &i); err != nil {
+			return nil, 0, fmt.Errorf("%s: decoding installation: %w", trimQuery(path), err)
+		}
 		out = append(out, Installation{
 			AppSlug:             i.AppSlug,
 			AppID:               i.AppID,
@@ -937,7 +912,7 @@ func (c *Client) ListOrgInstallations(ctx context.Context, org string) ([]Instal
 			Events:              i.Events,
 		})
 	}
-	return out, nil
+	return out, total, nil
 }
 
 // Deployment branch policy modes for an environment. "any" means no
@@ -986,27 +961,33 @@ const EnvironmentFetchCap = 1000
 
 // ListRepoEnvironments returns a repo's deployment environments with their
 // protection configuration. total is the repo's full environment count, which
-// can exceed len(envs) when the fetch cap truncates. Requires actions:read.
+// can exceed len(envs) when the fetch cap truncates. A 404 means the
+// repository has no environments. Requires actions:read.
 func (c *Client) ListRepoEnvironments(ctx context.Context, owner, repo string) (envs []Environment, total int, err error) {
 	for page := 1; page <= EnvironmentFetchCap/100; page++ {
 		var body struct {
-			TotalCount   int               `json:"total_count"`
-			Environments []json.RawMessage `json:"environments"`
+			TotalCount   int                `json:"total_count"`
+			Environments *[]json.RawMessage `json:"environments"`
 		}
 		path := fmt.Sprintf("/repos/%s/%s/environments?per_page=100&page=%d", owner, repo, page)
-		if err := c.getJSON(ctx, path, &body); err != nil {
+		if err := c.getJSON(ctx, "github.environments.list", path, &body); err != nil {
 			if errors.Is(err, ErrNotFound) {
 				return nil, 0, nil
 			}
 			return nil, 0, err
 		}
-		total = body.TotalCount
-		for _, raw := range body.Environments {
-			if e, ok := parseEnvironment(raw); ok {
-				envs = append(envs, e)
-			}
+		if body.Environments == nil {
+			return nil, 0, invalidResponse("%s response has no environments list", trimQuery(path))
 		}
-		if len(body.Environments) < 100 {
+		total = body.TotalCount
+		for _, raw := range *body.Environments {
+			e, ok := parseEnvironment(raw)
+			if !ok {
+				return nil, 0, invalidResponse("%s response has an environment that does not parse", trimQuery(path))
+			}
+			envs = append(envs, e)
+		}
+		if len(*body.Environments) < 100 {
 			break
 		}
 	}
@@ -1077,35 +1058,38 @@ func parseEnvironment(raw json.RawMessage) (Environment, bool) {
 }
 
 // ListEnvironmentBranchPolicies returns the branch / tag name patterns allowed
-// to deploy to an environment with a custom deployment branch policy.
-// Requires actions:read.
+// to deploy to an environment with a custom deployment branch policy. A 404
+// means the environment has none. Requires actions:read.
 func (c *Client) ListEnvironmentBranchPolicies(ctx context.Context, owner, repo, environment string) ([]BranchPolicyPattern, error) {
 	var body struct {
-		BranchPolicies []struct {
+		BranchPolicies *[]struct {
 			Name string `json:"name"`
 			Type string `json:"type"`
 		} `json:"branch_policies"`
 	}
 	path := fmt.Sprintf("/repos/%s/%s/environments/%s/deployment-branch-policies?per_page=100", owner, repo, url.PathEscape(environment))
-	if err := c.getJSON(ctx, path, &body); err != nil {
+	if err := c.getJSON(ctx, "github.environment_branch_policies.list", path, &body); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	out := make([]BranchPolicyPattern, 0, len(body.BranchPolicies))
-	for _, p := range body.BranchPolicies {
+	if body.BranchPolicies == nil {
+		return nil, invalidResponse("%s response has no branch_policies list", trimQuery(path))
+	}
+	out := make([]BranchPolicyPattern, 0, len(*body.BranchPolicies))
+	for _, p := range *body.BranchPolicies {
 		out = append(out, BranchPolicyPattern{Name: p.Name, Type: p.Type})
 	}
 	return out, nil
 }
 
 // ListEnvironmentProtectionApps returns the slugs of GitHub Apps enforcing
-// enabled custom deployment protection rules on an environment. Requires
-// actions:read.
+// enabled custom deployment protection rules on an environment. A 404 means
+// the environment has none. Requires actions:read.
 func (c *Client) ListEnvironmentProtectionApps(ctx context.Context, owner, repo, environment string) ([]string, error) {
 	var body struct {
-		Rules []struct {
+		Rules *[]struct {
 			Enabled bool `json:"enabled"`
 			App     struct {
 				Slug string `json:"slug"`
@@ -1113,14 +1097,17 @@ func (c *Client) ListEnvironmentProtectionApps(ctx context.Context, owner, repo,
 		} `json:"custom_deployment_protection_rules"`
 	}
 	path := fmt.Sprintf("/repos/%s/%s/environments/%s/deployment_protection_rules?per_page=100", owner, repo, url.PathEscape(environment))
-	if err := c.getJSON(ctx, path, &body); err != nil {
+	if err := c.getJSON(ctx, "github.environment_protection_rules.list", path, &body); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
+	if body.Rules == nil {
+		return nil, invalidResponse("%s response has no custom_deployment_protection_rules list", trimQuery(path))
+	}
 	var slugs []string
-	for _, r := range body.Rules {
+	for _, r := range *body.Rules {
 		if r.Enabled && r.App.Slug != "" {
 			slugs = append(slugs, r.App.Slug)
 		}
@@ -1139,13 +1126,16 @@ type PATGrant struct {
 }
 
 // ListOrgPATs returns fine-grained PATs with access to the org. Returns
-// ErrFeatureUnavailable on orgs without a fine-grained-token policy. Token
-// values are never exposed by the API and never emitted.
+// ErrFeatureUnavailable, coded not_licensed, when GitHub answers 404, as it
+// does for orgs without a fine-grained-token policy. Token values are never
+// exposed by the API and never emitted.
 func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool, error) {
-	raw, more, err := c.getPagedRaw(ctx, fmt.Sprintf("/orgs/%s/personal-access-tokens?per_page=100", org), 5000)
+	path := fmt.Sprintf("/orgs/%s/personal-access-tokens?per_page=100", org)
+	raw, more, err := c.getPagedRaw(ctx, "github.org_personal_access_tokens.list", path, 5000)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrPermissionDenied) {
-			return nil, false, ErrFeatureUnavailable
+		if errors.Is(err, ErrNotFound) {
+			return nil, false, componentsdk.CodeError(componentsdk.CodeNotLicensed,
+				fmt.Errorf("%w: the organization has no fine-grained personal access token policy", ErrFeatureUnavailable))
 		}
 		return nil, false, err
 	}
@@ -1161,8 +1151,8 @@ func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool,
 			TokenLastUsedAt string                       `json:"token_last_used_at"`
 			TokenExpiresAt  string                       `json:"token_expires_at"`
 		}
-		if json.Unmarshal(r, &p) != nil {
-			continue
+		if err := json.Unmarshal(r, &p); err != nil {
+			return nil, false, fmt.Errorf("%s: decoding token grant: %w", trimQuery(path), err)
 		}
 		perms := make([]string, 0)
 		for scope, actions := range p.Permissions {
@@ -1170,6 +1160,7 @@ func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool,
 				perms = append(perms, scope+":"+name)
 			}
 		}
+		sort.Strings(perms)
 		out = append(out, PATGrant{
 			ID:          p.ID,
 			Owner:       p.Owner.Login,

@@ -1,6 +1,14 @@
 package github
 
-import "testing"
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/locktivity/epack/componentsdk"
+)
 
 func TestHostOnly_StripsPathQueryAndScheme(t *testing.T) {
 	cases := map[string]string{
@@ -53,11 +61,146 @@ func TestIs403FeatureDisabled(t *testing.T) {
 	}
 }
 
-func TestLinkLastPageRegex(t *testing.T) {
-	link := `<https://api.github.com/repositories/1/secret-scanning/alerts?state=open&per_page=1&page=2>; rel="next", ` +
-		`<https://api.github.com/repositories/1/secret-scanning/alerts?state=open&per_page=1&page=42>; rel="last"`
-	m := linkLastPageRe.FindStringSubmatch(link)
-	if m == nil || m[1] != "42" {
-		t.Errorf("expected last page 42, got %v", m)
+// pagedServer serves a two-page list at path with GitHub's Link header and
+// counts the requests it answers.
+func pagedServer(t *testing.T, path, first, second string, requests *int) *httptest.Server {
+	t.Helper()
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*requests++
+		switch {
+		case r.URL.Path == path && r.URL.Query().Get("page") == "":
+			next := fmt.Sprintf("%s/organizations/1/next?per_page=100&page=2", server.URL)
+			w.Header().Set("Link", fmt.Sprintf(`<%s>; rel="next", <%s>; rel="last"`, next, next))
+			_, _ = w.Write([]byte(first))
+		case r.URL.Path == "/organizations/1/next" && r.URL.Query().Get("page") == "2":
+			_, _ = w.Write([]byte(second))
+		default:
+			t.Errorf("unexpected request: %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func TestInventoryListsFollowPagination(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name          string
+		path          string
+		first, second string
+		list          func(*Client) (int, int, error)
+	}{
+		{
+			name:   "org runners",
+			path:   "/orgs/org/actions/runners",
+			first:  `{"total_count":2,"runners":[{"id":1,"name":"a","labels":[{"name":"self-hosted"}]}]}`,
+			second: `{"total_count":2,"runners":[{"id":2,"name":"b"}]}`,
+			list: func(c *Client) (int, int, error) {
+				runners, total, err := c.ListOrgRunners(ctx, "org")
+				return len(runners), total, err
+			},
+		},
+		{
+			name:   "repo runners",
+			path:   "/repos/org/repo/actions/runners",
+			first:  `{"total_count":2,"runners":[{"id":1,"name":"a"}]}`,
+			second: `{"total_count":2,"runners":[{"id":2,"name":"b"}]}`,
+			list: func(c *Client) (int, int, error) {
+				runners, total, err := c.ListRepoRunners(ctx, "org", "repo")
+				return len(runners), total, err
+			},
+		},
+		{
+			name:   "org secrets",
+			path:   "/orgs/org/actions/secrets",
+			first:  `{"total_count":2,"secrets":[{"name":"A"}]}`,
+			second: `{"total_count":2,"secrets":[{"name":"B"}]}`,
+			list: func(c *Client) (int, int, error) {
+				names, total, err := c.ListOrgActionsSecretNames(ctx, "org")
+				return len(names), total, err
+			},
+		},
+		{
+			name:   "installations",
+			path:   "/orgs/org/installations",
+			first:  `{"total_count":2,"installations":[{"app_slug":"a","app_id":1}]}`,
+			second: `{"total_count":2,"installations":[{"app_slug":"b","app_id":2}]}`,
+			list: func(c *Client) (int, int, error) {
+				installs, total, err := c.ListOrgInstallations(ctx, "org")
+				return len(installs), total, err
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requests := 0
+			server := pagedServer(t, tt.path, tt.first, tt.second, &requests)
+			read, total, err := tt.list(NewClientWithHTTP(server.Client(), server.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if read != 2 || total != 2 || requests != 2 {
+				t.Errorf("read %d of %d in %d requests, want 2 of 2 in 2", read, total, requests)
+			}
+		})
+	}
+}
+
+func TestGetPagedTotalStopsAtTheCap(t *testing.T) {
+	requests := 0
+	server := pagedServer(t, "/orgs/org/actions/runners",
+		`{"total_count":3,"runners":[{"id":1}]}`, `{"total_count":3,"runners":[{"id":2},{"id":3}]}`, &requests)
+	client := NewClientWithHTTP(server.Client(), server.URL)
+	items, total, err := client.getPagedTotal(context.Background(), "github.org_runners.list", "/orgs/org/actions/runners?per_page=100", "runners", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || total != 3 || requests != 1 {
+		t.Errorf("read %d of %d in %d requests, want 1 of 3 in 1", len(items), total, requests)
+	}
+}
+
+func TestGetPagedTotalNeedsTheListAndTheTotal(t *testing.T) {
+	for _, body := range []string{`{"total_count":1}`, `{"runners":[]}`, `{"total_count":1,"runners":null}`, `{"total_count":null,"runners":[]}`, `null`} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(body))
+		}))
+		client := NewClientWithHTTP(server.Client(), server.URL)
+		_, _, err := client.ListOrgRunners(context.Background(), "org")
+		server.Close()
+		if got := componentsdk.Classify(err); got != componentsdk.CodeInvalidResponse {
+			t.Errorf("%s: Classify(%v) = %s, want invalid_response", body, err, got)
+		}
+	}
+}
+
+func TestGetCodeownersInfoPicksTheFileGitHubUses(t *testing.T) {
+	// GitHub reads .github/, then the root, then docs/, and uses the first
+	// CODEOWNERS it finds.
+	file := `{"type":"file","encoding":"base64","size":22,"content":"KiBAdGVzdC1vcmcvc2VjdXJpdHkK\n"}`
+	var requested []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requested = append(requested, r.URL.Path)
+		switch r.URL.Path {
+		case "/repos/org/repo/contents/CODEOWNERS", "/repos/org/repo/contents/docs/CODEOWNERS":
+			_, _ = w.Write([]byte(file))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+		}
+	}))
+	defer server.Close()
+
+	present, path, _, err := NewClientWithHTTP(server.Client(), server.URL).GetCodeownersInfo(context.Background(), "org", "repo", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !present || path != "CODEOWNERS" {
+		t.Errorf("present %v at %q, want the root CODEOWNERS", present, path)
+	}
+	if len(requested) != 2 {
+		t.Errorf("requested %v, want .github/CODEOWNERS then CODEOWNERS", requested)
 	}
 }

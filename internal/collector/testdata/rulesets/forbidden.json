@@ -1,0 +1,5 @@
+{
+  "message": "Resource not accessible by integration",
+  "documentation_url": "https://docs.github.com/rest/repos/rules#get-rules-for-a-branch",
+  "status": "403"
+}

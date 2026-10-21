@@ -18,6 +18,7 @@ package collector
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -68,9 +69,9 @@ func TestE2E_RealGitHubCollection(t *testing.T) {
 	}
 
 	// Log metrics
-	t.Logf("Repository coverage: %d%%", posture.Scope.RepositoriesCoverage)
-	t.Logf("Branch protection coverage: %d%%", posture.Posture.BranchProtectionCoverage)
-	t.Logf("Security features coverage: %d%%", posture.Posture.SecurityFeaturesCoverage)
+	t.Logf("Repository coverage: %s", formatPct(posture.Scope.RepositoriesCoverage))
+	t.Logf("Branch protection coverage: %s", formatPct(posture.Posture.BranchProtectionCoverage))
+	t.Logf("Security features coverage: %s", formatPct(posture.Posture.SecurityFeaturesCoverage))
 	t.Logf("2FA required: %v", posture.AccessControl.TwoFactorRequired)
 
 	// Output full JSON for inspection
@@ -110,7 +111,7 @@ func TestE2E_RealGitHubWithFilters(t *testing.T) {
 		t.Fatalf("Collect() error: %v", err)
 	}
 
-	t.Logf("Repository coverage: %d%%", posture.Scope.RepositoriesCoverage)
+	t.Logf("Repository coverage: %s", formatPct(posture.Scope.RepositoriesCoverage))
 	t.Logf("Include patterns: %v", posture.Scope.IncludePatterns)
 	t.Logf("Exclude patterns: %v", posture.Scope.ExcludePatterns)
 }
@@ -163,9 +164,9 @@ func TestE2E_RealGitHubAppAuth(t *testing.T) {
 	t.Logf("Collected at: %s", posture.CollectedAt)
 
 	// Log metrics
-	t.Logf("Repository coverage: %d%%", posture.Scope.RepositoriesCoverage)
-	t.Logf("Branch protection coverage: %d%%", posture.Posture.BranchProtectionCoverage)
-	t.Logf("Security features coverage: %d%%", posture.Posture.SecurityFeaturesCoverage)
+	t.Logf("Repository coverage: %s", formatPct(posture.Scope.RepositoriesCoverage))
+	t.Logf("Branch protection coverage: %s", formatPct(posture.Posture.BranchProtectionCoverage))
+	t.Logf("Security features coverage: %s", formatPct(posture.Posture.SecurityFeaturesCoverage))
 	t.Logf("2FA required: %v", posture.AccessControl.TwoFactorRequired)
 
 	// Output full JSON for inspection
@@ -209,8 +210,8 @@ func TestE2E_RealGitHubRateLimiting(t *testing.T) {
 			t.Fatalf("Collect() run %d error: %v", i+1, err)
 		}
 
-		t.Logf("Run %d completed in %v, coverage: %d%%",
-			i+1, elapsed, posture.Scope.RepositoriesCoverage)
+		t.Logf("Run %d completed in %v, coverage: %s",
+			i+1, elapsed, formatPct(posture.Scope.RepositoriesCoverage))
 	}
 }
 
@@ -260,4 +261,12 @@ func parseIntEnv(name string, dst *int64) (bool, error) {
 	}
 	*dst = n
 	return true, nil
+}
+
+// formatPct renders a nullable percentage for logging.
+func formatPct(pct *int) string {
+	if pct == nil {
+		return "unknown"
+	}
+	return fmt.Sprintf("%d%%", *pct)
 }

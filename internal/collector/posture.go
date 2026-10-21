@@ -1,7 +1,12 @@
 // Package collector provides GitHub organization posture collection functionality.
 package collector
 
-import "time"
+import (
+	"net/http"
+	"time"
+
+	"github.com/locktivity/epack/componentsdk"
+)
 
 // SchemaVersion is the version of the output schema.
 const SchemaVersion = "1.0.0"
@@ -22,9 +27,17 @@ type Config struct {
 	IncludePatterns []string `json:"include_patterns"`
 	ExcludePatterns []string `json:"exclude_patterns"`
 
-	// Progress callbacks (optional, set by main to report status)
+	// Progress callbacks (optional, set by the handler to report status)
 	OnStatus   StatusFunc   `json:"-"`
 	OnProgress ProgressFunc `json:"-"`
+
+	// Transport carries every request, such as componentsdk.NewTransport's.
+	// Nil means http.DefaultTransport.
+	Transport http.RoundTripper `json:"-"`
+	// Recorder takes the values the collector leaves out. Nil discards them.
+	Recorder *componentsdk.Recorder `json:"-"`
+	// Now stamps the artifacts. Nil means the wall clock.
+	Now func() time.Time `json:"-"`
 }
 
 // OrgPosture represents the collected security posture of a GitHub organization.
@@ -63,17 +76,26 @@ type Diagnostics struct {
 	Warnings         []string `json:"warnings,omitempty"`
 }
 
-// Scope describes what was included and excluded from collection.
+// Scope describes what was included and excluded from collection. The counts
+// and the coverage are nil when the repository list could not be read, and
+// the coverage is nil for an organization with no repositories.
 type Scope struct {
-	IncludePatterns      []string `json:"include_patterns"`
-	ExcludePatterns      []string `json:"exclude_patterns"`
-	RepositoriesCoverage int      `json:"repositories_coverage"`
+	IncludePatterns         []string `json:"include_patterns"`
+	ExcludePatterns         []string `json:"exclude_patterns"`
+	RepositoriesCoverage    *int     `json:"repositories_coverage"`
+	RepositoryCount         *int     `json:"repository_count"`
+	IncludedRepositoryCount *int     `json:"included_repository_count"`
 }
 
-// Posture contains high-level posture coverage metrics.
+// Posture contains high-level posture coverage metrics. BranchProtectionCoverage
+// and ProtectedRepositoryCount are nil when any in-scope repository's
+// protection could not be determined, and SecurityFeaturesCoverage when any of
+// its security features could not. The coverages are nil when no repository is
+// in scope.
 type Posture struct {
-	BranchProtectionCoverage int `json:"branch_protection_coverage"`
-	SecurityFeaturesCoverage int `json:"security_features_coverage"`
+	BranchProtectionCoverage *int `json:"branch_protection_coverage"`
+	ProtectedRepositoryCount *int `json:"protected_repository_count"`
+	SecurityFeaturesCoverage *int `json:"security_features_coverage"`
 }
 
 // AccessControl contains organization-level access control posture.
@@ -87,25 +109,55 @@ type AccessControl struct {
 	MembersCanCreateRepositories *bool  `json:"members_can_create_repositories,omitempty"`
 }
 
-// BranchProtectionRules contains per-rule coverage percentages.
+// BranchProtectionRules contains per-rule coverage percentages of effective
+// default-branch protection: classic branch protection rules combined with
+// active rulesets. A rule's percentage is nil when the rule could not be
+// determined for at least one in-scope repository, or when no repository is
+// in scope. RepositoryCounts holds the repositories each percentage counts.
 type BranchProtectionRules struct {
-	PullRequestRequired int `json:"pull_request_required"`
-	ApprovingReviews    int `json:"approving_reviews"`
-	DismissStaleReviews int `json:"dismiss_stale_reviews"`
-	CodeOwnerReviews    int `json:"code_owner_reviews"`
-	StatusChecks        int `json:"status_checks"`
-	SignedCommits       int `json:"signed_commits"`
-	AdminEnforcement    int `json:"admin_enforcement"`
+	PullRequestRequired *int `json:"pull_request_required"`
+	ApprovingReviews    *int `json:"approving_reviews"`
+	DismissStaleReviews *int `json:"dismiss_stale_reviews"`
+	CodeOwnerReviews    *int `json:"code_owner_reviews"`
+	StatusChecks        *int `json:"status_checks"`
+	SignedCommits       *int `json:"signed_commits"`
+	AdminEnforcement    *int `json:"admin_enforcement"`
+	ForcePushesBlocked  *int `json:"force_pushes_blocked"`
+	DeletionsBlocked    *int `json:"deletions_blocked"`
+	LinearHistory       *int `json:"linear_history"`
+
+	RepositoryCounts BranchProtectionRuleCounts `json:"repository_counts"`
 }
 
-// SecurityFeatures contains per-feature coverage percentages (trust) plus
-// per-repo rows (audit) and a findings inventory (internal).
+// BranchProtectionRuleCounts is the number of in-scope repositories whose
+// default branch has each rule. A count is nil when its percentage is nil for
+// a reason other than an empty scope.
+type BranchProtectionRuleCounts struct {
+	PullRequestRequired *int `json:"pull_request_required"`
+	ApprovingReviews    *int `json:"approving_reviews"`
+	DismissStaleReviews *int `json:"dismiss_stale_reviews"`
+	CodeOwnerReviews    *int `json:"code_owner_reviews"`
+	StatusChecks        *int `json:"status_checks"`
+	SignedCommits       *int `json:"signed_commits"`
+	AdminEnforcement    *int `json:"admin_enforcement"`
+	ForcePushesBlocked  *int `json:"force_pushes_blocked"`
+	DeletionsBlocked    *int `json:"deletions_blocked"`
+	LinearHistory       *int `json:"linear_history"`
+}
+
+// SecurityFeatures contains per-feature coverage percentages and the
+// repository counts behind them (trust) plus per-repo rows (audit) and a
+// findings inventory (internal). A percentage is nil when the feature could
+// not be read for every in-scope repository, or when no repository is in
+// scope.
 type SecurityFeatures struct {
-	VulnerabilityAlerts          int `json:"vulnerability_alerts"`
-	CodeScanning                 int `json:"code_scanning"`
-	SecretScanning               int `json:"secret_scanning"`
-	SecretScanningPushProtection int `json:"secret_scanning_push_protection"`
-	DependabotSecurityUpdates    int `json:"dependabot_security_updates"`
+	VulnerabilityAlerts          *int `json:"vulnerability_alerts"`
+	CodeScanning                 *int `json:"code_scanning"`
+	SecretScanning               *int `json:"secret_scanning"`
+	SecretScanningPushProtection *int `json:"secret_scanning_push_protection"`
+	DependabotSecurityUpdates    *int `json:"dependabot_security_updates"`
+
+	RepositoryCounts SecurityFeatureCounts `json:"repository_counts"`
 
 	// Audit-level per-repo feature flags + open-alert counts.
 	PerRepo []SecurityFeaturesRow `json:"per_repo,omitempty"`
@@ -113,18 +165,30 @@ type SecurityFeatures struct {
 	Findings *SecurityFindings `json:"findings,omitempty"`
 }
 
+// SecurityFeatureCounts is the number of in-scope repositories with each
+// security feature enabled. A count is nil when its percentage is nil for a
+// reason other than an empty scope.
+type SecurityFeatureCounts struct {
+	VulnerabilityAlerts          *int `json:"vulnerability_alerts"`
+	CodeScanning                 *int `json:"code_scanning"`
+	SecretScanning               *int `json:"secret_scanning"`
+	SecretScanningPushProtection *int `json:"secret_scanning_push_protection"`
+	DependabotSecurityUpdates    *int `json:"dependabot_security_updates"`
+}
+
 // SecurityFeaturesRow is the per-repo audit-level view: the booleans behind the
-// trust percentages plus open-alert counts by type.
+// trust percentages plus open-alert counts by type. A value is nil when it
+// could not be read.
 type SecurityFeaturesRow struct {
 	Repository                   string `json:"repository"`
-	VulnerabilityAlerts          bool   `json:"vulnerability_alerts"`
-	CodeScanning                 bool   `json:"code_scanning"`
-	SecretScanning               bool   `json:"secret_scanning"`
-	SecretScanningPushProtection bool   `json:"secret_scanning_push_protection"`
-	DependabotSecurityUpdates    bool   `json:"dependabot_security_updates"`
-	OpenSecretScanningAlerts     int    `json:"open_secret_scanning_alerts"`
-	OpenCodeScanningAlerts       int    `json:"open_code_scanning_alerts"`
-	OpenDependabotAlerts         int    `json:"open_dependabot_alerts"`
+	VulnerabilityAlerts          *bool  `json:"vulnerability_alerts"`
+	CodeScanning                 *bool  `json:"code_scanning"`
+	SecretScanning               *bool  `json:"secret_scanning"`
+	SecretScanningPushProtection *bool  `json:"secret_scanning_push_protection"`
+	DependabotSecurityUpdates    *bool  `json:"dependabot_security_updates"`
+	OpenSecretScanningAlerts     *int   `json:"open_secret_scanning_alerts"`
+	OpenCodeScanningAlerts       *int   `json:"open_code_scanning_alerts"`
+	OpenDependabotAlerts         *int   `json:"open_dependabot_alerts"`
 }
 
 // --- Audit / internal surfaces ---
@@ -132,19 +196,23 @@ type SecurityFeaturesRow struct {
 // These populate only at audit and above; at trust they stay nil, so a trust
 // run emits only aggregates and needs no extra permissions.
 
-// Members is the org member inventory (audit+).
+// Members is the org member inventory (audit+). A count or flag is nil when
+// its roster could not be read, and PerMember is left out when the members or
+// outside collaborators could not be listed.
 type Members struct {
 	MemberCount              int         `json:"member_count"`
-	AdminCount               int         `json:"admin_count"`
-	OutsideCollaboratorCount int         `json:"outside_collaborator_count"`
-	HasPendingInvitations    bool        `json:"has_pending_invitations"`
+	AdminCount               *int        `json:"admin_count"`
+	OutsideCollaboratorCount *int        `json:"outside_collaborator_count"`
+	HasPendingInvitations    *bool       `json:"has_pending_invitations"`
 	PerMember                []MemberRow `json:"per_member,omitempty"`
 	Truncated                bool        `json:"truncated,omitempty"`
 	TruncatedDropped         int         `json:"truncated_dropped,omitempty"`
 }
 
 // MemberRow is one member. TwoFactorEnabled is a pointer: nil means the 2FA
-// signal was unavailable (caller not an org owner), not "2FA off".
+// signal was unavailable (caller not an org owner, or an outside collaborator,
+// whom the 2FA roster does not cover), not "2FA off". Role is empty when the
+// admin roster could not be read.
 //
 // Name is the public-profile display name. Other collectors emit logins only,
 // but GitHub logins are pseudonyms that reviewers cannot map to people, and
@@ -153,19 +221,21 @@ type Members struct {
 type MemberRow struct {
 	Login            string `json:"login"`
 	Name             string `json:"name,omitempty"`
-	Role             string `json:"role"`
+	Role             string `json:"role,omitempty"`
 	TwoFactorEnabled *bool  `json:"two_factor_enabled,omitempty"`
 	LastActivity     string `json:"last_activity,omitempty"`
 }
 
-// Repositories is the repo inventory (audit+).
+// Repositories is the repo inventory (audit+). DefaultProtected counts
+// effective protection and is nil when any repository's protection could not
+// be determined.
 type Repositories struct {
 	TotalCount       int       `json:"total_count"`
 	PublicCount      int       `json:"public_count"`
 	PrivateCount     int       `json:"private_count"`
 	InternalCount    int       `json:"internal_count"`
 	ArchivedCount    int       `json:"archived_count"`
-	DefaultProtected int       `json:"default_branch_protected_count"`
+	DefaultProtected *int      `json:"default_branch_protected_count"`
 	PerRepo          []RepoRow `json:"per_repo,omitempty"`
 	Truncated        bool      `json:"truncated,omitempty"`
 	TruncatedDropped int       `json:"truncated_dropped,omitempty"`
@@ -185,6 +255,9 @@ type RepoRow struct {
 	SizeKB           int                     `json:"size_kb,omitempty"`
 	BranchProtection *BranchProtectionDetail `json:"branch_protection,omitempty"`
 
+	EffectiveBranchProtection *EffectiveBranchProtection `json:"effective_branch_protection,omitempty"`
+	Rulesets                  []RulesetRow               `json:"rulesets,omitempty"`
+
 	// Internal-only low-sensitivity metadata.
 	Description    string   `json:"description,omitempty"`
 	Topics         []string `json:"topics,omitempty"`
@@ -192,7 +265,8 @@ type RepoRow struct {
 	StargazerCount int      `json:"stargazer_count,omitempty"`
 }
 
-// BranchProtectionDetail is the default-branch protection rule, per repo.
+// BranchProtectionDetail is the default branch's classic branch protection
+// rule, per repo.
 type BranchProtectionDetail struct {
 	RequiresApprovingReviews       bool `json:"requires_approving_reviews"`
 	RequiredApprovingReviewCount   int  `json:"required_approving_review_count"`
@@ -207,6 +281,49 @@ type BranchProtectionDetail struct {
 	RequiresConversationResolution bool `json:"requires_conversation_resolution"`
 }
 
+// EffectiveBranchProtection is one repository's default-branch protection
+// from classic branch protection and active rulesets combined. Each field is
+// nil when it could not be determined, such as when the ruleset rules could
+// not be read and classic protection does not supply the rule. SuppliedBy
+// maps each rule in effect to the mechanisms supplying it.
+type EffectiveBranchProtection struct {
+	Protected                    *bool               `json:"protected"`
+	PullRequestRequired          *bool               `json:"pull_request_required"`
+	ApprovingReviews             *bool               `json:"approving_reviews"`
+	RequiredApprovingReviewCount *int                `json:"required_approving_review_count"`
+	DismissStaleReviews          *bool               `json:"dismiss_stale_reviews"`
+	CodeOwnerReviews             *bool               `json:"code_owner_reviews"`
+	StatusChecks                 *bool               `json:"status_checks"`
+	SignedCommits                *bool               `json:"signed_commits"`
+	ForcePushesBlocked           *bool               `json:"force_pushes_blocked"`
+	DeletionsBlocked             *bool               `json:"deletions_blocked"`
+	LinearHistory                *bool               `json:"linear_history"`
+	AdminEnforcement             *bool               `json:"admin_enforcement"`
+	SuppliedBy                   map[string][]string `json:"supplied_by,omitempty"`
+}
+
+// RulesetRow is one active ruleset with rules on a repository's default
+// branch. Name and Enforcement are empty when the ruleset could not be read.
+// BypassAllowed is nil when GitHub did not return the bypass list.
+type RulesetRow struct {
+	ID            int64            `json:"id"`
+	Name          string           `json:"name,omitempty"`
+	SourceType    string           `json:"source_type"`
+	Source        string           `json:"source"`
+	Enforcement   string           `json:"enforcement,omitempty"`
+	Rules         []string         `json:"rules"`
+	BypassAllowed *bool            `json:"bypass_allowed"`
+	BypassActors  []BypassActorRow `json:"bypass_actors,omitempty"`
+}
+
+// BypassActorRow is one actor allowed to bypass a ruleset, as GitHub
+// identifies it.
+type BypassActorRow struct {
+	ActorType  string `json:"actor_type"`
+	ActorID    *int64 `json:"actor_id,omitempty"`
+	BypassMode string `json:"bypass_mode,omitempty"`
+}
+
 // Codeowners reports CODEOWNERS presence (audit) and content hash (internal).
 type Codeowners struct {
 	PerRepo []CodeownersRow `json:"per_repo,omitempty"`
@@ -216,19 +333,19 @@ type Codeowners struct {
 // emitted; Hash is a SHA-256 computed in-process at internal level.
 type CodeownersRow struct {
 	Repository string `json:"repository"`
-	Present    bool   `json:"present"`
+	Present    *bool  `json:"present"`
 	Path       string `json:"path,omitempty"`
 	Hash       string `json:"hash,omitempty"`
 }
 
 // Webhooks is the org + repo webhook inventory (audit counts, internal detail).
+// A count is nil when its hooks could not be listed.
 type Webhooks struct {
-	OrgCount     int            `json:"org_count"`
-	RepoCount    int            `json:"repo_count"`
+	OrgCount     *int           `json:"org_count"`
+	RepoCount    *int           `json:"repo_count"`
 	CountByEvent map[string]int `json:"count_by_event,omitempty"`
 	Org          []WebhookRow   `json:"org,omitempty"`
 	Repo         []WebhookRow   `json:"repo,omitempty"`
-	Truncated    bool           `json:"truncated,omitempty"`
 }
 
 // WebhookRow is one webhook. Only the URL host is emitted (never path/query/secret).
@@ -245,8 +362,8 @@ type WebhookRow struct {
 
 // DeployKeys is the per-repo deploy-key inventory (audit counts, internal detail).
 type DeployKeys struct {
-	TotalCount     int            `json:"total_count"`
-	ReadWriteCount int            `json:"read_write_count"`
+	TotalCount     *int           `json:"total_count"`
+	ReadWriteCount *int           `json:"read_write_count"`
 	PerKey         []DeployKeyRow `json:"per_key,omitempty"`
 }
 
@@ -261,14 +378,18 @@ type DeployKeyRow struct {
 	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
-// Actions is the Actions runners/secrets/workflows surface (audit+).
+// Actions is the Actions runners/secrets/workflows surface (audit+). The
+// counts are GitHub's totals. Truncated is set at internal when a list of
+// rows holds fewer than its count, such as one cut short at
+// github.InventoryFetchCap.
 type Actions struct {
-	OrgRunnerCount  int         `json:"org_runner_count"`
-	RepoRunnerCount int         `json:"repo_runner_count"`
-	OrgSecretCount  int         `json:"org_secret_count"`
+	OrgRunnerCount  *int        `json:"org_runner_count"`
+	RepoRunnerCount *int        `json:"repo_runner_count"`
+	OrgSecretCount  *int        `json:"org_secret_count"`
 	OrgRunners      []RunnerRow `json:"org_runners,omitempty"`
 	RepoRunners     []RunnerRow `json:"repo_runners,omitempty"`
 	OrgSecretNames  []string    `json:"org_secret_names,omitempty"`
+	Truncated       bool        `json:"truncated,omitempty"`
 }
 
 // RunnerRow is one self-hosted runner.
@@ -286,8 +407,8 @@ type RunnerRow struct {
 // environments gate deployments and what each gate requires. Release-control
 // evidence: who can approve a deployment and from which branches it may run.
 type Environments struct {
-	TotalCount                 int              `json:"total_count"`
-	WithRequiredReviewersCount int              `json:"with_required_reviewers_count"`
+	TotalCount                 *int             `json:"total_count"`
+	WithRequiredReviewersCount *int             `json:"with_required_reviewers_count"`
 	PerEnvironment             []EnvironmentRow `json:"per_environment,omitempty"`
 	Truncated                  bool             `json:"truncated,omitempty"`
 	TruncatedDropped           int              `json:"truncated_dropped,omitempty"`
@@ -330,11 +451,10 @@ type EnvironmentBranchPattern struct {
 // AuditLog is the security-relevant audit-log surface (audit counts, internal
 // events). Enterprise Cloud only; degrades to a diagnostic otherwise.
 type AuditLog struct {
-	WindowDays       int            `json:"window_days"`
-	CountByCategory  map[string]int `json:"count_by_category,omitempty"`
-	Events           []AuditLogRow  `json:"events,omitempty"`
-	Truncated        bool           `json:"truncated,omitempty"`
-	TruncatedDropped int            `json:"truncated_dropped,omitempty"`
+	WindowDays      int            `json:"window_days"`
+	CountByCategory map[string]int `json:"count_by_category,omitempty"`
+	Events          []AuditLogRow  `json:"events,omitempty"`
+	Truncated       bool           `json:"truncated,omitempty"`
 }
 
 // AuditLogRow is one audit event (metadata only, no payload bodies).
@@ -345,10 +465,12 @@ type AuditLogRow struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
-// Apps is the installed-GitHub-App inventory (audit+).
+// Apps is the installed-GitHub-App inventory (audit+). InstallationCount is
+// GitHub's total, and Truncated is set when PerInstallation holds fewer rows.
 type Apps struct {
 	InstallationCount int      `json:"installation_count"`
 	PerInstallation   []AppRow `json:"per_installation,omitempty"`
+	Truncated         bool     `json:"truncated,omitempty"`
 }
 
 // AppRow is one installed App.

@@ -34,14 +34,18 @@ See [Required GitHub App permissions](configuration.md#required-github-app-permi
 When a permission is missing or an organization feature is not available, the
 affected surface is skipped and a diagnostic is recorded under
 `diagnostics.permission_errors` or `diagnostics.warnings` rather than failing the
-run.
+run. Each value left out also gets a gap in
+`artifacts/github.collector-result.json`, with a code such as
+`permission_denied`, or `not_licensed` for a feature the organization's plan
+lacks.
 
 ## What each level adds, per surface
 
 ### Posture (`posture`, `scope`)
 
-- **trust**: branch-protection coverage %, security-features coverage %,
-  repositories-coverage % against the include / exclude patterns.
+- **trust**: branch-protection coverage % (classic branch protection rules and
+  active rulesets), security-features coverage %, repositories-coverage %
+  against the include / exclude patterns.
 
 ### Access control (`access_control`)
 
@@ -53,7 +57,19 @@ run.
 
 - **trust**: per-rule coverage % across in-scope repos (PR required, approving
   reviews, dismiss-stale-reviews, code-owner reviews, status checks, signed
-  commits, admin enforcement).
+  commits, admin enforcement, force pushes blocked, deletions blocked, linear
+  history).
+
+A rule counts as in place on a repository when the default branch's classic
+branch protection rule or an active repository, organization, or enterprise
+ruleset supplies it. Rulesets in evaluate mode do not count, because they only
+report what they would have blocked. Approving reviews count when at least one
+approval is required.
+
+A percentage is `null` when the rule could not be determined for at least one
+repository, for example when GitHub refused the request for a repository's
+ruleset rules, and a diagnostic records the cause. Admin enforcement is also
+`null` when it depends on a ruleset whose bypass list the token cannot see.
 
 ### Security features (`security_features`)
 
@@ -64,11 +80,17 @@ run.
 - **internal**: `findings[]` inventories per type (identifiers, severities,
   locations, states; never the secret values themselves).
 
-The open-alert counts (audit) and findings inventories (internal) require both
-the matching alert-read permissions and the feature enabled on the repository.
-Where code scanning, secret scanning, or Dependabot alerts are not enabled, the
-alert fields stay empty and a `warning` is recorded; where the permission is
-missing, they stay empty and a `permission_error` is recorded.
+The open-alert counts (audit) and findings inventories (internal) come from
+one listing of each repository's open alerts of each type, so a repository's
+count matches the rows the inventory holds for it. Both require the matching
+alert-read permissions and the feature enabled on the repository. Where code
+scanning, secret scanning, or Dependabot alerts are not enabled, the count is
+0, the inventory has no alerts for the repository, and a `warning` is
+recorded. Where the permission is missing, the count is `null` and an
+inventory missing any repository is left out, each with a gap, and a
+`permission_error` is recorded. The collector lists at most 5,001 alerts per
+repository and type. A repository that reaches that many gets a `null` count,
+since it may have more.
 
 The surfaces below are **not collected at trust**; they first appear at
 `audit`. Their GitHub App permissions are likewise only exercised at `audit` and
@@ -85,20 +107,28 @@ above, so a trust run stays minimal.
   is partial for any reason other than an unset profile, a diagnostic warning
   says so.
 - **internal**: each member row gains two-factor status and last activity.
+  Two-factor status is left out for outside collaborators, whom GitHub's
+  two-factor roster does not cover.
 
 ### Repositories (`repositories`)
 
 - **trust**: omitted.
 - **audit**: counts by visibility and archived / default-branch-protected, and
   `per_repo[]` rows (name, visibility, archived, default branch, timestamps,
-  primary language, size) with per-repo branch-protection detail.
+  primary language, size) with per-repo branch-protection detail: the classic
+  branch protection rule, the effective protection (each rule as true, false,
+  or null, with the mechanisms that supply it), and the rulesets on the default
+  branch (name, source, enforcement, rule types, and the bypass list when the
+  token can see it).
 - **internal**: each repo row gains low-sensitivity metadata (description,
   topics, license SPDX, stargazer count).
 
 ### CODEOWNERS (`codeowners`)
 
 - **trust**: omitted.
-- **audit**: `per_repo[]` presence rows (repository, present, path).
+- **audit**: `per_repo[]` presence rows (repository, present, path). The path
+  is the file GitHub uses, which is the first CODEOWNERS it finds in
+  `.github/`, the root, or `docs/`, in that order.
 - **internal**: each row gains a SHA-256 content hash (computed in-process; file
   contents are never emitted).
 
@@ -173,12 +203,16 @@ within the per-collector size limit:
 | Environments | 5,000 | reviewer-gated first, then repository, then name |
 | Security findings | 5,000 per type, per repo | severity descending, then created-at |
 | Audit log | 5,000 events | API order, most recent first |
+| Actions runners and secret names | 10,000 per list | API order |
+| Installed Apps | 10,000 | API order |
 
 When a cap fires, the surface sets a `truncated` flag and a dropped-row count.
+The Actions and Apps counts are GitHub's totals, so they stay whole when the
+rows stop at the cap, and those surfaces set only the flag.
 
 ## Never emitted, at any level
 
 Repository contents, pull request and issue bodies, full webhook URLs and
 webhook secrets, deploy-key and SSH public-key material (fingerprinted only),
-Actions secret values, CODEOWNERS file contents (hashed only), and token values
-are never collected.
+Actions secret values, the secrets secret scanning found, CODEOWNERS file
+contents (hashed only), and token values are never collected.

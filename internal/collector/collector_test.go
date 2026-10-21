@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/locktivity/epack-collector-github/internal/github"
@@ -13,6 +14,18 @@ import (
 // boolPtr returns a pointer to the given bool value.
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// assertPct fails the test unless got is a non-nil percentage equal to want.
+func assertPct(t *testing.T, name string, got *int, want int) {
+	t.Helper()
+	if got == nil {
+		t.Errorf("%s = nil, want %d", name, want)
+		return
+	}
+	if *got != want {
+		t.Errorf("%s = %d, want %d", name, *got, want)
+	}
 }
 
 func TestSchemaVersion(t *testing.T) {
@@ -55,14 +68,11 @@ func TestOutputJSONStructure(t *testing.T) {
 		},
 	}
 
-	c := &Collector{
-		config: Config{
-			Organization:    "test-org",
-			IncludePatterns: []string{"*"},
-			ExcludePatterns: []string{},
-		},
-		client: mock,
-	}
+	c := NewWithClient(Config{
+		Organization:    "test-org",
+		IncludePatterns: []string{"*"},
+		ExcludePatterns: []string{},
+	}, mock)
 
 	posture, err := c.Collect(context.Background(), componentsdk.LevelTrust)
 	if err != nil {
@@ -284,39 +294,46 @@ type mockGitHubClient struct {
 	orgSettings    *github.OrgSettings
 	orgSettingsErr error
 
-	alertCounts      map[string]*github.AlertCounts // key: "owner/repo"
-	alertCountsErr   error
 	secretAlerts     map[string][]github.SecretScanningAlert
 	codeAlerts       map[string][]github.CodeScanningAlert
 	dependabotAlerts map[string][]github.DependabotAlert
 	alertListErr     error
+	alertListMore    bool // every alert list reached the fetch cap
 
-	membership      *github.OrgMembership
-	membershipErr   error
-	codeowners      map[string]codeownersFixture // key: "owner/repo"
-	codeownersErr   error
-	orgHooks        []github.Hook
-	repoHooks       map[string][]github.Hook
-	hooksErr        error
-	deployKeys      map[string][]github.DeployKey
-	deployKeysErr   error
-	orgRunners      []github.Runner
-	repoRunners     map[string][]github.Runner
-	actionsErr      error
-	secretNames     []string
+	membership        *github.OrgMembership
+	membershipErr     error
+	codeowners        map[string]codeownersFixture // key: "owner/repo"
+	codeownersErr     error
+	orgHooks          []github.Hook
+	repoHooks         map[string][]github.Hook
+	hooksErr          error
+	deployKeys        map[string][]github.DeployKey
+	deployKeysErr     error
+	orgRunners        []github.Runner
+	orgRunnerTotal    int // reported total override; default len(orgRunners)
+	repoRunners       map[string][]github.Runner
+	actionsErr        error
+	secretNames       []string
 	environments      map[string][]github.Environment // key: "owner/repo"
 	environmentTotals map[string]int                  // reported total override; default len(fixture)
 	environmentsErr   error
 	envPatterns       map[string][]github.BranchPolicyPattern // key: "owner/repo#env"
 	envApps           map[string][]string                     // key: "owner/repo#env"
 	envSubErr         error
-	auditEvents     []github.AuditEvent
-	auditMore       bool
-	auditErr        error
-	installations   []github.Installation
-	installationErr error
-	pats            []github.PATGrant
-	patsErr         error
+	auditEvents       []github.AuditEvent
+	auditMore         bool
+	auditErr          error
+	installations     []github.Installation
+	installationTotal int // reported total override; default len(installations)
+	installationErr   error
+	pats              []github.PATGrant
+	patsErr           error
+
+	branchRules     map[string][]github.BranchRule // key: "owner/repo"
+	branchRulesErr  map[string]error               // key: "owner/repo"
+	rulesets        map[int64]*github.Ruleset
+	rulesetErr      error
+	rulesetRequests []int64
 }
 
 type codeownersFixture struct {
@@ -328,6 +345,9 @@ type codeownersFixture struct {
 func (m *mockGitHubClient) FetchOrgSecurity(ctx context.Context, org string) (*github.OrgSecurity, error) {
 	if m.orgSecurityErr != nil {
 		return nil, m.orgSecurityErr
+	}
+	if m.orgSecurity == nil {
+		return &github.OrgSecurity{}, nil
 	}
 	return m.orgSecurity, nil
 }
@@ -348,6 +368,25 @@ func (m *mockGitHubClient) FetchSecuritySettings(ctx context.Context, owner, rep
 	return &github.SecuritySettings{}, nil
 }
 
+func (m *mockGitHubClient) GetBranchRules(ctx context.Context, owner, repo, branch string) ([]github.BranchRule, error) {
+	key := owner + "/" + repo
+	if err := m.branchRulesErr[key]; err != nil {
+		return nil, err
+	}
+	return m.branchRules[key], nil
+}
+
+func (m *mockGitHubClient) GetRepoRuleset(ctx context.Context, owner, repo string, rulesetID int64) (*github.Ruleset, error) {
+	m.rulesetRequests = append(m.rulesetRequests, rulesetID)
+	if m.rulesetErr != nil {
+		return nil, m.rulesetErr
+	}
+	if rs, ok := m.rulesets[rulesetID]; ok {
+		return rs, nil
+	}
+	return nil, fmt.Errorf("%w: ruleset %d", github.ErrNotFound, rulesetID)
+}
+
 func (m *mockGitHubClient) GetOrgSettings(ctx context.Context, org string) (*github.OrgSettings, error) {
 	if m.orgSettingsErr != nil {
 		return nil, m.orgSettingsErr
@@ -358,35 +397,25 @@ func (m *mockGitHubClient) GetOrgSettings(ctx context.Context, org string) (*git
 	return &github.OrgSettings{}, nil
 }
 
-func (m *mockGitHubClient) GetOpenAlertCounts(ctx context.Context, owner, repo string) (*github.AlertCounts, error) {
-	if m.alertCountsErr != nil {
-		return &github.AlertCounts{}, m.alertCountsErr
-	}
-	if c, ok := m.alertCounts[owner+"/"+repo]; ok {
-		return c, nil
-	}
-	return &github.AlertCounts{}, nil
-}
-
 func (m *mockGitHubClient) ListSecretScanningAlerts(ctx context.Context, owner, repo string) ([]github.SecretScanningAlert, bool, error) {
 	if m.alertListErr != nil {
 		return nil, false, m.alertListErr
 	}
-	return m.secretAlerts[owner+"/"+repo], false, nil
+	return m.secretAlerts[owner+"/"+repo], m.alertListMore, nil
 }
 
 func (m *mockGitHubClient) ListCodeScanningAlerts(ctx context.Context, owner, repo string) ([]github.CodeScanningAlert, bool, error) {
 	if m.alertListErr != nil {
 		return nil, false, m.alertListErr
 	}
-	return m.codeAlerts[owner+"/"+repo], false, nil
+	return m.codeAlerts[owner+"/"+repo], m.alertListMore, nil
 }
 
 func (m *mockGitHubClient) ListDependabotAlerts(ctx context.Context, owner, repo string) ([]github.DependabotAlert, bool, error) {
 	if m.alertListErr != nil {
 		return nil, false, m.alertListErr
 	}
-	return m.dependabotAlerts[owner+"/"+repo], false, nil
+	return m.dependabotAlerts[owner+"/"+repo], m.alertListMore, nil
 }
 
 func (m *mockGitHubClient) GetOrgMembership(ctx context.Context, org string) (*github.OrgMembership, error) {
@@ -431,25 +460,26 @@ func (m *mockGitHubClient) ListRepoDeployKeys(ctx context.Context, owner, repo s
 	return m.deployKeys[owner+"/"+repo], nil
 }
 
-func (m *mockGitHubClient) ListOrgRunners(ctx context.Context, org string) ([]github.Runner, error) {
+func (m *mockGitHubClient) ListOrgRunners(ctx context.Context, org string) ([]github.Runner, int, error) {
 	if m.actionsErr != nil {
-		return nil, m.actionsErr
+		return nil, 0, m.actionsErr
 	}
-	return m.orgRunners, nil
+	return m.orgRunners, max(m.orgRunnerTotal, len(m.orgRunners)), nil
 }
 
-func (m *mockGitHubClient) ListRepoRunners(ctx context.Context, owner, repo string) ([]github.Runner, error) {
+func (m *mockGitHubClient) ListRepoRunners(ctx context.Context, owner, repo string) ([]github.Runner, int, error) {
 	if m.actionsErr != nil {
-		return nil, m.actionsErr
+		return nil, 0, m.actionsErr
 	}
-	return m.repoRunners[owner+"/"+repo], nil
+	runners := m.repoRunners[owner+"/"+repo]
+	return runners, len(runners), nil
 }
 
-func (m *mockGitHubClient) ListOrgActionsSecretNames(ctx context.Context, org string) ([]string, error) {
+func (m *mockGitHubClient) ListOrgActionsSecretNames(ctx context.Context, org string) ([]string, int, error) {
 	if m.actionsErr != nil {
-		return nil, m.actionsErr
+		return nil, 0, m.actionsErr
 	}
-	return m.secretNames, nil
+	return m.secretNames, len(m.secretNames), nil
 }
 
 func (m *mockGitHubClient) ListRepoEnvironments(ctx context.Context, owner, repo string) ([]github.Environment, int, error) {
@@ -485,11 +515,11 @@ func (m *mockGitHubClient) GetOrgAuditLog(ctx context.Context, org, sinceISO str
 	return m.auditEvents, m.auditMore, nil
 }
 
-func (m *mockGitHubClient) ListOrgInstallations(ctx context.Context, org string) ([]github.Installation, error) {
+func (m *mockGitHubClient) ListOrgInstallations(ctx context.Context, org string) ([]github.Installation, int, error) {
 	if m.installationErr != nil {
-		return nil, m.installationErr
+		return nil, 0, m.installationErr
 	}
-	return m.installations, nil
+	return m.installations, max(m.installationTotal, len(m.installations)), nil
 }
 
 func (m *mockGitHubClient) ListOrgPATs(ctx context.Context, org string) ([]github.PATGrant, bool, error) {
@@ -519,9 +549,13 @@ func TestCollect_EmptyOrganization(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// No repos, so coverage is 0 (0/0 = 0)
-	if posture.Scope.RepositoriesCoverage != 0 {
-		t.Errorf("RepositoriesCoverage = %d, want 0", posture.Scope.RepositoriesCoverage)
+	// No repos, so coverage has no population and is null.
+	if posture.Scope.RepositoriesCoverage != nil {
+		t.Errorf("RepositoriesCoverage = %d, want null", *posture.Scope.RepositoriesCoverage)
+	}
+	assertPct(t, "IncludedRepositoryCount", posture.Scope.IncludedRepositoryCount, 0)
+	if posture.Posture.SecurityFeaturesCoverage != nil || posture.SecurityFeatures.CodeScanning != nil {
+		t.Errorf("security feature metrics over no repositories should be null, got %+v", posture.SecurityFeatures)
 	}
 	if posture.AccessControl.TwoFactorRequired == nil || *posture.AccessControl.TwoFactorRequired != true {
 		t.Errorf("TwoFactorRequired = %v, want true", posture.AccessControl.TwoFactorRequired)
@@ -543,12 +577,13 @@ func TestCollect_FullOrganization(t *testing.T) {
 				}{
 					Name: "main",
 					BranchProtectionRule: &github.BranchProtectionRule{
-						RequiresApprovingReviews: true,
-						DismissesStaleReviews:    true,
-						RequiresCodeOwnerReviews: true,
-						RequiresStatusChecks:     true,
-						RequiresCommitSignatures: true,
-						IsAdminEnforced:          true,
+						RequiresApprovingReviews:     true,
+						RequiredApprovingReviewCount: 1,
+						DismissesStaleReviews:        true,
+						RequiresCodeOwnerReviews:     true,
+						RequiresStatusChecks:         true,
+						RequiresCommitSignatures:     true,
+						IsAdminEnforced:              true,
 					},
 				},
 				HasVulnerabilityAlertsEnabled: true,
@@ -562,8 +597,9 @@ func TestCollect_FullOrganization(t *testing.T) {
 				}{
 					Name: "main",
 					BranchProtectionRule: &github.BranchProtectionRule{
-						RequiresApprovingReviews: true,
-						RequiresStatusChecks:     true,
+						RequiresApprovingReviews:     true,
+						RequiredApprovingReviewCount: 2,
+						RequiresStatusChecks:         true,
 					},
 				},
 				HasVulnerabilityAlertsEnabled: true,
@@ -616,9 +652,7 @@ func TestCollect_FullOrganization(t *testing.T) {
 	}
 
 	// All 3 repos included, no exclusions = 100% coverage
-	if posture.Scope.RepositoriesCoverage != 100 {
-		t.Errorf("RepositoriesCoverage = %d, want 100", posture.Scope.RepositoriesCoverage)
-	}
+	assertPct(t, "RepositoriesCoverage", posture.Scope.RepositoriesCoverage, 100)
 
 	// Check access control
 	if posture.AccessControl.TwoFactorRequired == nil || *posture.AccessControl.TwoFactorRequired != true {
@@ -626,31 +660,19 @@ func TestCollect_FullOrganization(t *testing.T) {
 	}
 
 	// Check branch protection (2/3 repos have it = 66%)
-	if posture.Posture.BranchProtectionCoverage != 66 {
-		t.Errorf("BranchProtectionCoverage = %d, want 66", posture.Posture.BranchProtectionCoverage)
-	}
+	assertPct(t, "BranchProtectionCoverage", posture.Posture.BranchProtectionCoverage, 66)
 
 	// Check individual branch protection rules
-	if posture.BranchProtectionRules.ApprovingReviews != 66 { // 2/3
-		t.Errorf("ApprovingReviews = %d, want 66", posture.BranchProtectionRules.ApprovingReviews)
-	}
-	if posture.BranchProtectionRules.DismissStaleReviews != 33 { // 1/3
-		t.Errorf("DismissStaleReviews = %d, want 33", posture.BranchProtectionRules.DismissStaleReviews)
-	}
-	if posture.BranchProtectionRules.StatusChecks != 66 { // 2/3
-		t.Errorf("StatusChecks = %d, want 66", posture.BranchProtectionRules.StatusChecks)
-	}
+	assertPct(t, "ApprovingReviews", posture.BranchProtectionRules.ApprovingReviews, 66)       // 2/3
+	assertPct(t, "DismissStaleReviews", posture.BranchProtectionRules.DismissStaleReviews, 33) // 1/3
+	assertPct(t, "StatusChecks", posture.BranchProtectionRules.StatusChecks, 66)               // 2/3
+	assertPct(t, "AdminEnforcement", posture.BranchProtectionRules.AdminEnforcement, 33)       // 1/3
+	assertPct(t, "ForcePushesBlocked", posture.BranchProtectionRules.ForcePushesBlocked, 66)   // 2/3
 
 	// Check security features
-	if posture.SecurityFeatures.VulnerabilityAlerts != 66 { // 2/3
-		t.Errorf("VulnerabilityAlerts = %d, want 66", posture.SecurityFeatures.VulnerabilityAlerts)
-	}
-	if posture.SecurityFeatures.SecretScanning != 66 { // 2/3
-		t.Errorf("SecretScanning = %d, want 66", posture.SecurityFeatures.SecretScanning)
-	}
-	if posture.SecurityFeatures.CodeScanning != 33 { // 1/3
-		t.Errorf("CodeScanning = %d, want 33", posture.SecurityFeatures.CodeScanning)
-	}
+	assertPct(t, "VulnerabilityAlerts", posture.SecurityFeatures.VulnerabilityAlerts, 66) // 2/3
+	assertPct(t, "SecretScanning", posture.SecurityFeatures.SecretScanning, 66)           // 2/3
+	assertPct(t, "CodeScanning", posture.SecurityFeatures.CodeScanning, 33)               // 1/3
 }
 
 func TestCollect_WithFilters(t *testing.T) {
@@ -714,14 +736,10 @@ func TestCollect_WithFilters(t *testing.T) {
 	}
 
 	// Only prod-* repos should be counted (2 of 3 repos = 66% coverage)
-	if posture.Scope.RepositoriesCoverage != 66 {
-		t.Errorf("RepositoriesCoverage = %d, want 66", posture.Scope.RepositoriesCoverage)
-	}
+	assertPct(t, "RepositoriesCoverage", posture.Scope.RepositoriesCoverage, 66)
 
 	// Both prod repos have branch protection = 100%
-	if posture.Posture.BranchProtectionCoverage != 100 {
-		t.Errorf("BranchProtectionCoverage = %d, want 100", posture.Posture.BranchProtectionCoverage)
-	}
+	assertPct(t, "BranchProtectionCoverage", posture.Posture.BranchProtectionCoverage, 100)
 }
 
 func TestCollect_ExcludePatterns(t *testing.T) {
@@ -782,9 +800,7 @@ func TestCollect_ExcludePatterns(t *testing.T) {
 	}
 
 	// Only "app" should be counted (1 of 3 repos = 33% coverage)
-	if posture.Scope.RepositoriesCoverage != 33 {
-		t.Errorf("RepositoriesCoverage = %d, want 33", posture.Scope.RepositoriesCoverage)
-	}
+	assertPct(t, "RepositoriesCoverage", posture.Scope.RepositoriesCoverage, 33)
 }
 
 func TestCollect_SkipsArchivedRepositories(t *testing.T) {
@@ -848,15 +864,9 @@ func TestCollect_SkipsArchivedRepositories(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if posture.Scope.RepositoriesCoverage != 50 {
-		t.Errorf("RepositoriesCoverage = %d, want 50", posture.Scope.RepositoriesCoverage)
-	}
-	if posture.Posture.BranchProtectionCoverage != 100 {
-		t.Errorf("BranchProtectionCoverage = %d, want 100", posture.Posture.BranchProtectionCoverage)
-	}
-	if posture.SecurityFeatures.CodeScanning != 100 {
-		t.Errorf("CodeScanning = %d, want 100", posture.SecurityFeatures.CodeScanning)
-	}
+	assertPct(t, "RepositoriesCoverage", posture.Scope.RepositoriesCoverage, 50)
+	assertPct(t, "BranchProtectionCoverage", posture.Posture.BranchProtectionCoverage, 100)
+	assertPct(t, "CodeScanning", posture.SecurityFeatures.CodeScanning, 100)
 	if posture.Diagnostics != nil {
 		t.Errorf("Diagnostics = %+v, want nil", posture.Diagnostics)
 	}
@@ -866,10 +876,10 @@ func TestCollect_SkipsArchivedRepositories(t *testing.T) {
 }
 
 func TestCollect_OrgSecurityError(t *testing.T) {
-	// A non-permission error on the org-security fetch degrades to a warning; the
-	// run still succeeds with org security zeroed.
+	// The organization read is the sign-in, so its failure fails the run with
+	// the failure's code instead of emitting zeros.
 	mock := &mockGitHubClient{
-		orgSecurityErr: errors.New("API rate limit exceeded"),
+		orgSecurityErr: &github.APIError{StatusCode: 401, Path: "/orgs/test-org", Message: "Bad credentials"},
 	}
 
 	config := Config{
@@ -878,16 +888,13 @@ func TestCollect_OrgSecurityError(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
+	_, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
-	if err != nil {
-		t.Fatalf("expected degraded success, got error: %v", err)
+	if got := componentsdk.Classify(err); got != componentsdk.CodeAuthFailed {
+		t.Fatalf("Collect() error = %v (code %s), want auth_failed", err, got)
 	}
-	if posture.AccessControl.TwoFactorRequired != nil {
-		t.Error("expected org security zeroed after fetch failure")
-	}
-	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "organization_security") {
-		t.Errorf("expected an organization_security warning, got %+v", posture.Diagnostics)
+	if mock.requestedRepos != nil {
+		t.Errorf("requested repos %v after a failed sign-in", mock.requestedRepos)
 	}
 }
 
@@ -915,13 +922,16 @@ func TestCollect_RepositoriesError(t *testing.T) {
 	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "repositories") {
 		t.Errorf("expected a repositories warning, got %+v", posture.Diagnostics)
 	}
+	if posture.Scope.RepositoriesCoverage != nil || posture.Scope.IncludedRepositoryCount != nil ||
+		posture.Posture.SecurityFeaturesCoverage != nil || posture.SecurityFeatures.VulnerabilityAlerts != nil {
+		t.Errorf("repository metrics should be null when the list failed, got scope %+v, features %+v", posture.Scope, posture.SecurityFeatures)
+	}
 }
 
 func TestCollect_CoreSurfacePermissionDenied(t *testing.T) {
-	// A permission denial on a core surface records a permission error (naming the
-	// scope to grant) and still produces an artifact.
+	// A refused sign-in fails the run as permission_denied.
 	mock := &mockGitHubClient{
-		orgSecurityErr: github.ErrPermissionDenied,
+		orgSecurityErr: fmt.Errorf("%w: /orgs/test-org (status 403)", github.ErrPermissionDenied),
 	}
 
 	config := Config{
@@ -930,13 +940,10 @@ func TestCollect_CoreSurfacePermissionDenied(t *testing.T) {
 	}
 
 	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
+	_, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
 
-	if err != nil {
-		t.Fatalf("expected degraded success, got error: %v", err)
-	}
-	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.PermissionErrors, "organization_security") {
-		t.Errorf("expected an organization_security permission error, got %+v", posture.Diagnostics)
+	if !errors.Is(err, github.ErrPermissionDenied) {
+		t.Fatalf("Collect() error = %v, want the permission denial", err)
 	}
 }
 
@@ -972,9 +979,7 @@ func TestCollect_DefaultIncludePatterns(t *testing.T) {
 	}
 
 	// Should include all repos when no patterns specified (100% coverage)
-	if posture.Scope.RepositoriesCoverage != 100 {
-		t.Errorf("RepositoriesCoverage = %d, want 100", posture.Scope.RepositoriesCoverage)
-	}
+	assertPct(t, "RepositoriesCoverage", posture.Scope.RepositoriesCoverage, 100)
 
 	// Scope should show default pattern
 	if len(posture.Scope.IncludePatterns) != 1 || posture.Scope.IncludePatterns[0] != "*" {
@@ -1036,9 +1041,7 @@ func TestCollect_SecurityFeaturesCoverage(t *testing.T) {
 
 	// All 5 features enabled on all 2 repos = 100% coverage
 	// (2+2+2+2+2) / (2*5) = 10/10 = 100%
-	if posture.Posture.SecurityFeaturesCoverage != 100 {
-		t.Errorf("SecurityFeaturesCoverage = %d, want 100", posture.Posture.SecurityFeaturesCoverage)
-	}
+	assertPct(t, "SecurityFeaturesCoverage", posture.Posture.SecurityFeaturesCoverage, 100)
 }
 
 func TestCollect_InsufficientPermissions(t *testing.T) {
@@ -1083,12 +1086,8 @@ func TestCollect_InsufficientPermissions(t *testing.T) {
 	}
 
 	// Repository metrics should still work
-	if posture.Scope.RepositoriesCoverage != 100 {
-		t.Errorf("RepositoriesCoverage = %d, want 100", posture.Scope.RepositoriesCoverage)
-	}
-	if posture.Posture.BranchProtectionCoverage != 100 {
-		t.Errorf("BranchProtectionCoverage = %d, want 100", posture.Posture.BranchProtectionCoverage)
-	}
+	assertPct(t, "RepositoriesCoverage", posture.Scope.RepositoriesCoverage, 100)
+	assertPct(t, "BranchProtectionCoverage", posture.Posture.BranchProtectionCoverage, 100)
 }
 
 func TestToVCSPosture(t *testing.T) {
@@ -1100,30 +1099,30 @@ func TestToVCSPosture(t *testing.T) {
 		Scope: Scope{
 			IncludePatterns:      []string{"*"},
 			ExcludePatterns:      []string{},
-			RepositoriesCoverage: 80,
+			RepositoriesCoverage: ptr(80),
 		},
 		Posture: Posture{
-			BranchProtectionCoverage: 75,
-			SecurityFeaturesCoverage: 60,
+			BranchProtectionCoverage: ptr(75),
+			SecurityFeaturesCoverage: ptr(60),
 		},
 		AccessControl: AccessControl{
 			TwoFactorRequired: boolPtr(true),
 		},
 		BranchProtectionRules: BranchProtectionRules{
-			PullRequestRequired: 90,
-			ApprovingReviews:    85,
-			DismissStaleReviews: 40,
-			CodeOwnerReviews:    30,
-			StatusChecks:        70,
-			SignedCommits:       20,
-			AdminEnforcement:    50,
+			PullRequestRequired: ptr(90),
+			ApprovingReviews:    ptr(85),
+			DismissStaleReviews: ptr(40),
+			CodeOwnerReviews:    ptr(30),
+			StatusChecks:        ptr(70),
+			SignedCommits:       ptr(20),
+			AdminEnforcement:    ptr(50),
 		},
 		SecurityFeatures: SecurityFeatures{
-			VulnerabilityAlerts:          95,
-			CodeScanning:                 45,
-			SecretScanning:               80,
-			SecretScanningPushProtection: 60,
-			DependabotSecurityUpdates:    70,
+			VulnerabilityAlerts:          ptr(95),
+			CodeScanning:                 ptr(45),
+			SecretScanning:               ptr(80),
+			SecretScanningPushProtection: ptr(60),
+			DependabotSecurityUpdates:    ptr(70),
 		},
 	}
 
@@ -1141,43 +1140,50 @@ func TestToVCSPosture(t *testing.T) {
 	}
 
 	// Verify coverage mapping
-	if vcsPosture.RepoCoveragePct != 80 {
+	if vcsPosture.RepoCoveragePct == nil || *vcsPosture.RepoCoveragePct != 80 {
 		t.Errorf("RepoCoveragePct = %v, want 80", vcsPosture.RepoCoveragePct)
 	}
 
 	// Verify org security
-	if !vcsPosture.OrgSecurity.TwoFactorRequired {
-		t.Error("OrgSecurity.TwoFactorRequired = false, want true")
+	if vcsPosture.OrgSecurity.TwoFactorRequired == nil || !*vcsPosture.OrgSecurity.TwoFactorRequired {
+		t.Error("OrgSecurity.TwoFactorRequired is not true")
 	}
 
 	// Verify branch protection mappings
-	if vcsPosture.BranchProtection.PRRequiredPct != 90 {
-		t.Errorf("BranchProtection.PRRequiredPct = %v, want 90", vcsPosture.BranchProtection.PRRequiredPct)
-	}
-	if vcsPosture.BranchProtection.ApprovingReviewsPct != 85 {
-		t.Errorf("BranchProtection.ApprovingReviewsPct = %v, want 85", vcsPosture.BranchProtection.ApprovingReviewsPct)
-	}
-	if vcsPosture.BranchProtection.StatusChecksPct != 70 {
-		t.Errorf("BranchProtection.StatusChecksPct = %v, want 70", vcsPosture.BranchProtection.StatusChecksPct)
-	}
-	if vcsPosture.BranchProtection.SignedCommitsPct != 20 {
-		t.Errorf("BranchProtection.SignedCommitsPct = %v, want 20", vcsPosture.BranchProtection.SignedCommitsPct)
+	bp := vcsPosture.BranchProtection
+	for name, got := range map[string]struct {
+		value *float64
+		want  float64
+	}{
+		"PRRequiredPct":       {bp.PRRequiredPct, 90},
+		"ApprovingReviewsPct": {bp.ApprovingReviewsPct, 85},
+		"StatusChecksPct":     {bp.StatusChecksPct, 70},
+		"SignedCommitsPct":    {bp.SignedCommitsPct, 20},
+	} {
+		if got.value == nil || *got.value != got.want {
+			t.Errorf("BranchProtection.%s = %v, want %v", name, got.value, got.want)
+		}
 	}
 
 	// Verify security features mappings
-	if vcsPosture.SecurityFeatures.VulnAlertsPct != 95 {
-		t.Errorf("SecurityFeatures.VulnAlertsPct = %v, want 95", vcsPosture.SecurityFeatures.VulnAlertsPct)
-	}
-	if vcsPosture.SecurityFeatures.SecretScanningPct != 80 {
-		t.Errorf("SecurityFeatures.SecretScanningPct = %v, want 80", vcsPosture.SecurityFeatures.SecretScanningPct)
-	}
-	if vcsPosture.SecurityFeatures.CodeScanningPct != 45 {
-		t.Errorf("SecurityFeatures.CodeScanningPct = %v, want 45", vcsPosture.SecurityFeatures.CodeScanningPct)
+	sf := vcsPosture.SecurityFeatures
+	for name, got := range map[string]struct {
+		value *float64
+		want  float64
+	}{
+		"VulnAlertsPct":     {sf.VulnAlertsPct, 95},
+		"SecretScanningPct": {sf.SecretScanningPct, 80},
+		"CodeScanningPct":   {sf.CodeScanningPct, 45},
+	} {
+		if got.value == nil || *got.value != got.want {
+			t.Errorf("SecurityFeatures.%s = %v, want %v", name, got.value, got.want)
+		}
 	}
 }
 
 func TestToVCSPosture_NilTwoFactor(t *testing.T) {
-	// Test that nil TwoFactorRequired (insufficient permissions) maps to false
+	// An unknown 2FA requirement (insufficient permissions) stays unknown
+	// rather than reading as not required.
 	orgPosture := &OrgPosture{
 		Organization: "test-org",
 		AccessControl: AccessControl{
@@ -1187,8 +1193,8 @@ func TestToVCSPosture_NilTwoFactor(t *testing.T) {
 
 	vcsPosture := orgPosture.ToVCSPosture()
 
-	if vcsPosture.OrgSecurity.TwoFactorRequired {
-		t.Error("OrgSecurity.TwoFactorRequired = true, want false (when nil)")
+	if vcsPosture.OrgSecurity.TwoFactorRequired != nil {
+		t.Errorf("OrgSecurity.TwoFactorRequired = %v, want unknown", *vcsPosture.OrgSecurity.TwoFactorRequired)
 	}
 }
 
@@ -1203,8 +1209,8 @@ func TestToVCSPosture_FalseTwoFactor(t *testing.T) {
 
 	vcsPosture := orgPosture.ToVCSPosture()
 
-	if vcsPosture.OrgSecurity.TwoFactorRequired {
-		t.Error("OrgSecurity.TwoFactorRequired = true, want false")
+	if vcsPosture.OrgSecurity.TwoFactorRequired == nil || *vcsPosture.OrgSecurity.TwoFactorRequired {
+		t.Errorf("OrgSecurity.TwoFactorRequired = %v, want false", vcsPosture.OrgSecurity.TwoFactorRequired)
 	}
 }
 
@@ -1213,21 +1219,21 @@ func TestVCSPostureJSONStructure(t *testing.T) {
 	orgPosture := &OrgPosture{
 		Organization: "test-org",
 		Scope: Scope{
-			RepositoriesCoverage: 100,
+			RepositoriesCoverage: ptr(100),
 		},
 		AccessControl: AccessControl{
 			TwoFactorRequired: boolPtr(true),
 		},
 		BranchProtectionRules: BranchProtectionRules{
-			PullRequestRequired: 80,
-			ApprovingReviews:    75,
-			StatusChecks:        60,
-			SignedCommits:       10,
+			PullRequestRequired: ptr(80),
+			ApprovingReviews:    ptr(75),
+			StatusChecks:        ptr(60),
+			SignedCommits:       ptr(10),
 		},
 		SecurityFeatures: SecurityFeatures{
-			VulnerabilityAlerts: 90,
-			SecretScanning:      85,
-			CodeScanning:        50,
+			VulnerabilityAlerts: ptr(90),
+			SecretScanning:      ptr(85),
+			CodeScanning:        ptr(50),
 		},
 	}
 

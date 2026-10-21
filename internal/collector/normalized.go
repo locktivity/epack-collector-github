@@ -1,65 +1,91 @@
 // Package collector provides GitHub organization posture collection functionality.
 package collector
 
-import "time"
+import "github.com/locktivity/epack/componentsdk"
 
 // VCSPosture represents the normalized version control system posture.
 // This follows the evidencepack/vcs-posture@v1 schema specification.
-// Fields are designed to be vendor-agnostic.
+// Fields are designed to be vendor-agnostic. A metric the detailed artifact
+// reports as unknown is left out, with the same gap, and so is a section
+// whose every metric is.
 type VCSPosture struct {
 	SchemaVersion    string                     `json:"schema_version"`
 	CollectedAt      string                     `json:"collected_at"`
 	Provider         string                     `json:"provider"`
 	Organization     string                     `json:"organization"`
-	OrgSecurity      VCSPostureOrgSecurity      `json:"org_security"`
-	RepoCoveragePct  float64                    `json:"repo_coverage_pct"`
-	BranchProtection VCSPostureBranchProtection `json:"branch_protection"`
-	SecurityFeatures VCSPostureSecurityFeatures `json:"security_features"`
+	OrgSecurity      VCSPostureOrgSecurity      `json:"org_security,omitzero"`
+	RepoCoveragePct  *float64                   `json:"repo_coverage_pct,omitempty"`
+	BranchProtection VCSPostureBranchProtection `json:"branch_protection,omitzero"`
+	SecurityFeatures VCSPostureSecurityFeatures `json:"security_features,omitzero"`
 }
 
 // VCSPostureOrgSecurity contains org-level security settings.
 type VCSPostureOrgSecurity struct {
-	TwoFactorRequired bool `json:"two_factor_required"`
+	TwoFactorRequired *bool `json:"two_factor_required,omitempty"`
 }
 
-// VCSPostureBranchProtection contains branch protection coverage metrics.
+// VCSPostureBranchProtection contains branch protection coverage metrics. A
+// metric is omitted when the detailed artifact reports it as unknown.
 type VCSPostureBranchProtection struct {
-	PRRequiredPct       float64 `json:"pr_required_pct"`
-	ApprovingReviewsPct float64 `json:"approving_reviews_pct"`
-	StatusChecksPct     float64 `json:"status_checks_pct"`
-	SignedCommitsPct    float64 `json:"signed_commits_pct"`
+	PRRequiredPct       *float64 `json:"pr_required_pct,omitempty"`
+	ApprovingReviewsPct *float64 `json:"approving_reviews_pct,omitempty"`
+	StatusChecksPct     *float64 `json:"status_checks_pct,omitempty"`
+	SignedCommitsPct    *float64 `json:"signed_commits_pct,omitempty"`
 }
 
 // VCSPostureSecurityFeatures contains security feature adoption metrics.
 type VCSPostureSecurityFeatures struct {
-	VulnAlertsPct     float64 `json:"vuln_alerts_pct"`
-	SecretScanningPct float64 `json:"secret_scanning_pct"`
-	CodeScanningPct   float64 `json:"code_scanning_pct"`
+	VulnAlertsPct     *float64 `json:"vuln_alerts_pct,omitempty"`
+	SecretScanningPct *float64 `json:"secret_scanning_pct,omitempty"`
+	CodeScanningPct   *float64 `json:"code_scanning_pct,omitempty"`
 }
 
 // ToVCSPosture transforms detailed GitHub output to normalized vcs-posture format.
 func (o *OrgPosture) ToVCSPosture() *VCSPosture {
 	posture := &VCSPosture{
 		SchemaVersion:   "1.0.0",
-		CollectedAt:     time.Now().UTC().Format(time.RFC3339),
+		CollectedAt:     o.CollectedAt,
 		Provider:        "github",
 		Organization:    o.Organization,
-		RepoCoveragePct: float64(o.Scope.RepositoriesCoverage),
+		RepoCoveragePct: pctFloat(o.Scope.RepositoriesCoverage),
 		OrgSecurity: VCSPostureOrgSecurity{
-			TwoFactorRequired: o.AccessControl.TwoFactorRequired != nil && *o.AccessControl.TwoFactorRequired,
+			TwoFactorRequired: o.AccessControl.TwoFactorRequired,
 		},
 		BranchProtection: VCSPostureBranchProtection{
-			PRRequiredPct:       float64(o.BranchProtectionRules.PullRequestRequired),
-			ApprovingReviewsPct: float64(o.BranchProtectionRules.ApprovingReviews),
-			StatusChecksPct:     float64(o.BranchProtectionRules.StatusChecks),
-			SignedCommitsPct:    float64(o.BranchProtectionRules.SignedCommits),
+			PRRequiredPct:       pctFloat(o.BranchProtectionRules.PullRequestRequired),
+			ApprovingReviewsPct: pctFloat(o.BranchProtectionRules.ApprovingReviews),
+			StatusChecksPct:     pctFloat(o.BranchProtectionRules.StatusChecks),
+			SignedCommitsPct:    pctFloat(o.BranchProtectionRules.SignedCommits),
 		},
 		SecurityFeatures: VCSPostureSecurityFeatures{
-			VulnAlertsPct:     float64(o.SecurityFeatures.VulnerabilityAlerts),
-			SecretScanningPct: float64(o.SecurityFeatures.SecretScanning),
-			CodeScanningPct:   float64(o.SecurityFeatures.CodeScanning),
+			VulnAlertsPct:     pctFloat(o.SecurityFeatures.VulnerabilityAlerts),
+			SecretScanningPct: pctFloat(o.SecurityFeatures.SecretScanning),
+			CodeScanningPct:   pctFloat(o.SecurityFeatures.CodeScanning),
 		},
 	}
 
 	return posture
+}
+
+func pctFloat(pct *int) *float64 {
+	if pct == nil {
+		return nil
+	}
+	return ptr(float64(*pct))
+}
+
+// Artifacts returns the detailed artifact and the normalized vcs-posture
+// artifact derived from it.
+func (o *OrgPosture) Artifacts() []componentsdk.CollectedArtifact {
+	return []componentsdk.CollectedArtifact{
+		{
+			Data: o,
+			Path: DetailedPath,
+		},
+		{
+			Data:   o.ToVCSPosture(),
+			Schema: NormalizedSchema,
+			Path:   NormalizedPath,
+		},
+	}
 }

@@ -100,11 +100,14 @@ collectors:
     "scope": {
       "include_patterns": ["*"],
       "exclude_patterns": ["*-archived", "test-*"],
-      "repositories_coverage": 79
+      "repositories_coverage": 79,
+      "repository_count": 142,
+      "included_repository_count": 113
     },
     "posture": {
       "branch_protection_coverage": 93,
-      "security_features_coverage": 72
+      "protected_repository_count": 106,
+      "security_features_coverage": 73
     },
     "access_control": {
       "two_factor_required": true
@@ -116,27 +119,49 @@ collectors:
       "code_owner_reviews": 33,
       "status_checks": 87,
       "signed_commits": 49,
-      "admin_enforcement": 78
+      "admin_enforcement": 78,
+      "force_pushes_blocked": 93,
+      "deletions_blocked": 93,
+      "linear_history": 21,
+      "repository_counts": {
+        "pull_request_required": 106,
+        "approving_reviews": 101,
+        "dismiss_stale_reviews": 95,
+        "code_owner_reviews": 38,
+        "status_checks": 99,
+        "signed_commits": 56,
+        "admin_enforcement": 89,
+        "force_pushes_blocked": 106,
+        "deletions_blocked": 106,
+        "linear_history": 24
+      }
     },
     "security_features": {
       "vulnerability_alerts": 95,
       "code_scanning": 78,
       "secret_scanning": 82,
       "secret_scanning_push_protection": 60,
-      "dependabot_security_updates": 51
+      "dependabot_security_updates": 51,
+      "repository_counts": {
+        "vulnerability_alerts": 108,
+        "code_scanning": 89,
+        "secret_scanning": 93,
+        "secret_scanning_push_protection": 68,
+        "dependabot_security_updates": 58
+      }
     }
   }
 }
 ```
 
-All coverage values are percentages (0-100). The `security_features_coverage` is the average of all five security features.
+All coverage values are percentages (0-100), rounded down. The `security_features_coverage` is the average of all five security features. Beside each other percentage is the count of repositories it is taken of: `protected_repository_count`, and a `repository_counts` object in `branch_protection_rules` and in `security_features`. A count is `null` when its percentage is, except that with no repository in scope the counts are 0. A value is `null` when it could not be determined for every repository, and `artifacts/github.collector-result.json` records a gap with the reason, as does `diagnostics`. The percentages are also `null` when no repository is in scope.
 
-The `scope` field records the filters applied during collection. The `repositories_coverage` percentage indicates what proportion of the organization's repositories were assessed (e.g., 79% means 79% of repos matched the include/exclude filters).
+The `scope` field records the filters applied during collection. The `repositories_coverage` percentage indicates what proportion of the organization's repositories were assessed (e.g., 79% means 79% of repos matched the include/exclude filters). `repository_count` counts every repository in the organization, archived ones included, and `included_repository_count` counts the ones in scope, which the other percentages are taken over.
 
 The `access_control` section provides organization-level security posture:
 - `two_factor_required`: Whether 2FA is enforced for all org members
 
-**Note:** `two_factor_required` may be `null` if the token lacks sufficient permissions (requires `admin:org` scope for PATs, or Organization Administration permission for GitHub Apps).
+**Note:** `two_factor_required` is `null`, with a `permission_denied` gap in the collector result, if the token lacks sufficient permissions (requires `admin:org` scope for PATs, or Organization Administration permission for GitHub Apps). The normalized `vcs-posture` artifact then leaves the setting out rather than reporting it as not required.
 
 **SSO Limitation:** SSO status is not included in the output because GitHub does not provide a reliable API to detect SAML SSO configuration. The GraphQL `samlIdentityProvider` field has a known permission bug with GitHub Apps ([discussion](https://github.com/orgs/community/discussions/45063)), and no REST API endpoint returns SSO status.
 
