@@ -179,6 +179,26 @@ func kitSelectedResponses(ownedPrivate *int) []collectortest.Response {
 	})})
 }
 
+// kitInstallationOnAllResponse answers the list of the installation's
+// repositories for an installation on all repositories.
+func kitInstallationOnAllResponse() collectortest.Response {
+	var repos []any
+	for _, name := range kitRepos {
+		repos = append(repos, map[string]any{"name": name})
+	}
+	return collectortest.Response{URL: kitInstallationReposURL, Body: kitJSON(map[string]any{
+		"total_count":          len(kitRepos),
+		"repository_selection": github.RepositorySelectionAll,
+		"repositories":         repos,
+	})}
+}
+
+// kitInstallationTokenOnAllResponses answer the clean run for an installation
+// token on all repositories, which has no exchange to report the selection.
+func kitInstallationTokenOnAllResponses() []collectortest.Response {
+	return append(kitResponses()[1:], kitInstallationOnAllResponse())
+}
+
 func kitRepoNode(name, visibility string, archived, vulnAlerts bool, classic map[string]any) map[string]any {
 	return map[string]any{
 		"name":                          name,

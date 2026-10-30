@@ -14,8 +14,9 @@ type metricsAggregator struct {
 	// which leaves every repository-derived value unknown. archivedRepos
 	// counts the archived repositories read, which are out of scope and so in
 	// excludedRepos too. repositorySelection is the GitHub App installation's
-	// repository selection, "" for a token or when it could not be read; for
-	// "selected", only the repositories in the selection are counted at all.
+	// repository selection, "" for a token other than an installation token or
+	// when it could not be read; for "selected", only the repositories in the
+	// selection are counted at all.
 	totalRepos          int
 	excludedRepos       int
 	archivedRepos       int

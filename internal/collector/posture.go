@@ -82,7 +82,7 @@ type Diagnostics struct {
 // App installed on selected repositories, RepositoryCount is GitHub's count of
 // the organization's repositories, and it and the coverage are nil when that
 // count is hidden or below the repositories listed. RepositorySelection is nil
-// for a token.
+// for a token other than an installation token.
 type Scope struct {
 	IncludePatterns         []string `json:"include_patterns"`
 	ExcludePatterns         []string `json:"exclude_patterns"`

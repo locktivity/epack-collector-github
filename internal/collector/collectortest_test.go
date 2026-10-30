@@ -56,6 +56,10 @@ var kitOperations = []string{
 // kitResultPath is where the kit's runs write their collector result.
 const kitResultPath = "artifacts/github.collector-result.json"
 
+// kitTokenResultPath is where the token suite's runs write their collector
+// result, since the kit names it after the suite.
+const kitTokenResultPath = "artifacts/github-token.collector-result.json"
+
 // kitSteps are an internal-level run's steps in order, with their titles.
 // Runs below audit make only the first four.
 var kitSteps = [][2]string{
@@ -210,25 +214,30 @@ func kitSuite() collectortest.Suite {
 	}
 }
 
+// kitSelectedDetail pins a run on every fixture repository but kitOutsider.
+// GitHub lists kitOutsider, which is public, and nothing answers a call about
+// it. The coverage is over GitHub's count of all six repositories.
+func kitSelectedDetail() map[string]any {
+	return map[string]any{
+		"/scope/repository_selection":      "selected",
+		"/scope/repository_count":          6,
+		"/scope/included_repository_count": 3,
+		"/scope/repositories_coverage":     50,
+		"/repositories/archived_count":     1,
+		"/repositories/per_repo/0/name":    kitOrg + "/repo-ruleset",
+		"/repositories/per_repo/1/name":    kitOrg + "/classic-only",
+		"/repositories/per_repo/2/name":    kitOrg + "/classic-and-org",
+		"/repositories/per_repo/3":         collectortest.Absent,
+	}
+}
+
 // kitSelectedScenario is a GitHub App installed on every fixture repository
-// but kitOutsider. GitHub lists kitOutsider, which is public, and nothing
-// answers a call about it. The coverage is over GitHub's count of all six
-// repositories.
+// but kitOutsider.
 func kitSelectedScenario() collectortest.Scenario {
 	return collectortest.Scenario{
 		Name:      "App on selected repositories",
 		Responses: kitSelectedResponses(ptr(5)),
-		Expect: map[string]map[string]any{DetailedPath: {
-			"/scope/repository_selection":      "selected",
-			"/scope/repository_count":          6,
-			"/scope/included_repository_count": 3,
-			"/scope/repositories_coverage":     50,
-			"/repositories/archived_count":     1,
-			"/repositories/per_repo/0/name":    kitOrg + "/repo-ruleset",
-			"/repositories/per_repo/1/name":    kitOrg + "/classic-only",
-			"/repositories/per_repo/2/name":    kitOrg + "/classic-and-org",
-			"/repositories/per_repo/3":         collectortest.Absent,
-		}},
+		Expect:    map[string]map[string]any{DetailedPath: kitSelectedDetail()},
 	}
 }
 
@@ -251,9 +260,11 @@ func TestCollectorKit(t *testing.T) {
 }
 
 // TestCollectorKitTokenAuth checks the GITHUB_TOKEN path: the scenarios,
-// call naming, and that a redirect never carries the token off GitHub. The
-// fault matrix runs once, in the App suite, since both paths share every call
-// after the sign-in.
+// call naming, and that a redirect never carries the token off GitHub. Only an
+// installation token calls the list of the installation's repositories, and
+// that call from any other token matches no response. The fault matrix runs
+// once, in the App suite, since both paths
+// share every call after the sign-in.
 func TestCollectorKitTokenAuth(t *testing.T) {
 	config := kitConfig()
 	delete(config, "app_id")
@@ -273,7 +284,35 @@ func TestCollectorKitTokenAuth(t *testing.T) {
 			{
 				Name:      "clean",
 				Responses: clean,
-				Expect:    map[string]map[string]any{DetailedPath: {"/scope/repository_selection": nil}},
+				Expect: map[string]map[string]any{
+					DetailedPath: {
+						"/scope/repository_selection": nil,
+						"/scope/repository_count":     len(kitRepos),
+					},
+					kitTokenResultPath: {"/signed_in_as/kind": github.CredentialToken},
+				},
+			},
+			{
+				Name:      "installation token on selected repositories",
+				Secrets:   map[string]string{"GITHUB_TOKEN": kitToken},
+				Responses: kitSelectedResponses(ptr(5))[1:],
+				Expect: map[string]map[string]any{
+					DetailedPath: kitSelectedDetail(),
+					kitTokenResultPath: {
+						"/signed_in_as/kind":        github.CredentialInstallationToken,
+						"/signed_in_as/auth_method": componentsdk.AuthAPIToken,
+					},
+				},
+			},
+			{
+				Name:      "installation token on all repositories",
+				Secrets:   map[string]string{"GITHUB_TOKEN": kitToken},
+				Responses: kitInstallationTokenOnAllResponses(),
+				Expect: map[string]map[string]any{DetailedPath: {
+					"/scope/repository_selection":   "all",
+					"/scope/repository_count":       len(kitRepos),
+					"/repositories/per_repo/1/name": kitOrg + "/" + kitOutsider,
+				}},
 			},
 			{
 				Name:          "token rejected",
@@ -294,11 +333,11 @@ func TestCollectorKitTokenAuth(t *testing.T) {
 }
 
 // kitTokenOperations are the operations a token run can call: all but the
-// App's token exchange and its installation's repository list.
+// App's token exchange.
 func kitTokenOperations() []string {
 	var ops []string
 	for _, op := range kitOperations {
-		if op != "github.installation_token.create" && op != "github.installation_repositories.list" {
+		if op != "github.installation_token.create" {
 			ops = append(ops, op)
 		}
 	}
@@ -575,19 +614,52 @@ func TestFailedInstallationListLeavesTheRepositoryValuesOut(t *testing.T) {
 }
 
 func TestTokenExchangeWithoutASelectionAsksTheInstallation(t *testing.T) {
-	var repos []any
-	for _, name := range kitRepos {
-		repos = append(repos, map[string]any{"name": name})
-	}
 	responses := replaceResponse(kitResponses(), kitTokenResponseFor(""))
-	responses = append(responses, collectortest.Response{URL: kitInstallationReposURL, Body: kitJSON(map[string]any{
-		"total_count":          len(kitRepos),
-		"repository_selection": github.RepositorySelectionAll,
-		"repositories":         repos,
-	})})
+	responses = append(responses, kitInstallationOnAllResponse())
 	scope := kitScope(t, runKit(t, kitConfig(), kitSecrets(), responses))
 	if scope["repository_selection"] != "all" || scope["repository_count"] != float64(len(kitRepos)) {
 		t.Errorf("scope = %v, want all of the %d listed repositories", scope, len(kitRepos))
+	}
+}
+
+// kitTokenConfig is the configuration of a run that signs in with GITHUB_TOKEN.
+func kitTokenConfig() map[string]any {
+	config := kitConfig()
+	delete(config, "app_id")
+	delete(config, "installation_id")
+	return config
+}
+
+func TestInstallationTokenFailedListLeavesTheRepositoryValuesOut(t *testing.T) {
+	responses := replaceResponse(kitSelectedResponses(ptr(5))[1:], collectortest.Response{
+		URL:    kitInstallationReposURL,
+		Status: http.StatusBadGateway,
+		Body:   `{"message":"Server Error"}`,
+	})
+	res := runKit(t, kitTokenConfig(), map[string]string{"GITHUB_TOKEN": kitToken}, responses)
+	scope := kitScope(t, res)
+	if scope["repository_selection"] != nil {
+		t.Errorf("repository_selection = %v, want it left out, since no exchange reported it", scope["repository_selection"])
+	}
+	for _, pointer := range []string{"/scope/repository_selection", "/scope/repository_count", "/scope/included_repository_count", "/posture/branch_protection_coverage"} {
+		if gap := gapAt(res, DetailedPath, pointer); gap == nil || gap.Operation != "github.installation_repositories.list" {
+			t.Errorf("gap at %s = %+v, want one naming github.installation_repositories.list", pointer, gap)
+		}
+	}
+}
+
+func TestInstallationTokenNeedsTheOrganizationCount(t *testing.T) {
+	res := runKit(t, kitTokenConfig(), map[string]string{"GITHUB_TOKEN": kitToken}, kitSelectedResponses(nil)[1:])
+	scope := kitScope(t, res)
+	if scope["included_repository_count"] != float64(3) {
+		t.Errorf("included_repository_count = %v, want 3", scope["included_repository_count"])
+	}
+	gap := gapAt(res, DetailedPath, "/scope/repositories_coverage")
+	if gap == nil || gap.Code != componentsdk.CodePermissionDenied {
+		t.Fatalf("gap at /scope/repositories_coverage = %+v, want permission_denied", gap)
+	}
+	if gap.MissingPermission != "" {
+		t.Errorf("missing_permission = %q, want none, since the token's permissions cannot be read", gap.MissingPermission)
 	}
 }
 

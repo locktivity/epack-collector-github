@@ -11,6 +11,9 @@ const (
 // APIHost is the only host the collector sends credentials to.
 const APIHost = "api.github.com"
 
+// installationTokenPrefix is the prefix of every GitHub App installation token.
+const installationTokenPrefix = "ghs_"
+
 // Security status values.
 const (
 	StatusEnabled   = "enabled"

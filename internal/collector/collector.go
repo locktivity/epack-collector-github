@@ -65,7 +65,7 @@ func (s *stepper) end() {
 // New creates a new Collector with the given configuration.
 // It supports two authentication methods:
 //   - GitHub App (recommended): Set AppID, InstallationID, and PrivateKey
-//   - Classic PAT (legacy): Set GitHubToken
+//   - Token: Set GitHubToken to an installation token or a classic PAT (legacy)
 func New(config Config) (*Collector, error) {
 	base := config.Transport
 	if base == nil {
@@ -85,7 +85,7 @@ func New(config Config) (*Collector, error) {
 		}
 		client = appClient
 	case config.GitHubToken != "":
-		// Classic PAT auth (legacy)
+		// An installation token, or a classic PAT (legacy)
 		client = github.NewClient(base, config.GitHubToken)
 	default:
 		return nil, fmt.Errorf("authentication required: provide app_id + private_key (recommended) or github_token")
@@ -377,10 +377,12 @@ func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsA
 // installedOn returns the GitHub App installation's repository selection and
 // the listed repositories it is installed on. GitHub lists every public
 // repository to any caller, so an App installed on selected repositories also
-// sees public ones it cannot read the settings of. A token's selection is "",
-// since GitHub does not say which repositories a token can read.
+// sees public ones it cannot read the settings of. An installation token
+// passed in has no token exchange to report its selection, so the collector
+// always calls the list. Any other token's selection is "", since GitHub has
+// no call that lists the repositories such a token can read.
 func (c *Collector) installedOn(ctx context.Context, cred github.Credential, listed []github.Repository) (string, []github.Repository, error) {
-	if cred.Kind != github.CredentialAppInstallation || cred.RepositorySelection == github.RepositorySelectionAll {
+	if !cred.Installation() || cred.RepositorySelection == github.RepositorySelectionAll {
 		return cred.RepositorySelection, listed, nil
 	}
 	installed, err := c.client.FetchInstallationRepositories(ctx)
@@ -445,7 +447,7 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 	}
 	if metrics.repositorySelection != "" {
 		posture.Scope.RepositorySelection = ptr(metrics.repositorySelection)
-	} else if orgSecurity.Credential.Kind == github.CredentialAppInstallation {
+	} else if orgSecurity.Credential.Installation() {
 		c.gaps.leaveOut(metrics.reposErr, "/scope/repository_selection")
 	}
 	posture.AccessControl = AccessControl{

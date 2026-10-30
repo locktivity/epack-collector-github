@@ -60,6 +60,9 @@ type Client struct {
 	graphqlURL   string
 	installation *ghinstallation.Transport
 	exchanges    *tokenExchanges
+	// installationToken marks a token passed in as one minted for a GitHub App
+	// installation.
+	installationToken bool
 }
 
 // Ensure Client implements GitHubClient.
@@ -76,9 +79,10 @@ func NewClient(base http.RoundTripper, token string) *Client {
 		Base:   base,
 	}
 	return &Client{
-		httpClient: &http.Client{Transport: transport},
-		baseURL:    DefaultBaseURL,
-		graphqlURL: DefaultGraphQLURL,
+		httpClient:        &http.Client{Transport: transport},
+		baseURL:           DefaultBaseURL,
+		graphqlURL:        DefaultGraphQLURL,
+		installationToken: strings.HasPrefix(token, installationTokenPrefix),
 	}
 }
 
@@ -342,10 +346,13 @@ type OrgSecurity struct {
 	Credential        Credential
 }
 
-// Credential kinds.
+// Credential kinds. For CredentialAppInstallation, the collector exchanges the
+// App's key for tokens. CredentialInstallationToken is an installation token
+// minted elsewhere, and CredentialToken is any other token passed in.
 const (
-	CredentialAppInstallation = "app_installation"
-	CredentialToken           = "token"
+	CredentialAppInstallation   = "app_installation"
+	CredentialInstallationToken = "installation_token"
+	CredentialToken             = "token"
 )
 
 // Repository selections of a GitHub App installation.
@@ -356,7 +363,7 @@ const (
 
 // Credential describes what the collector signed in as.
 type Credential struct {
-	// Kind is CredentialAppInstallation or CredentialToken.
+	// Kind is one of the credential kinds above.
 	Kind string
 	// ID is the GitHub App's ID. Tokens have none.
 	ID string
@@ -367,6 +374,12 @@ type Credential struct {
 	// token exchange reported it, or "" for a token or an exchange that
 	// reported none.
 	RepositorySelection string
+}
+
+// Installation reports whether the credential signs in as a GitHub App
+// installation, which can read only the repositories in its selection.
+func (c Credential) Installation() bool {
+	return c.Kind == CredentialAppInstallation || c.Kind == CredentialInstallationToken
 }
 
 // FetchOrgSecurity signs in and reads organization-level security settings.
@@ -431,6 +444,9 @@ func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity
 	}
 	if c.installation == nil {
 		result.Credential = Credential{Kind: CredentialToken, Scopes: splitScopes(resp.Header.Get("X-OAuth-Scopes"))}
+		if c.installationToken {
+			result.Credential.Kind = CredentialInstallationToken
+		}
 	}
 	return result, nil
 }
