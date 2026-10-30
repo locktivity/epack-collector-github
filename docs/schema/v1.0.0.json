@@ -53,8 +53,8 @@
         "repository_selection": {
           "type": ["string", "null"],
           "enum": ["all", "selected", null],
-          "x-epack-null": "GitHub does not say which repositories a token can read",
-          "description": "all when the GitHub App is installed on every repository in the organization, or selected when it is installed only on the repositories chosen for it. Repositories outside the selection are not assessed, and they count toward repository_count the way excluded ones do. Null for a token, or when the App's selection could not be read."
+          "x-epack-null": "GitHub does not say which repositories a token other than an installation token can read",
+          "description": "all when the GitHub App is installed on every repository in the organization, or selected when it is installed only on the repositories chosen for it. Repositories outside the selection are not assessed, and they count toward repository_count the way excluded ones do. Null for a token other than an installation token, or when the App's selection could not be read."
         },
         "repositories_coverage": {
           "type": ["integer", "null"],

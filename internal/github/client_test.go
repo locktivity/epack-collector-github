@@ -422,6 +422,38 @@ func TestFetchOrgSecurity_Success(t *testing.T) {
 	}
 }
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
+
+func TestFetchOrgSecurity_TokenKind(t *testing.T) {
+	for token, want := range map[string]string{
+		"ghs_example":        CredentialInstallationToken,
+		"ghp_example":        CredentialToken,
+		"gho_example":        CredentialToken,
+		"ghu_example":        CredentialToken,
+		"github_pat_example": CredentialToken,
+	} {
+		t.Run(token, func(t *testing.T) {
+			base := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     http.Header{},
+					Body:       io.NopCloser(strings.NewReader(`{"login":"test-org"}`)),
+					Request:    req,
+				}, nil
+			})
+			security, err := NewClient(base, token).FetchOrgSecurity(context.Background(), "test-org")
+			if err != nil {
+				t.Fatalf("FetchOrgSecurity() error: %v", err)
+			}
+			if security.Credential.Kind != want {
+				t.Errorf("Kind = %q, want %q", security.Credential.Kind, want)
+			}
+		})
+	}
+}
+
 func TestFetchOrgSecurity_TwoFactorDisabled(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/orgs/test-org" {

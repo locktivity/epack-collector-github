@@ -63,6 +63,8 @@ The collector accepts a `GITHUB_TOKEN` for GitHub API access. In practice this c
 
 Classic PATs still work, but they are not recommended when a short-lived or GitHub App-based flow is available.
 
+The collector recognizes an installation token by its `ghs_` prefix and applies the installation's [repository selection](#selected-repositories). The result's `signed_in_as.kind` is `installation_token`. GitHub does not show the token's permissions, so `signed_in_as.scopes` is empty and gaps do not set `missing_permission`.
+
 ```yaml
 collectors:
   github:
@@ -126,7 +128,7 @@ exclude_patterns: ["test-*", "experiment-*", "sandbox-*"]
 
 ## Selected repositories
 
-A GitHub App can be installed on all of an organization's repositories or only on selected ones. When it is installed on selected repositories, the collector assesses only those, and the patterns narrow them further. The organization's other repositories still count toward `repository_count`, so `repositories_coverage` shows how much of the organization the selection covers, the same way excluded repositories lower it. `scope.repository_selection` records which kind of installation the run used.
+A GitHub App can be installed on all of an organization's repositories or only on selected ones. When it is installed on selected repositories, the collector assesses only those, and the patterns narrow them further. The organization's other repositories still count toward `repository_count`, so `repositories_coverage` shows how much of the organization the selection covers, the same way excluded repositories lower it. `scope.repository_selection` records which kind of installation the run used. With an installation token passed as `GITHUB_TOKEN`, the collector reads the selection from `GET /installation/repositories`.
 
 GitHub shows the count of the organization's repositories only to organization owners, so an App installed on selected repositories needs the organization Administration permission (read) for it. Without that permission, `repository_count` and `repositories_coverage` are left out with a gap that names it.
 

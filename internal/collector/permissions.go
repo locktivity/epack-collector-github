@@ -115,7 +115,7 @@ func permissionOptions(err error, credential *github.Credential) []componentsdk.
 			componentsdk.Warning(fmt.Sprintf("Grant the GitHub App %s.", need)),
 			componentsdk.MissingPermission(need),
 		}
-	case github.CredentialToken:
+	case github.CredentialToken, github.CredentialInstallationToken:
 		return []componentsdk.GapOption{componentsdk.Warning(fmt.Sprintf("A GitHub App or fine-grained token needs %s for this.", need))}
 	}
 	return nil

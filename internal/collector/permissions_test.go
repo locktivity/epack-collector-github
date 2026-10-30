@@ -42,6 +42,12 @@ func TestGapsNameThePermissionToGrant(t *testing.T) {
 			pointer:    "/access_control/default_repository_permission",
 			warning:    "A GitHub App or fine-grained token needs organization_administration:read for this.",
 		},
+		"an installation token": {
+			credential: github.Credential{Kind: github.CredentialInstallationToken},
+			settings:   denied,
+			pointer:    "/access_control/default_repository_permission",
+			warning:    "A GitHub App or fine-grained token needs organization_administration:read for this.",
+		},
 		"a failure that is no denial": {
 			credential: app("metadata:read"),
 			settings:   failed,
