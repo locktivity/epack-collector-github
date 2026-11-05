@@ -10,6 +10,8 @@ See [docs/](docs/) for detailed documentation.
 - **Access Control**: Organization-level 2FA enforcement status
 - **Branch Protection Rules**: Per-rule coverage from classic branch protection rules and rulesets (PR requirements, reviews, status checks, signed commits, admin enforcement, force pushes, deletions, linear history)
 - **Security Features**: Per-feature coverage (vulnerability alerts, code scanning, secret scanning, push protection, Dependabot)
+- **Access**: The two-factor requirement, SAML single sign-on, members, owners and their two-factor authentication, fine-grained tokens, deploy keys, and installed GitHub Apps
+- **Vulnerability scanning**: Dependabot, code scanning, and secret scanning coverage, with open alerts by severity and the overdue ones
 
 At `audit` and `internal` levels the collector also gathers per-repo
 configuration, member and repository inventories, security-finding inventories,
@@ -50,28 +52,42 @@ collectors:
 
 > **Upgrading to v0.2.x:** the `audit` and `internal` levels require additional
 > GitHub App permissions (see below). Bumping the collector version without
-> granting them results in diagnostic warnings on the affected surfaces, not a
-> failed run. The surfaces that need new permissions are simply skipped until
-> the App is re-authorized.
+> granting them does not fail the run. Each affected surface is left out, with
+> a gap that records the permission to grant. The surfaces that need new
+> permissions are simply skipped until the App is re-authorized.
 
 ## Output and exit codes
 
-The collector emits three artifacts:
+The collector emits these artifacts:
 
-- `artifacts/github.json`: the detailed posture, described by
-  [docs/schema/v1.0.0.json](docs/schema/v1.0.0.json).
+- `artifacts/github.details.json`: the detailed posture, described by
+  [docs/schema/v1.0.0.json](docs/schema/v1.0.0.json). It is written from the
+  audit level.
 - `artifacts/github.vcs-posture.json`: the normalized
-  `evidencepack/vcs-posture@v1` view of the same posture.
+  `evidencepack/vcs-posture@v1` view of branch protection and repository
+  coverage. At every level, its `repositories_present` field records whether
+  any repository was in scope. From the audit level, the artifact also has
+  the repository count for each percentage.
+- `artifacts/github.access-posture.json`: the normalized
+  `evidencepack/access-posture@v1` view of who can get into the
+  organization and how they sign in.
+- `artifacts/github.vuln-scanning.json`: the normalized
+  `evidencepack/vuln-scanning@v1` view of Dependabot, code scanning, and
+  secret scanning.
 - `artifacts/github.collector-result.json`: what the collector could not read
   and why, the GitHub calls it made, and the identity it signed in as.
+
+See [docs/levels.md](docs/levels.md#normalized-artifacts) for what the
+access and vulnerability files hold at each level.
 
 A value the collector could not read is left out, as `null` or an absent
 field, and the collector result records a gap for it with a code such as
 `permission_denied` or `vendor_error`. The collector never writes 0, `false`,
 or an empty list in its place. A percentage over no repositories is `null`.
-`scope` carries the repository counts the percentages are taken over, and
-`protected_repository_count` and the `repository_counts` objects carry the
-count each percentage is taken of.
+At every level, `scope.repositories_present` records whether any repository is
+in scope. From the audit level, `scope` carries the repository counts the
+percentages are taken over, and `protected_repository_count` and the
+`repository_counts` objects carry the count each percentage is taken of.
 
 When the collector emits, it checks the detailed artifact against its schema
 and the normalized artifact against epack's schema for its type. Anything that
@@ -86,10 +102,13 @@ exits 2 with `config_invalid`, and GitHub failing during the sign-in exits 4.
 
 ## Required GitHub App permissions
 
-`trust`-level collection needs only the permissions the collector has always
-required. `audit` and `internal` add more surfaces, each gated by its own
-read-only permission. A missing permission skips just that surface (with a
-diagnostic), so you can grant incrementally.
+`trust`-level collection reads members, fine-grained tokens, deploy keys,
+installed Apps, and open alerts for the access and vulnerability files. The
+tokens need the organization Personal access tokens permission (read).
+`audit` and `internal` add more surfaces, each gated by its own
+read-only permission. A missing permission skips just that surface, so you can
+grant incrementally. The collector result records a gap with the permission to
+grant.
 
 See [docs/configuration.md](docs/configuration.md#required-github-app-permissions)
 for the full reference: the per-surface permission table, which surfaces degrade

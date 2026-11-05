@@ -34,11 +34,14 @@ collectors:
 3. Set **Permissions**:
    - **Repository permissions**:
      - Administration: Read-only
+     - Code scanning alerts: Read-only
      - Contents: Read-only
+     - Dependabot alerts: Read-only
      - Metadata: Read-only
    - **Organization permissions**:
      - Administration: Read-only
      - Members: Read-only
+     - Personal access tokens: Read-only
 4. Set **Where can this GitHub App be installed?** to "Only on this account"
 5. Click **Create GitHub App**
 6. Note the **App ID** from the app settings page
@@ -77,9 +80,12 @@ collectors:
 
 Create a classic token with these scopes:
 - `repo` - Repository access (or `public_repo` for public repos only)
+- `read:org` - Members, owners, and SAML single sign-on
 - `admin:org` - (Optional) Read organization settings for 2FA status
 
-**Note:** Without `admin:org`, the collector will still work but `two_factor_required` will be `null` (unknown) in the output.
+**Note:** Without `admin:org`, the collector will still work but `two_factor_required` will be `null` (unknown) in the output, and `sign_in.mfa_required` is left out of the access file.
+
+Only a GitHub App can list the organization's fine-grained personal access tokens. With a token, the access file's credential values are left out with a `permission_denied` gap.
 
 ## Configuration Options
 
@@ -149,17 +155,41 @@ For `trust`-level collection (the default), the app needs:
 **Organization permissions:**
 - Administration: Read-only (for 2FA settings, and for the organization's repository count when the app is installed on selected repositories)
 - Members: Read-only (for organization membership)
+- Personal access tokens: Read-only (for the fine-grained tokens in the access file)
+
+### Permissions for the access and vulnerability files
+
+A trust run reads these lists only for `artifacts/github.access-posture.json` and `artifacts/github.vuln-scanning.json`. At `audit` and `internal`, the detailed artifact uses the same lists. A missing permission leaves out only the values that come from its list, each with a gap that names the permission.
+
+| File | List | GitHub App permission |
+|------|------|-----------------------|
+| Access | Members, owners, outside collaborators, and the members and outside collaborators without 2FA | `members: read` |
+| Access | SAML identities of the members | `members: read` |
+| Access | Installed GitHub Apps | `organization_administration: read` |
+| Access | Fine-grained personal access tokens | `organization_personal_access_tokens: read` |
+| Access | Deploy keys of each in-scope repository | `administration: read` |
+| Vulnerability | Code scanning alerts of each in-scope repository | `security_events: read` |
+| Vulnerability | Dependabot alerts of each in-scope repository | `vulnerability_alerts: read` |
+
+With a classic token, the member and SAML lists need `read:org`, and the alert lists need `security_events`. The SAML read needs no extra plan. An organization without GitHub Enterprise Cloud has no SAML identity provider, so `sign_in.sso_configured` is false. To skip a file and its lists, leave its kind out of the `collect` config key:
+
+```yaml
+config:
+  organization: myorg
+  collect: [vcs-posture, vuln-scanning]
+```
 
 ### Additional permissions for audit and internal levels
 
 The `audit` and `internal` [collection levels](levels.md) add the surfaces
-below. A missing permission skips just that surface (with a diagnostic), so
-you can grant incrementally.
+below. A missing permission skips just that surface, so you can grant
+incrementally. The collector result records a gap with the permission to
+grant.
 
 | Surface | Gating permission | Needed for |
 |---------|-------------------|------------|
 | Org access control, installed Apps, audit log | `organization_administration: read` | audit / internal |
-| Member inventory, per-user 2FA | `members: read` | audit / internal |
+| Member inventory, SAML NameIDs, per-user 2FA | `members: read` | audit / internal |
 | Branch-protection detail, deploy keys | `administration: read` | audit / internal |
 | Repository inventory | `metadata: read` | audit / internal |
 | Rulesets on each default branch (rules, enforcement, bypass list) | `metadata: read` | audit / internal |
@@ -167,24 +197,26 @@ you can grant incrementally.
 | Security-finding counts and inventories | `secret_scanning_alerts: read`, `security_events: read` (code scanning alerts), `vulnerability_alerts: read` (Dependabot alerts) | audit / internal |
 | Repository webhooks | `repository_hooks: read` | audit / internal |
 | Organization webhooks | `organization_hooks: read` | audit / internal |
-| Actions runners + workflow summaries (repo) | `actions: read` | audit / internal |
+| Self-hosted runners (repo) | `administration: read` | audit / internal |
 | Deployment environments + protection rules (repo) | `actions: read` | audit / internal |
 | Self-hosted runners (org) | `organization_self_hosted_runners: read` | audit / internal |
 | Actions secret names (org, never values) | `organization_secrets: read` | audit / internal |
-| Fine-grained PAT grants | `organization_personal_access_tokens: read` | audit / internal |
+| Fine-grained PAT grants | `organization_personal_access_tokens: read` | audit / internal, and trust for the access file |
 
 GitHub returns a ruleset's bypass list only to tokens with write access to the
 ruleset. With read-only permissions, `bypass_allowed` is `null` on each ruleset
-row and a diagnostic warning says so. Where a repository's admin enforcement
+row. Its gap gives you a choice between giving the collector write access to
+rulesets and keeping it read-only. Where a repository's admin enforcement
 depends on such a ruleset, `admin_enforcement` is `null` as well.
 
-Some surfaces degrade to a diagnostic warning (rather than a permission error)
-when the underlying feature simply isn't available: the **audit log** requires
-GitHub Enterprise Cloud, the **fine-grained token** inventory requires a
-fine-grained personal-access-token policy, and the **security-finding counts and
-inventories** stay empty on repositories that don't have code scanning, secret
-scanning, or Dependabot alerts enabled. A genuinely missing permission is
-reported as a permission error instead, so you can tell the two apart.
+Some surfaces are left out when the underlying feature simply isn't available.
+Their gaps list no permission. The **audit log** requires GitHub Enterprise
+Cloud, and its gap gives you the choice of moving to it. The **fine-grained
+token** inventory requires a fine-grained personal-access-token policy. The
+**security-finding counts and inventories** stay empty on repositories that
+don't have code scanning, secret scanning, or Dependabot alerts enabled. A run
+warning reports this and needs no action. A genuinely missing permission is
+reported as a gap with the permission instead, so you can tell the two apart.
 
 For the legacy classic-PAT auth path, the equivalent scopes are `read:org`,
 `repo`, `admin:org_hook`, `admin:repo_hook`, and `read:audit_log` (Enterprise
@@ -223,6 +255,6 @@ Your credentials are invalid or expired. The run fails with exit code 3 and the 
 
 This can occur for two reasons:
 
-1. **Missing permissions**: The authenticated user or app doesn't have the required permissions. See [Required GitHub App Permissions](#required-github-app-permissions) above. A 403 on the organization itself fails the run with exit code 3 and the code `permission_denied`; a 403 on anything else leaves the values it covers out, each with a `permission_denied` gap in `artifacts/github.collector-result.json`. When the GitHub App lacks the permission, the gap names it in `missing_permission`, spelled as the result's `signed_in_as.scopes` list the App's permissions.
+1. **Missing permissions**: The authenticated user or app doesn't have the required permissions. See [Required GitHub App Permissions](#required-github-app-permissions) above. A 403 on the organization itself fails the run with exit code 3 and the code `permission_denied`; a 403 on anything else leaves the values it covers out, each with a `permission_denied` gap in `artifacts/github.collector-result.json`. When the GitHub App lacks the permission, the gap names it in `missing_permission`, spelled as the result's `signed_in_as.scopes` list the App's permissions. Each operation in the result has a `permission` field with the permission its call needs.
 
 2. **GitHub Advanced Security not enabled**: For code scanning checks, GitHub returns 403 if Advanced Security is not enabled on the repository. The error message will show: "Advanced Security must be enabled for this repository to use code scanning."

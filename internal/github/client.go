@@ -38,6 +38,8 @@ type GitHubClient interface {
 	ListCodeScanningAlerts(ctx context.Context, owner, repo string) ([]CodeScanningAlert, bool, error)
 	ListDependabotAlerts(ctx context.Context, owner, repo string) ([]DependabotAlert, bool, error)
 	GetOrgMembership(ctx context.Context, org string) (*OrgMembership, error)
+	GetOrgRosters(ctx context.Context, org string) (*OrgMembership, error)
+	FetchOrgSSO(ctx context.Context, org string) (*OrgSSO, error)
 	GetCodeownersInfo(ctx context.Context, owner, repo string, wantHash bool) (present bool, path string, hash string, err error)
 	ListOrgHooks(ctx context.Context, org string) ([]Hook, bool, error)
 	ListRepoHooks(ctx context.Context, owner, repo string) ([]Hook, bool, error)
@@ -175,6 +177,15 @@ func NameOperation(req *http.Request) (componentsdk.Operation, bool) {
 // do sends one named request and returns the response when GitHub answered
 // 200. Any other status comes back as an *APIError.
 func (c *Client) do(ctx context.Context, op componentsdk.Operation, method, url string, body []byte) (*http.Response, error) {
+	return c.doAccept(ctx, op, method, url, body, AcceptHeader)
+}
+
+// doAccept is do with accept as the request's media type. An operation with
+// no permission gets the one OperationPermissions lists for it.
+func (c *Client) doAccept(ctx context.Context, op componentsdk.Operation, method, url string, body []byte, accept string) (*http.Response, error) {
+	if op.Permission == "" {
+		op.Permission = ReadPermission(op.Name)
+	}
 	var reader io.Reader
 	if body != nil {
 		reader = bytes.NewReader(body)
@@ -184,6 +195,7 @@ func (c *Client) do(ctx context.Context, op componentsdk.Operation, method, url 
 		return nil, err
 	}
 	setAPIHeaders(req)
+	req.Header.Set("Accept", accept)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -341,6 +353,8 @@ func (c *Client) FetchInstallationRepositories(ctx context.Context) (*Installati
 // left owned_private_repos out, which it also does unless the caller is an
 // organization owner.
 type OrgSecurity struct {
+	// Login is the organization's login, in the case GitHub returns it.
+	Login             string
 	TwoFactorRequired *bool
 	RepositoryCount   *int
 	Credential        Credential
@@ -388,16 +402,11 @@ func (c Credential) Installation() bool {
 // A 404 on the organization means it does not exist, so that failure is
 // config_invalid.
 //
-// Note: We intentionally avoid GraphQL for org security settings because
-// GitHub Apps cannot access the requiresTwoFactorAuthentication or
-// samlIdentityProvider fields even with Organization Administration permission.
-// This is a known GitHub API limitation:
+// The two-factor requirement comes from the REST API. A GitHub App gets a
+// FORBIDDEN error for GraphQL's requiresTwoFactorAuthentication even with the
+// organization Administration permission:
 // https://github.com/orgs/community/discussions/45063
-//
-// SSO detection is not supported because:
-// - GraphQL samlIdentityProvider has the same permission bug
-// - No REST API endpoint returns SSO status
-// - The SAML metadata endpoint returns 200 for all orgs regardless of SSO configuration
+// FetchOrgSSO reads SAML single sign-on, which needs the members permission.
 func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity, error) {
 	result := &OrgSecurity{}
 	if c.installation != nil {
@@ -437,6 +446,7 @@ func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity
 	if body.Login == "" {
 		return nil, invalidResponse("%s response has no login", path)
 	}
+	result.Login = body.Login
 	result.TwoFactorRequired = body.TwoFactorRequirementEnabled
 	if body.PublicRepos != nil && body.OwnedPrivateRepos != nil {
 		count := *body.PublicRepos + *body.OwnedPrivateRepos

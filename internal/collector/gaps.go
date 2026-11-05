@@ -3,6 +3,7 @@ package collector
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/locktivity/epack-collector-github/internal/github"
 	"github.com/locktivity/epack/componentsdk"
@@ -10,10 +11,22 @@ import (
 
 // Artifact paths in the pack.
 const (
-	DetailedPath   = "artifacts/github.json"
+	DetailedPath   = "artifacts/github.details.json"
 	NormalizedPath = "artifacts/github.vcs-posture.json"
 	// NormalizedSchema is the normalized artifact's schema.
 	NormalizedSchema = "evidencepack/vcs-posture@v1"
+	// AccessSchema is the schema of the normalized artifact on who can get
+	// into the organization.
+	AccessSchema = "evidencepack/access-posture@v1"
+	// VulnSchema is the schema of the normalized artifact on vulnerability
+	// scanners.
+	VulnSchema = "evidencepack/vuln-scanning@v1"
+)
+
+// The paths of the access-posture and vuln-scanning artifacts.
+var (
+	AccessPath = componentsdk.ArtifactPath("github", AccessSchema)
+	VulnPath   = componentsdk.ArtifactPath("github", VulnSchema)
 )
 
 // Values GitHub withholds from callers without enough access. Each is left
@@ -30,10 +43,38 @@ var (
 )
 
 // gapLog records each value the collector leaves out in the run's recorder.
-// credential is what the run signed in as, once it has.
+// credential is the identity the run signed in as, and is nil before sign-in.
+// level is the level the run collects at.
 type gapLog struct {
 	rec        *componentsdk.Recorder
 	credential *github.Credential
+	level      componentsdk.Level
+}
+
+// auditCounts lists the detailed artifact's repository counts, each as a
+// pointer or a pointer prefix ending in /. The run writes them from the audit
+// level.
+var auditCounts = []string{
+	"/scope/repository_count",
+	"/scope/included_repository_count",
+	"/posture/protected_repository_count",
+	"/branch_protection_rules/repository_counts/",
+	"/security_features/repository_counts/",
+}
+
+// writes reports whether the run writes the detailed value at pointer at its
+// level. Only a value the run writes gets a gap. Below the audit level it
+// writes no count.
+func (l *gapLog) writes(pointer string) bool {
+	if l.level.AtLeast(componentsdk.LevelAudit) {
+		return true
+	}
+	for _, count := range auditCounts {
+		if pointer == count || strings.HasSuffix(count, "/") && strings.HasPrefix(pointer, count) {
+			return false
+		}
+	}
+	return true
 }
 
 func newGapLog(rec *componentsdk.Recorder) *gapLog {
@@ -44,15 +85,24 @@ func newGapLog(rec *componentsdk.Recorder) *gapLog {
 }
 
 // leaveOut records the detailed artifact's values at pointers as left out
-// because of err. A nil err records nothing.
+// because of err, with the advice gapAdvice returns for err. It records
+// nothing when err is nil.
 func (l *gapLog) leaveOut(err error, pointers ...string) {
+	l.rec.Helper()
+	l.leaveOutAdvised(err, gapAdvice(err, l.credential), pointers...)
+}
+
+// leaveOutAdvised is leaveOut with the caller's advice in opts, such as the
+// plan a feature requires. It does not call gapAdvice.
+func (l *gapLog) leaveOutAdvised(err error, opts []componentsdk.AdviceOption, pointers ...string) {
 	l.rec.Helper()
 	if err == nil {
 		return
 	}
-	opts := permissionOptions(err, l.credential)
 	for _, pointer := range pointers {
-		l.rec.NotCollected(detailed(pointer), err, opts...)
+		if l.writes(pointer) {
+			l.rec.NotCollected(detailed(pointer), err, opts...)
+		}
 	}
 }
 
@@ -65,9 +115,11 @@ func (l *gapLog) partial(unmeasured int, err error, pointers ...string) {
 		l.leaveOut(err, pointers...)
 		return
 	}
-	opts := permissionOptions(err, l.credential)
+	opts := gapAdvice(err, l.credential)
 	for _, pointer := range pointers {
-		l.rec.Partial(detailed(pointer), unmeasured, err, opts...)
+		if l.writes(pointer) {
+			l.rec.Partial(detailed(pointer), unmeasured, err, opts...)
+		}
 	}
 }
 
@@ -76,22 +128,93 @@ func detailed(pointer string) componentsdk.Location {
 }
 
 // normalizedSources maps each normalized field to the detailed field it
-// copies, so a gap on the detailed value carries over.
-var normalizedSources = []struct{ normalized, detailed string }{
-	{"/org_security/two_factor_required", "/access_control/two_factor_required"},
-	{"/repo_coverage_pct", "/scope/repositories_coverage"},
-	{"/branch_protection/pr_required_pct", "/branch_protection_rules/pull_request_required"},
-	{"/branch_protection/approving_reviews_pct", "/branch_protection_rules/approving_reviews"},
-	{"/branch_protection/status_checks_pct", "/branch_protection_rules/status_checks"},
-	{"/branch_protection/signed_commits_pct", "/branch_protection_rules/signed_commits"},
-	{"/security_features/vuln_alerts_pct", "/security_features/vulnerability_alerts"},
-	{"/security_features/secret_scanning_pct", "/security_features/secret_scanning"},
-	{"/security_features/code_scanning_pct", "/security_features/code_scanning"},
+// copies, so a gap on the detailed value carries over. audit is true for the
+// repository counts. The run writes them to the normalized artifact from the
+// audit level only.
+var normalizedSources = []struct {
+	normalized, detailed string
+	audit                bool
+}{
+	{"/repositories_present", "/scope/repositories_present", false},
+	{"/repository_count", "/scope/repository_count", true},
+	{"/scanned_repository_count", "/scope/included_repository_count", true},
+	{"/repo_coverage_pct", "/scope/repositories_coverage", false},
+	{"/branch_protection/pr_required_pct", "/branch_protection_rules/pull_request_required", false},
+	{"/branch_protection/pr_required_repository_count", "/branch_protection_rules/repository_counts/pull_request_required", true},
+	{"/branch_protection/approving_reviews_pct", "/branch_protection_rules/approving_reviews", false},
+	{"/branch_protection/approving_reviews_repository_count", "/branch_protection_rules/repository_counts/approving_reviews", true},
+	{"/branch_protection/status_checks_pct", "/branch_protection_rules/status_checks", false},
+	{"/branch_protection/status_checks_repository_count", "/branch_protection_rules/repository_counts/status_checks", true},
+	{"/branch_protection/signed_commits_pct", "/branch_protection_rules/signed_commits", false},
+	{"/branch_protection/signed_commits_repository_count", "/branch_protection_rules/repository_counts/signed_commits", true},
 }
 
-func (l *gapLog) mirrorNormalized() {
+// mirrorNormalized records each normalized value copied from the detailed
+// artifact, so a gap on the detailed value carries over. The access-posture
+// and vuln-scanning copies are recorded only when the run writes those
+// artifacts.
+func (l *gapLog) mirrorNormalized(access, vulns bool) {
 	for _, source := range normalizedSources {
-		l.rec.Mirror(detailed(source.detailed), componentsdk.Location{Path: NormalizedPath, Pointer: source.normalized})
+		l.mirror(NormalizedPath, source.normalized, source.detailed, source.audit)
+	}
+	if access {
+		l.mirror(AccessPath, "/sign_in/mfa_required", "/access_control/two_factor_required", false)
+	}
+	if vulns {
+		for i, s := range scanners {
+			l.mirror(VulnPath, scannerPointer(i, "resources_present"), "/scope/repositories_present", false)
+			l.mirror(VulnPath, scannerPointer(i, "resource_count"), "/scope/included_repository_count", true)
+			l.mirror(VulnPath, scannerPointer(i, "scanned_resource_count"), s.feature.countPointer(), true)
+			l.mirror(VulnPath, scannerPointer(i, "coverage_pct"), s.feature.pointer(), false)
+		}
+	}
+}
+
+// mirror records the value at pointer in the artifact at path as a copy of
+// the detailed value at from. audit marks a count, which the run writes from
+// the audit level only.
+func (l *gapLog) mirror(path, pointer, from string, audit bool) {
+	if audit && !l.level.AtLeast(componentsdk.LevelAudit) {
+		return
+	}
+	l.rec.Mirror(detailed(from), componentsdk.Location{Path: path, Pointer: pointer})
+}
+
+// leaveOutOf records the values at pointers in the artifact at path as left
+// out because of err. unmeasured is the number of items a rollup could not
+// read, or 0 for a value left out whole. It records nothing when err is nil.
+func (l *gapLog) leaveOutOf(path string, err error, unmeasured int, pointers ...string) {
+	l.rec.Helper()
+	if err == nil {
+		return
+	}
+	opts := gapAdvice(err, l.credential)
+	for _, pointer := range pointers {
+		at := componentsdk.Location{Path: path, Pointer: pointer}
+		if unmeasured > 0 {
+			l.rec.Partial(at, unmeasured, err, opts...)
+		} else {
+			l.rec.NotCollected(at, err, opts...)
+		}
+	}
+}
+
+// unsupported records the values at pointers in the artifact at path as
+// values with no data in GitHub, with detail saying why.
+func (l *gapLog) unsupported(path, detail string, pointers ...string) {
+	l.rec.Helper()
+	for _, pointer := range pointers {
+		l.rec.NotCollectedCode(componentsdk.Location{Path: path, Pointer: pointer}, componentsdk.CodeUnsupported, detail)
+	}
+}
+
+// notRead records the values at pointers in the artifact at path as values
+// GitHub reports that the collector does not read, with detail naming
+// where GitHub reports them.
+func (l *gapLog) notRead(path, detail string, pointers ...string) {
+	l.rec.Helper()
+	for _, pointer := range pointers {
+		l.rec.NotCollectedCode(componentsdk.Location{Path: path, Pointer: pointer}, componentsdk.CodeNotRead, detail)
 	}
 }
 

@@ -18,6 +18,8 @@ func Spec(version, commit string) componentsdk.CollectorSpec {
 		Schemas:     map[string][]byte{DetailedPath: schema.Detailed},
 		TraceMap:    schema.TraceMap,
 		Timeout:     30 * time.Minute,
+		Methods:     schema.Methods(),
+		Writes:      []string{NormalizedSchema, AccessSchema, VulnSchema},
 	}
 }
 
@@ -47,11 +49,20 @@ func Run(ctx componentsdk.CollectorContext) error {
 	if !hasAppAuth && config.GitHubToken == "" {
 		return componentsdk.NewConfigError("authentication required: provide GITHUB_TOKEN or app_id + GITHUB_APP_PRIVATE_KEY")
 	}
+	config.CollectAccess = componentsdk.Selected(ctx, componentsdk.Location{Schema: AccessSchema, Path: AccessPath})
+	config.CollectVulns = componentsdk.Selected(ctx, componentsdk.Location{Schema: VulnSchema, Path: VulnPath})
+	config.CollectDetails = componentsdk.Selected(ctx, componentsdk.Location{Path: DetailedPath})
 
+	config.Grants = &github.Grants{}
 	config.Transport = componentsdk.NewTransport(ctx, componentsdk.HTTPOptions{
-		CredentialHosts: []string{github.APIHost},
-		NameOperation:   github.NameOperation,
-		TemplateRoute:   github.TemplateRoute,
+		CredentialHosts:  []string{github.APIHost},
+		NameOperation:    github.NameOperation,
+		TemplateRoute:    github.TemplateRoute,
+		ClassifyResponse: github.ClassifyResponse,
+		NamesPermission:  config.Grants.NamesPermission,
+		// GitHub asks clients over a secondary rate limit to wait at least a
+		// minute before retrying.
+		ThrottleWait: time.Minute,
 	})
 	c, err := New(config)
 	if err != nil {

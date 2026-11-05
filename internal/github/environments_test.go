@@ -179,6 +179,36 @@ func TestListEnvironmentBranchPolicies_EscapesEnvironmentName(t *testing.T) {
 	}
 }
 
+func TestListEnvironmentBranchPolicies_FollowsPagination(t *testing.T) {
+	// The list comes in pages of up to 100 policies, with a link to the next.
+	requests := 0
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		start, end := 0, 100
+		if r.URL.Query().Get("page") == "2" {
+			start, end = 100, 130
+		} else {
+			w.Header().Set("Link", fmt.Sprintf(`<%s%s?per_page=100&page=2>; rel="next"`, server.URL, r.URL.Path))
+		}
+		var items []string
+		for i := start; i < end; i++ {
+			items = append(items, fmt.Sprintf(`{"id": %d, "name": "release/%03d", "type": "branch"}`, i+1, i))
+		}
+		_, _ = fmt.Fprintf(w, `{"total_count": 130, "branch_policies": [%s]}`, strings.Join(items, ","))
+	}))
+	defer server.Close()
+
+	client := NewClientWithHTTP(server.Client(), server.URL)
+	patterns, err := client.ListEnvironmentBranchPolicies(context.Background(), "owner", "repo", "production")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if requests != 2 || len(patterns) != 130 || patterns[129].Name != "release/129" {
+		t.Errorf("read %d patterns in %d requests, want all 130 in 2", len(patterns), requests)
+	}
+}
+
 func TestListEnvironmentProtectionApps_KeepsEnabledOnly(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"total_count": 2, "custom_deployment_protection_rules": [

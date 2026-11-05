@@ -304,6 +304,10 @@ type mockGitHubClient struct {
 
 	membership        *github.OrgMembership
 	membershipErr     error
+	membershipReads   []string // "rosters" or "membership", one per read
+	sso               *github.OrgSSO
+	ssoErr            error
+	ssoReads          int
 	codeowners        map[string]codeownersFixture // key: "owner/repo"
 	codeownersErr     error
 	orgHooks          []github.Hook
@@ -327,6 +331,7 @@ type mockGitHubClient struct {
 	auditEvents       []github.AuditEvent
 	auditMore         bool
 	auditErr          error
+	auditSince        string // the start of the last audit log read
 	installations     []github.Installation
 	installationTotal int // reported total override; default len(installations)
 	installationErr   error
@@ -434,6 +439,7 @@ func (m *mockGitHubClient) ListDependabotAlerts(ctx context.Context, owner, repo
 }
 
 func (m *mockGitHubClient) GetOrgMembership(ctx context.Context, org string) (*github.OrgMembership, error) {
+	m.membershipReads = append(m.membershipReads, "membership")
 	if m.membershipErr != nil {
 		return nil, m.membershipErr
 	}
@@ -441,6 +447,30 @@ func (m *mockGitHubClient) GetOrgMembership(ctx context.Context, org string) (*g
 		return m.membership, nil
 	}
 	return &github.OrgMembership{}, nil
+}
+
+func (m *mockGitHubClient) GetOrgRosters(ctx context.Context, org string) (*github.OrgMembership, error) {
+	m.membershipReads = append(m.membershipReads, "rosters")
+	if m.membershipErr != nil {
+		return nil, m.membershipErr
+	}
+	if m.membership != nil {
+		rosters := *m.membership
+		rosters.Names, rosters.PendingInvitations = nil, 0
+		return &rosters, nil
+	}
+	return &github.OrgMembership{}, nil
+}
+
+func (m *mockGitHubClient) FetchOrgSSO(ctx context.Context, org string) (*github.OrgSSO, error) {
+	m.ssoReads++
+	if m.ssoErr != nil {
+		return nil, m.ssoErr
+	}
+	if m.sso != nil {
+		return m.sso, nil
+	}
+	return &github.OrgSSO{}, nil
 }
 
 func (m *mockGitHubClient) GetCodeownersInfo(ctx context.Context, owner, repo string, wantHash bool) (bool, string, string, error) {
@@ -472,7 +502,11 @@ func (m *mockGitHubClient) ListRepoDeployKeys(ctx context.Context, owner, repo s
 	if m.deployKeysErr != nil {
 		return nil, false, m.deployKeysErr
 	}
-	return m.deployKeys[owner+"/"+repo], m.deployKeysMore, nil
+	keys := append([]github.DeployKey(nil), m.deployKeys[owner+"/"+repo]...)
+	for i := range keys {
+		keys[i].Repository = owner + "/" + repo
+	}
+	return keys, m.deployKeysMore, nil
 }
 
 func (m *mockGitHubClient) ListOrgRunners(ctx context.Context, org string) ([]github.Runner, int, error) {
@@ -524,6 +558,7 @@ func (m *mockGitHubClient) ListEnvironmentProtectionApps(ctx context.Context, ow
 }
 
 func (m *mockGitHubClient) GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEvents int) ([]github.AuditEvent, bool, error) {
+	m.auditSince = sinceISO
 	if m.auditErr != nil {
 		return nil, false, m.auditErr
 	}
@@ -568,7 +603,12 @@ func TestCollect_EmptyOrganization(t *testing.T) {
 	if posture.Scope.RepositoriesCoverage != nil {
 		t.Errorf("RepositoriesCoverage = %d, want null", *posture.Scope.RepositoriesCoverage)
 	}
-	assertPct(t, "IncludedRepositoryCount", posture.Scope.IncludedRepositoryCount, 0)
+	if p := posture.Scope.RepositoriesPresent; p == nil || *p {
+		t.Errorf("RepositoriesPresent = %v, want false", p)
+	}
+	if posture.Scope.IncludedRepositoryCount != nil {
+		t.Errorf("IncludedRepositoryCount = %d at trust, want it left out", *posture.Scope.IncludedRepositoryCount)
+	}
 	if posture.Posture.SecurityFeaturesCoverage != nil || posture.SecurityFeatures.CodeScanning != nil {
 		t.Errorf("security feature metrics over no repositories should be null, got %+v", posture.SecurityFeatures)
 	}
@@ -872,18 +912,13 @@ func TestCollect_SkipsArchivedRepositories(t *testing.T) {
 		ExcludePatterns: []string{},
 	}
 
-	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	posture, rec := collectRecorded(t, config, mock, componentsdk.LevelTrust)
 
 	assertPct(t, "RepositoriesCoverage", posture.Scope.RepositoriesCoverage, 50)
 	assertPct(t, "BranchProtectionCoverage", posture.Posture.BranchProtectionCoverage, 100)
 	assertPct(t, "CodeScanning", posture.SecurityFeatures.CodeScanning, 100)
-	if posture.Diagnostics != nil {
-		t.Errorf("Diagnostics = %+v, want nil", posture.Diagnostics)
+	if len(rec.Warnings()) != 0 || len(rec.Gaps()) != 0 {
+		t.Errorf("warnings = %+v, gaps = %+v, want none", rec.Warnings(), rec.Gaps())
 	}
 	if len(mock.requestedRepos) != 1 || mock.requestedRepos[0] != "test-org/active-app" {
 		t.Errorf("requestedRepos = %v, want [test-org/active-app]", mock.requestedRepos)
@@ -913,9 +948,30 @@ func TestCollect_OrgSecurityError(t *testing.T) {
 	}
 }
 
+func TestCollect_OrganizationIsGitHubsLogin(t *testing.T) {
+	// The organization's name in GitHub's API is not case sensitive. Both
+	// artifacts carry the login from the sign-in, or the configured name when
+	// the response has none.
+	for _, tc := range []struct{ configured, login, want string }{
+		{"Acme", "acme", "acme"},
+		{"acme", "", "acme"},
+	} {
+		mock := richMock()
+		mock.orgSecurity = &github.OrgSecurity{Login: tc.login}
+		posture, err := NewWithClient(Config{Organization: tc.configured}, mock).Collect(context.Background(), componentsdk.LevelTrust)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if posture.Organization != tc.want || posture.ToVCSPosture().Organization != tc.want {
+			t.Errorf("configured %q with login %q: organization %q and normalized %q, want %q",
+				tc.configured, tc.login, posture.Organization, posture.ToVCSPosture().Organization, tc.want)
+		}
+	}
+}
+
 func TestCollect_RepositoriesError(t *testing.T) {
-	// A non-permission error on the repo list degrades to a warning rather than
-	// aborting the run.
+	// A non-permission error on the repo list does not abort the run. The
+	// values derived from the list are left out, with gaps.
 	mock := &mockGitHubClient{
 		orgSecurity: &github.OrgSecurity{
 			TwoFactorRequired: boolPtr(true),
@@ -928,14 +984,13 @@ func TestCollect_RepositoriesError(t *testing.T) {
 		GitHubToken:  "test-token",
 	}
 
-	collector := NewWithClient(config, mock)
-	posture, err := collector.Collect(context.Background(), componentsdk.LevelTrust)
+	posture, rec := collectRecorded(t, config, mock, componentsdk.LevelTrust)
 
-	if err != nil {
-		t.Fatalf("expected degraded success, got error: %v", err)
+	if g := gapOf(rec, "/scope/repositories_present"); g == nil || g.Detail != "network timeout" {
+		t.Errorf("repositories_present gap = %+v, want the failed list as its reason", g)
 	}
-	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "repositories") {
-		t.Errorf("expected a repositories warning, got %+v", posture.Diagnostics)
+	if len(rec.Warnings()) != 0 {
+		t.Errorf("warnings = %+v, want none because the gaps record the failed list", rec.Warnings())
 	}
 	if posture.Scope.RepositoriesCoverage != nil || posture.Scope.IncludedRepositoryCount != nil ||
 		posture.Posture.SecurityFeaturesCoverage != nil || posture.SecurityFeatures.VulnerabilityAlerts != nil {
@@ -1155,13 +1210,8 @@ func TestToVCSPosture(t *testing.T) {
 	}
 
 	// Verify coverage mapping
-	if vcsPosture.RepoCoveragePct == nil || *vcsPosture.RepoCoveragePct != 80 {
+	if v := vcsPosture.RepoCoveragePct.Value; v == nil || *v != 80 {
 		t.Errorf("RepoCoveragePct = %v, want 80", vcsPosture.RepoCoveragePct)
-	}
-
-	// Verify org security
-	if vcsPosture.OrgSecurity.TwoFactorRequired == nil || !*vcsPosture.OrgSecurity.TwoFactorRequired {
-		t.Error("OrgSecurity.TwoFactorRequired is not true")
 	}
 
 	// Verify branch protection mappings
@@ -1170,62 +1220,100 @@ func TestToVCSPosture(t *testing.T) {
 		value *float64
 		want  float64
 	}{
-		"PRRequiredPct":       {bp.PRRequiredPct, 90},
-		"ApprovingReviewsPct": {bp.ApprovingReviewsPct, 85},
-		"StatusChecksPct":     {bp.StatusChecksPct, 70},
-		"SignedCommitsPct":    {bp.SignedCommitsPct, 20},
+		"PRRequiredPct":       {bp.PRRequiredPct.Value, 90},
+		"ApprovingReviewsPct": {bp.ApprovingReviewsPct.Value, 85},
+		"StatusChecksPct":     {bp.StatusChecksPct.Value, 70},
+		"SignedCommitsPct":    {bp.SignedCommitsPct.Value, 20},
 	} {
 		if got.value == nil || *got.value != got.want {
 			t.Errorf("BranchProtection.%s = %v, want %v", name, got.value, got.want)
 		}
 	}
+}
 
-	// Verify security features mappings
-	sf := vcsPosture.SecurityFeatures
-	for name, got := range map[string]struct {
-		value *float64
-		want  float64
-	}{
-		"VulnAlertsPct":     {sf.VulnAlertsPct, 95},
-		"SecretScanningPct": {sf.SecretScanningPct, 80},
-		"CodeScanningPct":   {sf.CodeScanningPct, 45},
-	} {
-		if got.value == nil || *got.value != got.want {
-			t.Errorf("SecurityFeatures.%s = %v, want %v", name, got.value, got.want)
+// The detailed artifact has its counts from the audit level. ToVCSPosture
+// copies them to the normalized artifact.
+func TestToVCSPostureCopiesTheCountsTheDetailedArtifactHolds(t *testing.T) {
+	scanned := func(level componentsdk.Level) *OrgPosture {
+		return &OrgPosture{
+			CollectedAtLevel: string(level),
+			Scope:            Scope{RepositoriesPresent: ptr(true), RepositoriesCoverage: ptr(66)},
+			BranchProtectionRules: BranchProtectionRules{
+				PullRequestRequired: ptr(50), ApprovingReviews: ptr(50), StatusChecks: ptr(100), SignedCommits: ptr(0),
+			},
+			SecurityFeatures: SecurityFeatures{
+				VulnerabilityAlerts: ptr(100), SecretScanning: ptr(50), CodeScanning: ptr(0),
+			},
 		}
 	}
+	audit := func() *OrgPosture {
+		p := scanned(componentsdk.LevelAudit)
+		p.Scope.RepositoryCount, p.Scope.IncludedRepositoryCount = ptr(3), ptr(2)
+		p.BranchProtectionRules.RepositoryCounts = &BranchProtectionRuleCounts{PullRequestRequired: ptr(1), ApprovingReviews: ptr(1), StatusChecks: ptr(2), SignedCommits: ptr(0)}
+		p.SecurityFeatures.RepositoryCounts = &SecurityFeatureCounts{VulnerabilityAlerts: ptr(2), SecretScanning: ptr(1), CodeScanning: ptr(0)}
+		return p
+	}
+	assertJSONEqual(t, "audit", audit().ToVCSPosture(), `{
+		"schema_version": "1.0.0", "collected_at": "", "provider": "github", "organization": "",
+		"repositories_present": true, "repository_count": 3, "scanned_repository_count": 2, "repo_coverage_pct": 66,
+		"branch_protection": {
+			"pr_required_repository_count": 1, "approving_reviews_repository_count": 1,
+			"status_checks_repository_count": 2, "signed_commits_repository_count": 0,
+			"pr_required_pct": 50, "approving_reviews_pct": 50, "status_checks_pct": 100, "signed_commits_pct": 0
+		}
+	}`)
+	assertJSONEqual(t, "trust", scanned(componentsdk.LevelTrust).ToVCSPosture(), `{
+		"schema_version": "1.0.0", "collected_at": "", "provider": "github", "organization": "",
+		"repositories_present": true, "repo_coverage_pct": 66,
+		"branch_protection": {"pr_required_pct": 50, "approving_reviews_pct": 50, "status_checks_pct": 100, "signed_commits_pct": 0}
+	}`)
 }
 
-func TestToVCSPosture_NilTwoFactor(t *testing.T) {
-	// An unknown 2FA requirement (insufficient permissions) stays unknown
-	// rather than reading as not required.
-	orgPosture := &OrgPosture{
-		Organization: "test-org",
-		AccessControl: AccessControl{
-			TwoFactorRequired: nil,
-		},
+func TestToVCSPostureWritesNullOverNoRepositories(t *testing.T) {
+	empty := &OrgPosture{
+		CollectedAtLevel: string(componentsdk.LevelAudit),
+		Scope:            Scope{RepositoriesPresent: ptr(false), RepositoryCount: ptr(0), IncludedRepositoryCount: ptr(0)},
+		BranchProtectionRules: BranchProtectionRules{RepositoryCounts: &BranchProtectionRuleCounts{
+			PullRequestRequired: ptr(0), ApprovingReviews: ptr(0), StatusChecks: ptr(0), SignedCommits: ptr(0)}},
+		SecurityFeatures: SecurityFeatures{RepositoryCounts: &SecurityFeatureCounts{
+			VulnerabilityAlerts: ptr(0), SecretScanning: ptr(0), CodeScanning: ptr(0)}},
 	}
+	assertJSONEqual(t, "no repositories", empty.ToVCSPosture(), `{
+		"schema_version": "1.0.0", "collected_at": "", "provider": "github", "organization": "",
+		"repositories_present": false, "repository_count": 0, "scanned_repository_count": 0, "repo_coverage_pct": null,
+		"branch_protection": {
+			"pr_required_repository_count": 0, "approving_reviews_repository_count": 0,
+			"status_checks_repository_count": 0, "signed_commits_repository_count": 0,
+			"pr_required_pct": null, "approving_reviews_pct": null, "status_checks_pct": null, "signed_commits_pct": null
+		}
+	}`)
 
-	vcsPosture := orgPosture.ToVCSPosture()
-
-	if vcsPosture.OrgSecurity.TwoFactorRequired != nil {
-		t.Errorf("OrgSecurity.TwoFactorRequired = %v, want unknown", *vcsPosture.OrgSecurity.TwoFactorRequired)
-	}
+	// All the values are left out when the repository list could not be read.
+	// Their gaps record the reason.
+	unread := &OrgPosture{CollectedAtLevel: string(componentsdk.LevelAudit)}
+	assertJSONEqual(t, "unread", unread.ToVCSPosture(), `{"schema_version": "1.0.0", "collected_at": "", "provider": "github", "organization": ""}`)
 }
 
-func TestToVCSPosture_FalseTwoFactor(t *testing.T) {
-	// Test that explicit false TwoFactorRequired maps to false
+// The two-factor requirement and the security features moved to the
+// access-posture and vuln-scanning artifacts, so vcs-posture has neither.
+func TestToVCSPostureHasNoTwoFactorOrSecurityFeatures(t *testing.T) {
 	orgPosture := &OrgPosture{
-		Organization: "test-org",
-		AccessControl: AccessControl{
-			TwoFactorRequired: boolPtr(false),
-		},
+		Organization:     "test-org",
+		AccessControl:    AccessControl{TwoFactorRequired: boolPtr(true)},
+		SecurityFeatures: SecurityFeatures{VulnerabilityAlerts: ptr(90)},
 	}
-
-	vcsPosture := orgPosture.ToVCSPosture()
-
-	if vcsPosture.OrgSecurity.TwoFactorRequired == nil || *vcsPosture.OrgSecurity.TwoFactorRequired {
-		t.Errorf("OrgSecurity.TwoFactorRequired = %v, want false", vcsPosture.OrgSecurity.TwoFactorRequired)
+	raw, err := json.Marshal(orgPosture.ToVCSPosture())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var data map[string]any
+	if err := json.Unmarshal(raw, &data); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"org_security", "security_features"} {
+		if _, ok := data[field]; ok {
+			t.Errorf("vcs-posture has %s", field)
+		}
 	}
 }
 
@@ -1268,21 +1356,12 @@ func TestVCSPostureJSONStructure(t *testing.T) {
 	// Check top-level required fields per vcs-posture@v1 schema
 	topLevelRequired := []string{
 		"schema_version", "collected_at", "provider", "organization",
-		"org_security", "repo_coverage_pct", "branch_protection", "security_features",
+		"repo_coverage_pct", "branch_protection",
 	}
 	for _, field := range topLevelRequired {
 		if _, ok := data[field]; !ok {
 			t.Errorf("missing required field: %s", field)
 		}
-	}
-
-	// Check org_security fields
-	orgSecurity, ok := data["org_security"].(map[string]interface{})
-	if !ok {
-		t.Fatal("org_security is not an object")
-	}
-	if _, ok := orgSecurity["two_factor_required"]; !ok {
-		t.Error("org_security missing required field: two_factor_required")
 	}
 
 	// Check branch_protection fields
@@ -1296,20 +1375,6 @@ func TestVCSPostureJSONStructure(t *testing.T) {
 	for _, field := range bpFields {
 		if _, ok := branchProtection[field]; !ok {
 			t.Errorf("branch_protection missing required field: %s", field)
-		}
-	}
-
-	// Check security_features fields
-	securityFeatures, ok := data["security_features"].(map[string]interface{})
-	if !ok {
-		t.Fatal("security_features is not an object")
-	}
-	sfFields := []string{
-		"vuln_alerts_pct", "secret_scanning_pct", "code_scanning_pct",
-	}
-	for _, field := range sfFields {
-		if _, ok := securityFeatures[field]; !ok {
-			t.Errorf("security_features missing required field: %s", field)
 		}
 	}
 }

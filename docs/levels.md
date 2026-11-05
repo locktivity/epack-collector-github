@@ -32,12 +32,71 @@ the output artifact as the top-level `collected_at_level` field.
 `audit` and `internal` require additional GitHub App permissions beyond `trust`.
 See [Required GitHub App permissions](configuration.md#required-github-app-permissions).
 When a permission is missing or an organization feature is not available, the
-affected surface is skipped and a diagnostic is recorded under
-`diagnostics.permission_errors` or `diagnostics.warnings` rather than failing the
-run. Each value left out also gets a gap in
-`artifacts/github.collector-result.json`, with a code such as
+affected surface is skipped, and the run does not fail. Each value left out
+gets a gap in `artifacts/github.collector-result.json`, with a code such as
 `permission_denied`, or `not_licensed` for a feature the organization's plan
-lacks.
+lacks. At every collection level, the gap records what to do, such as a
+permission to grant or a choice of plan. A condition with no gap, such as
+alerts turned off on some repositories, is a run warning in the collector
+result that needs no action. Its message appears from the audit level.
+
+## Normalized artifacts
+
+The collector writes three normalized files at every level. Below the audit
+level, they hold present flags and percentages and leave out the counts.
+
+- **`artifacts/github.vcs-posture.json`**: branch protection coverage and
+  the share of repositories the scan covered. From the audit level it adds
+  the repository counts.
+- **`artifacts/github.access-posture.json`**: the two-factor requirement,
+  SAML single sign-on, and present flags and percentages for members,
+  owners, credentials, and installed Apps. From the audit level it adds the
+  counts behind them. Its members are the organization's members and
+  outside collaborators, and its admins are the owners. Its credentials are
+  the fine-grained personal access tokens approved for the organization and
+  the deploy keys of the in-scope repositories.
+- **`artifacts/github.vuln-scanning.json`**: one entry each for Dependabot,
+  code scanning, and secret scanning. Each has the scanner's coverage of the
+  in-scope repositories. The Dependabot and code scanning entries also say
+  whether any open alert is rated critical or high, and whether any is
+  overdue. From the audit level they add the counts by severity.
+
+A finding is overdue when it is rated critical and was created more than 30
+days ago, or rated high and created more than 90 days ago. A Dependabot
+alert takes the severity of its vulnerability. A code scanning alert takes
+the security severity of its rule, and an alert from a rule that is not a
+security query is not counted. Secret scanning alerts have no severity.
+
+Two-factor status comes from GitHub's list of members without two-factor
+authentication and its list of outside collaborators without it. Whether
+the organization requires SAML single sign-on is not available from
+GitHub's organization API. So every member and outside collaborator counts
+as able to sign in without SSO, including the members linked to SAML.
+
+No fine-grained token or deploy key counts as unrestricted. A token has only
+the permissions and repositories it was given, and a deploy key works on
+one repository. The rotation values count the deploy keys created more than
+90 days ago. GitHub's list of token grants has no creation date, so the
+rotation values are left out with an `unsupported` gap when the
+organization has approved any fine-grained token.
+
+Some values have no data in GitHub, so they are always left out with an
+`unsupported` gap:
+
+- when each member last signed in
+- a root account, since an organization has none
+- the severity of secret scanning alerts
+
+GitHub reports whether an organization requires SAML single sign-on only to
+enterprise owners, so `sign_in.sso_required` is left out with a `not_read`
+gap.
+
+To read these files at trust, the collector lists the members, owners,
+outside collaborators, the members and outside collaborators without
+two-factor authentication, deploy keys, installed Apps, fine-grained token
+grants, SAML identities, and the open code scanning and Dependabot alerts.
+Leaving a kind out of the `collect` config key skips the lists that feed
+only its file.
 
 ## What each level adds, per surface
 
@@ -45,7 +104,12 @@ lacks.
 
 - **trust**: branch-protection coverage % (classic branch protection rules and
   active rulesets), security-features coverage %, repositories-coverage %
-  against the include / exclude patterns.
+  against the include / exclude patterns, and whether any repository is in
+  scope (`scope.repositories_present`).
+- **audit**: the repository counts behind the percentages, in
+  `scope.repository_count`, `scope.included_repository_count`,
+  `posture.protected_repository_count`, and the `repository_counts` objects in
+  `branch_protection_rules` and `security_features`.
 
 ### Access control (`access_control`)
 
@@ -68,7 +132,7 @@ approval is required.
 
 A percentage is `null` when the rule could not be determined for at least one
 repository, for example when GitHub refused the request for a repository's
-ruleset rules, and a diagnostic records the cause. Admin enforcement is also
+ruleset rules, and the gap in the collector result records the cause. Admin enforcement is also
 `null` when it depends on a ruleset whose bypass list the token cannot see.
 
 ### Security features (`security_features`)
@@ -92,23 +156,27 @@ inventory missing any repository is left out, each with a gap, and a
 repository and type. A repository that reaches that many gets a `null` count,
 since it may have more.
 
-The surfaces below are **not collected at trust**; they first appear at
-`audit`. Their GitHub App permissions are likewise only exercised at `audit` and
-above, so a trust run stays minimal.
+The surfaces below are not in the detailed artifact at trust. They first
+appear at `audit`. A trust run that writes the access or vulnerability file
+reads some of the same lists for that file alone, as
+[Normalized artifacts](#normalized-artifacts) says.
 
 ### Members (`members`)
 
 - **trust**: omitted.
 - **audit**: member / admin / outside-collaborator counts, pending-invitations
-  flag, and `per_member[]` rows (login, name, role). `name` is the public
-  GitHub profile display name: user-set, so it is empty for anyone who has not
-  set one. Member names arrive in one bulk query; outside-collaborator names
-  are looked up per login, capped at 200 lookups per run. When name coverage
-  is partial for any reason other than an unset profile, a diagnostic warning
-  says so.
+  flag, and `per_member[]` rows (login, name, role, SAML NameID). `name` is
+  the public GitHub profile display name: user-set, so it is empty for anyone
+  who has not set one. Member names arrive in one bulk query;
+  outside-collaborator names are looked up per login, capped at 200 lookups
+  per run. When name coverage is partial for any reason other than an unset
+  profile, the collector result includes a run warning. `saml_name_id` is the
+  NameID of a member's linked SAML identity. The identity provider sets it,
+  and an access review can match each member to their identity provider
+  account by it.
 - **internal**: each member row gains two-factor status and last activity.
-  Two-factor status is left out for outside collaborators, whom GitHub's
-  two-factor roster does not cover.
+  An outside collaborator's two-factor status comes from GitHub's list of
+  outside collaborators without it.
 
 ### Repositories (`repositories`)
 
@@ -180,7 +248,7 @@ above, so a trust run stays minimal.
   access levels, last-used, expires-at; token values are never emitted).
 
 Requires a fine-grained personal-access-token policy on the organization; on an
-unavailable feature the surface is omitted and a diagnostic is recorded.
+unavailable feature the surface is omitted, with a gap.
 
 ### Audit log (`audit_log`)
 
@@ -190,7 +258,7 @@ unavailable feature the surface is omitted and a diagnostic is recorded.
   Truncation.
 
 Requires GitHub Enterprise Cloud; on an unavailable feature the surface is
-omitted and a diagnostic is recorded.
+omitted. Its gap gives you the choice of moving to Enterprise Cloud.
 
 ## Truncation
 
@@ -217,7 +285,8 @@ schema's `x-epack-null` saying why, and the rows read are flagged `truncated`:
 
 | List | Read cap |
 |---|---|
-| Members, owners, outside collaborators, members without two-factor authentication | 50,000 logins per list |
+| Members, owners, outside collaborators, and the members and outside collaborators without two-factor authentication | 50,000 logins per list |
+| SAML identities | 50,000 |
 | Webhooks | 200 per list: the organization's, and each repository's |
 | Deploy keys | 1,000 per repository |
 | Fine-grained token grants | 5,000 |
@@ -226,7 +295,8 @@ schema's `x-epack-null` saying why, and the rows read are flagged `truncated`:
 Webhooks also leave `count_by_event` out when a list reaches its cap. When the
 list of members without two-factor authentication reaches its cap, two-factor
 status is left out for every member, since members past the cap would read as
-having it on.
+having it on. The same holds for outside collaborators when their list
+reaches its cap.
 
 ## Never emitted, at any level
 
