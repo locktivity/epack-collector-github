@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -50,7 +51,9 @@ var kitOperations = []string{
 	"github.outside_collaborators.list",
 	"github.users.get",
 	"github.org_members_2fa_disabled.list",
+	"github.outside_collaborators_2fa_disabled.list",
 	"github.org_invitations.list",
+	"github.saml_identities.list",
 }
 
 // kitResultPath is where the kit's runs write their collector result.
@@ -61,7 +64,6 @@ const kitResultPath = "artifacts/github.collector-result.json"
 const kitTokenResultPath = "artifacts/github-token.collector-result.json"
 
 // kitSteps are an internal-level run's steps in order, with their titles.
-// Runs below audit make only the first four.
 var kitSteps = [][2]string{
 	{"sign_in", "Sign in"},
 	{"repositories", "Repositories"},
@@ -78,6 +80,93 @@ var kitSteps = [][2]string{
 	{"apps", "Installed Apps"},
 	{"tokens", "Fine-grained personal access tokens"},
 	{"members", "Members and outside collaborators"},
+	{"sso", "SAML single sign-on"},
+}
+
+// kitTrustSteps are a trust-level run's steps in order, when it collects
+// every kind.
+var kitTrustSteps = []string{
+	"sign_in", "repositories", "branch_rules", "security_settings",
+	"security_alerts", "deploy_keys", "apps", "tokens", "members", "sso",
+}
+
+// kitTrustStepPins pins a trust-level run's steps in order, and that there
+// are no more.
+func kitTrustStepPins() map[string]any {
+	pins := map[string]any{}
+	for i, name := range kitTrustSteps {
+		pins[fmt.Sprintf("/steps/%d/name", i)] = name
+	}
+	pins[fmt.Sprintf("/steps/%d", len(kitTrustSteps))] = collectortest.Absent
+	return pins
+}
+
+// kitCleanAccess pins the clean run's access-posture values. alice and bob
+// are members, carol an outside collaborator, and alice the one owner. bob
+// has no two-factor authentication. Both members have a linked SAML
+// identity. The organization has a fine-grained token that has never been
+// used and expires, and two deploy keys, one of them read-write. The token
+// has no creation date, so the rotation values are left out. Of the two
+// installed Apps, renovate is suspended and does not count.
+func kitCleanAccess() map[string]any {
+	return map[string]any{
+		"/system_type":                                 "code_host",
+		"/sign_in/sso_configured":                      true,
+		"/sign_in/mfa_required":                        true,
+		"/sign_in/scim_enabled":                        true,
+		"/sign_in/sso_required":                        collectortest.Absent,
+		"/members/member_count":                        3,
+		"/members/external_member_count":               1,
+		"/members/sso_member_count":                    2,
+		"/members/sso_coverage_pct":                    66,
+		"/members/local_member_count":                  3,
+		"/members/local_mfa_member_count":              2,
+		"/members/local_mfa_coverage_pct":              66,
+		"/members/inactive_pct":                        collectortest.Absent,
+		"/admins/admin_count":                          1,
+		"/admins/admin_share_pct":                      34,
+		"/admins/local_mfa_admin_count":                1,
+		"/admins/local_admin_mfa_coverage_pct":         100,
+		"/root":                                        collectortest.Absent,
+		"/credentials/credential_count":                3,
+		"/credentials/never_expiring_credential_count": 2,
+		"/credentials/never_expiring_pct":              67,
+		"/credentials/unused_credential_count":         2,
+		"/credentials/unused_pct":                      67,
+		"/credentials/write_access_credential_count":   1,
+		"/credentials/write_access_pct":                34,
+		"/credentials/unrestricted_credential_count":   0,
+		"/credentials/unrestricted_pct":                0,
+		"/credentials/rotation_overdue_pct":            collectortest.Absent,
+		"/connected_apps/app_count":                    1,
+	}
+}
+
+// kitCleanVulns pins the clean run's vuln-scanning values. The Dependabot
+// alerts are one low, one medium, and one high from March, and the code
+// scanning alerts one critical from May and one with no security severity.
+func kitCleanVulns() map[string]any {
+	return map[string]any{
+		"/scanners/0/scanner":                "dependabot",
+		"/scanners/0/coverage_pct":           75,
+		"/scanners/0/open_critical_present":  false,
+		"/scanners/0/open_high_present":      true,
+		"/scanners/0/overdue_present":        true,
+		"/scanners/0/open_high_count":        1,
+		"/scanners/0/open_medium_count":      1,
+		"/scanners/0/open_low_count":         1,
+		"/scanners/0/overdue_high_count":     1,
+		"/scanners/1/scanner":                "code_scanning",
+		"/scanners/1/coverage_pct":           50,
+		"/scanners/1/open_critical_count":    1,
+		"/scanners/1/open_medium_count":      0,
+		"/scanners/1/overdue_critical_count": 1,
+		"/scanners/2/scanner":                "secret_scanning",
+		"/scanners/2/enabled":                true,
+		"/scanners/2/coverage_pct":           50,
+		"/scanners/2/open_critical_present":  collectortest.Absent,
+		"/scanners/3":                        collectortest.Absent,
+	}
 }
 
 // kitStepPins pins the steps in order, and that there are no more.
@@ -149,7 +238,11 @@ func kitSuite() collectortest.Suite {
 					"/repositories/archived_count":                              1,
 					"/tokens/per_token/0/permissions":                           []any{"contents:read", "members:read"},
 					"/scope/repository_selection":                               "all",
-				}, kitResultPath: kitStepPins()},
+					"/members/per_member/0/saml_name_id":                        "alice@idp.example.com",
+					"/members/per_member/1/saml_name_id":                        "bob@idp.example.com",
+					"/members/per_member/2/saml_name_id":                        collectortest.Absent,
+					"/members/per_member/2/two_factor_enabled":                  true,
+				}, AccessPath: kitCleanAccess(), VulnPath: kitCleanVulns(), kitResultPath: kitStepPins()},
 			},
 			{
 				Name:          "token rejected",
@@ -161,7 +254,131 @@ func kitSuite() collectortest.Suite {
 					Body:   `{"message":"A JSON web token could not be decoded","documentation_url":"https://docs.github.com/rest"}`,
 				}},
 			},
-			{Name: "empty organization", Responses: kitEmptyTenantResponses()},
+			{
+				Name:      "empty organization",
+				Responses: kitEmptyTenantResponses(),
+				// Over no one and no repositories, each percentage is null
+				// and each present flag false.
+				Expect: map[string]map[string]any{
+					AccessPath: {
+						"/sign_in/sso_configured":              false,
+						"/sign_in/mfa_required":                false,
+						"/members/members_present":             false,
+						"/members/local_mfa_coverage_pct":      nil,
+						"/admins/local_admins_present":         false,
+						"/admins/local_admin_mfa_coverage_pct": nil,
+						"/credentials/credentials_present":     false,
+						"/credentials/never_expiring_pct":      nil,
+						"/connected_apps/apps_present":         false,
+						"/members/inactive_pct":                collectortest.Absent,
+						"/root":                                collectortest.Absent,
+					},
+					VulnPath: {
+						"/scanners/0/resources_present":     false,
+						"/scanners/0/coverage_pct":          nil,
+						"/scanners/0/open_critical_present": false,
+						"/scanners/1/overdue_present":       false,
+					},
+				},
+			},
+			{
+				Name:      "trust level",
+				Config:    map[string]any{"level": "trust"},
+				Responses: kitResponses(),
+				// A trust run writes the present flags and percentages the
+				// prototype's cards read, and none of the counts.
+				Expect: map[string]map[string]any{
+					AccessPath: {
+						"/sign_in/mfa_required":                true,
+						"/members/members_present":             true,
+						"/members/member_count":                collectortest.Absent,
+						"/admins/local_admins_present":         true,
+						"/admins/local_admin_mfa_coverage_pct": 100,
+						"/admins/admin_count":                  collectortest.Absent,
+						"/credentials/credentials_present":     true,
+						"/credentials/never_expiring_pct":      67,
+						"/credentials/credential_count":        collectortest.Absent,
+					},
+					VulnPath: {
+						"/scanners/0/coverage_pct":          75,
+						"/scanners/0/resource_count":        collectortest.Absent,
+						"/scanners/0/open_critical_present": false,
+						"/scanners/0/overdue_present":       true,
+						"/scanners/1/open_critical_present": true,
+						"/scanners/1/open_critical_count":   collectortest.Absent,
+					},
+					kitResultPath: kitTrustStepPins(),
+				},
+			},
+			{
+				Name:      "App without the members permission",
+				Responses: kitNoMembersPermissionResponses(),
+				// The member, owner, and SAML values are left out with
+				// permission gaps, and the run goes on.
+				Expect: map[string]map[string]any{
+					AccessPath: {
+						"/sign_in/mfa_required":                true,
+						"/sign_in/sso_configured":              collectortest.Absent,
+						"/members/members_present":             collectortest.Absent,
+						"/admins/admins_present":               collectortest.Absent,
+						"/admins/local_admin_mfa_coverage_pct": collectortest.Absent,
+						"/credentials/credentials_present":     true,
+					},
+					DetailedPath: {"/members": collectortest.Absent},
+				},
+			},
+			{
+				Name:      "no SAML or two-factor requirement",
+				Responses: kitNoRequirementsResponses(),
+				// Without the requirement, bob and the outside collaborator
+				// carol have no two-factor authentication. No member has a
+				// SAML NameID.
+				Expect: map[string]map[string]any{
+					AccessPath: {
+						"/sign_in/sso_configured":              false,
+						"/sign_in/scim_enabled":                false,
+						"/sign_in/mfa_required":                false,
+						"/members/sso_member_count":            0,
+						"/members/sso_coverage_pct":            0,
+						"/members/local_mfa_member_count":      1,
+						"/members/local_mfa_coverage_pct":      33,
+						"/admins/local_admin_mfa_coverage_pct": 100,
+					},
+					DetailedPath: {
+						"/members/per_member/0/saml_name_id":       collectortest.Absent,
+						"/members/per_member/2/login":              "carol",
+						"/members/per_member/2/two_factor_enabled": false,
+					},
+				},
+			},
+			{
+				Name:      "no fine-grained tokens",
+				Responses: replaceResponse(kitResponses(), collectortest.Response{URL: kitOrgURL("/personal-access-tokens?per_page=100"), Body: `[]`}),
+				// The deploy keys all have a creation date, and the
+				// read-write one was created in January.
+				Expect: map[string]map[string]any{AccessPath: {
+					"/credentials/credential_count":                  2,
+					"/credentials/rotation_overdue_credential_count": 1,
+					"/credentials/rotation_overdue_pct":              50,
+					"/credentials/unrestricted_pct":                  0,
+				}},
+			},
+			{
+				Name:      "alert lists refused",
+				Responses: kitAlertsRefusedResponses(),
+				// repo-ruleset's code scanning and Dependabot alerts are
+				// refused. The high Dependabot alert on classic-only still
+				// shows, and the coverage comes from the settings.
+				Expect: map[string]map[string]any{VulnPath: {
+					"/scanners/0/open_high_present":     true,
+					"/scanners/0/overdue_present":       true,
+					"/scanners/0/open_critical_present": collectortest.Absent,
+					"/scanners/0/open_high_count":       collectortest.Absent,
+					"/scanners/1/open_critical_present": collectortest.Absent,
+					"/scanners/1/overdue_present":       collectortest.Absent,
+					"/scanners/1/coverage_pct":          50,
+				}},
+			},
 			{Name: "security settings read fails", Responses: kitSecurityOutageResponses()},
 			{Name: "read-only token", Responses: kitReadOnlyResponses()},
 			{
@@ -208,7 +425,6 @@ func kitSuite() collectortest.Suite {
 				Expect: map[string]map[string]any{DetailedPath: {"/tokens": nil}},
 			},
 		},
-		Ignore:      map[string][]string{DetailedPath: {"/diagnostics"}},
 		Operations:  kitOperations,
 		Insensitive: []string{"github.installation_token.create"},
 	}
@@ -326,7 +542,6 @@ func TestCollectorKitTokenAuth(t *testing.T) {
 			},
 		},
 		Required:   []string{"github.orgs.get"},
-		Ignore:     map[string][]string{DetailedPath: {"/diagnostics"}},
 		Operations: kitTokenOperations(),
 		SkipChecks: []string{"faults", "sensitivity", "levels"},
 	})
@@ -405,8 +620,8 @@ func TestSecuritySettingsFailureLeavesFeaturesOutWithGaps(t *testing.T) {
 	if features["vulnerability_alerts"] == nil {
 		t.Error("vulnerability_alerts comes from the repository list and should survive the settings failure")
 	}
-	if gapAt(res, NormalizedPath, "/security_features/secret_scanning_pct") == nil {
-		t.Error("the normalized secret scanning percentage should carry the same gap")
+	if gapAt(res, VulnPath, "/scanners/2/coverage_pct") == nil {
+		t.Error("the secret scanning coverage in vuln-scanning should carry the same gap")
 	}
 	if res.Result.Outcome.Status != componentsdk.OutcomePartial {
 		t.Errorf("outcome = %+v, want partial", res.Result.Outcome)
@@ -437,7 +652,7 @@ func TestRejectedTokenFailsTheRun(t *testing.T) {
 func TestNotLicensedGapsNameTheirCall(t *testing.T) {
 	responses := kitResponses()
 	for _, url := range []string{
-		kitOrgURL("/audit-log?phrase=created%3A%3E%3D2026-10-10&per_page=100"),
+		kitAuditLogURL(),
 		kitOrgURL("/personal-access-tokens?per_page=100"),
 	} {
 		responses = replaceResponse(responses, kitNotFoundResponse(url))
@@ -460,6 +675,38 @@ func TestNotLicensedGapsNameTheirCall(t *testing.T) {
 	}
 }
 
+// A repository sent out of the organization has the audit log actions
+// repo.transfer_start and repo.transfer_outgoing. They count in the repo
+// category along with repo.transfer.
+// The collector result holds the sso_required detail as the collector wrote
+// it, with nothing scrubbed.
+func TestSSORequiredGapDetailIsNotScrubbed(t *testing.T) {
+	res := runKit(t, kitConfig(), kitSecrets(), kitResponses())
+	g := gapAt(res, AccessPath, "/sign_in/sso_required")
+	if g == nil || g.Detail != ssoRequiredNotRead {
+		t.Errorf("sso_required gap = %+v, want the detail %q", g, ssoRequiredNotRead)
+	}
+}
+
+func TestRepositoryTransfersCountInTheAuditLog(t *testing.T) {
+	for _, action := range []string{"repo.transfer", "repo.transfer_start", "repo.transfer_outgoing"} {
+		t.Run(action, func(t *testing.T) {
+			event := map[string]any{"action": action, "actor": "alice", "repo": kitOrg + "/repo-ruleset", "created_at": 1760000000000}
+			responses := replaceResponse(kitResponses(), collectortest.Response{URL: kitAuditLogURL(), Body: kitJSON([]any{event})})
+			res := runKit(t, kitConfig(), kitSecrets(), responses)
+			if res.ExitCode != 0 || res.Result == nil {
+				t.Fatalf("run failed with exit %d: %s", res.ExitCode, res.Stderr)
+			}
+			log, _ := emitted(t, res, DetailedPath)["audit_log"].(map[string]any)
+			byCategory, _ := log["count_by_category"].(map[string]any)
+			events, _ := log["events"].([]any)
+			if byCategory["repo"] != float64(1) || len(events) != 1 {
+				t.Errorf("repo count %v with %d events, want 1 and 1", byCategory["repo"], len(events))
+			}
+		})
+	}
+}
+
 func TestRunRecordsTheSignedInApp(t *testing.T) {
 	res := runKit(t, kitConfig(), kitSecrets(), kitResponses())
 	if res.ExitCode != 0 || res.Result == nil {
@@ -475,8 +722,51 @@ func TestRunRecordsTheSignedInApp(t *testing.T) {
 	if got.AuthMethod != componentsdk.AuthPrivateKeyJWT || !got.ReadOnly {
 		t.Errorf("auth method %q, read-only %t; want %q and read-only, since every permission is read", got.AuthMethod, got.ReadOnly, componentsdk.AuthPrivateKeyJWT)
 	}
-	if len(res.Result.Gaps) != 0 {
-		t.Errorf("a clean run left gaps: %+v", res.Result.Gaps)
+	// The only gaps are on values GitHub does not report or the collector
+	// does not read.
+	for _, g := range res.Result.Gaps {
+		if g.Code != componentsdk.CodeUnsupported && g.Code != componentsdk.CodeNotRead {
+			t.Errorf("a clean run left a %s gap at %s %s", g.Code, g.Path, g.Pointer)
+		}
+	}
+}
+
+// Each operation in the result names the permission its call needs. A
+// denied call's gap names it as missing only for a GitHub App without it,
+// since a token's permissions cannot be read.
+func TestOperationsNameTheirPermission(t *testing.T) {
+	refused := collectortest.Response{URL: kitOrgURL("/hooks?per_page=100"), Status: http.StatusForbidden, Body: kitIntegrationDenied}
+	app := runKit(t, kitConfig(), kitSecrets(), replaceResponse(kitResponses(), refused))
+	token := runKit(t, kitTokenConfig(), map[string]string{"GITHUB_TOKEN": "ghp_kittoken0123456789abcdef"}, replaceResponse(kitResponses()[1:], refused))
+	for name, res := range map[string]componentsdk.InProcessResult{"app": app, "token": token} {
+		if res.ExitCode != 0 || res.Result == nil {
+			t.Fatalf("%s: run failed with exit %d: %s", name, res.ExitCode, res.Stderr)
+		}
+		declared := map[string]string{}
+		for _, op := range res.Operations {
+			declared[op.Name] = op.Permission
+		}
+		if declared["github.org_members.list"] != "members:read" || declared["github.org_hooks.list"] != "organization_hooks:read" || declared["github.orgs.get"] != "" {
+			t.Errorf("%s: permissions = %v, want members:read, organization_hooks:read, and none for the sign-in", name, declared)
+		}
+	}
+	for name, tc := range map[string]struct {
+		res  componentsdk.InProcessResult
+		want string
+	}{"app": {app, "organization_hooks:read"}, "token": {token, ""}} {
+		var found bool
+		for _, g := range tc.res.Result.Gaps {
+			if g.Operation != "github.org_hooks.list" {
+				continue
+			}
+			found = true
+			if g.Code != componentsdk.CodePermissionDenied || g.MissingPermission != tc.want {
+				t.Errorf("%s: gap at %s is %s with missing permission %q, want permission_denied with %q", name, g.Pointer, g.Code, g.MissingPermission, tc.want)
+			}
+		}
+		if !found {
+			t.Errorf("%s: no gap from github.org_hooks.list", name)
+		}
 	}
 }
 
@@ -542,7 +832,7 @@ func TestHiddenSettingsAreLeftOutAsPermissionGaps(t *testing.T) {
 	}
 	for _, at := range []struct{ path, pointer string }{
 		{DetailedPath, "/access_control/two_factor_required"},
-		{NormalizedPath, "/org_security/two_factor_required"},
+		{AccessPath, "/sign_in/mfa_required"},
 		{DetailedPath, "/security_features/secret_scanning"},
 		{DetailedPath, "/repositories/per_repo/0/rulesets/0/bypass_allowed"},
 	} {
@@ -551,8 +841,9 @@ func TestHiddenSettingsAreLeftOutAsPermissionGaps(t *testing.T) {
 			t.Errorf("gap at %s %s = %+v, want permission_denied", at.path, at.pointer, gap)
 		}
 	}
-	if section, ok := emitted(t, res, NormalizedPath)["org_security"]; ok {
-		t.Errorf("normalized org_security = %v, want two_factor_required left out rather than false", section)
+	signIn, _ := emitted(t, res, AccessPath)["sign_in"].(map[string]any)
+	if v, ok := signIn["mfa_required"]; ok {
+		t.Errorf("access-posture mfa_required = %v, want it left out rather than false", v)
 	}
 }
 
@@ -663,6 +954,24 @@ func TestInstallationTokenNeedsTheOrganizationCount(t *testing.T) {
 	}
 }
 
+// kitRecordingKinds are the kinds of evidence each recording's calls
+// answer. The recordings were made before the collector wrote access-posture
+// and vuln-scanning, so each run collects only the kinds its recorded calls
+// cover. Recording again adds the calls the other kinds make.
+var kitRecordingKinds = map[string][]any{
+	"github-compliant":    {"vcs-posture"},
+	"github-noncompliant": {"vcs-posture", "vuln-scanning", "details"},
+}
+
+// kitRecordingAnswers answer the calls a recording lacks because it was made
+// before the collector made them. github-noncompliant was recorded before
+// the detailed artifact took the members' SAML identities. Its organization
+// has no GitHub Enterprise Cloud, as its 404 from the audit log shows, so it
+// has no SAML identity provider. Recording again replaces these.
+var kitRecordingAnswers = map[string][]collectortest.Response{
+	"github-noncompliant": {kitNoSAMLResponse()},
+}
+
 // kitRecordings loads the scenarios TestRecord in record_test.go records
 // from sandboxes, and logs each one not recorded yet.
 func kitRecordings(t *testing.T, names ...string) []collectortest.Scenario {
@@ -677,8 +986,65 @@ func kitRecordings(t *testing.T, names ...string) []collectortest.Scenario {
 		case err != nil:
 			t.Fatal(err)
 		default:
+			if kinds, ok := kitRecordingKinds[name]; ok {
+				sc.Config = maps.Clone(sc.Config)
+				sc.Config["collect"] = kinds
+			}
+			sc.Responses = append(sc.Responses, kitRecordingAnswers[name]...)
 			out = append(out, sc)
 		}
 	}
 	return out
+}
+
+func TestSecondaryRateLimitIsNoPermissionGap(t *testing.T) {
+	// A 403 over a secondary rate limit can have Retry-After, or no rate limit
+	// headers at all. Each value it leaves out has a rate_limited gap with no
+	// permission to grant.
+	const body = `{"message":"You have exceeded a secondary rate limit. Please wait a few minutes before you try again."}`
+	for name, header := range map[string]http.Header{
+		"with Retry-After":           {"Retry-After": []string{"60"}},
+		"without rate limit headers": nil,
+	} {
+		t.Run(name, func(t *testing.T) {
+			responses := kitResponses()
+			for _, url := range []string{
+				kitAlertListURL("classic-and-org", "dependabot"),
+				kitRepoURL("org-ruleset", ""),
+				kitRepoURL("repo-ruleset", "/actions/runners?per_page=100"),
+			} {
+				responses = replaceResponse(responses, collectortest.Response{URL: url, Status: http.StatusForbidden, Header: header, Body: body})
+			}
+			res := runKit(t, kitConfig(), kitSecrets(), responses)
+			if res.ExitCode != 0 || res.Result == nil {
+				t.Fatalf("run failed with exit %d: %s", res.ExitCode, res.Stderr)
+			}
+			for _, pointer := range []string{
+				"/security_features/per_repo/3/open_dependabot_alerts",
+				"/security_features/per_repo/1/secret_scanning",
+				"/security_features/code_scanning",
+				"/actions/repo_runner_count",
+			} {
+				g := gapAt(res, DetailedPath, pointer)
+				if g == nil || g.Code != componentsdk.CodeRateLimited || g.Fix != "" || g.Warning != "" || g.MissingPermission != "" {
+					t.Errorf("gap at %s = %+v, want rate_limited with no permission to grant", pointer, g)
+				}
+			}
+			// The call is retried, and its row records no permission_denied.
+			for _, op := range res.Operations {
+				if op.Name == "github.dependabot_alerts.list" && (!op.Retried || op.Errors[componentsdk.CodePermissionDenied] > 0) {
+					t.Errorf("%s: retried %t, errors %v; want retries and no permission_denied", op.Name, op.Retried, op.Errors)
+				}
+			}
+			// With no Retry-After, each retry waits the minute GitHub asks for.
+			for _, row := range res.Result.Calls.Requests {
+				if row.Operation != "github.dependabot_alerts.list" || row.Attempt < 2 {
+					continue
+				}
+				if header == nil && row.WaitedMS < time.Minute.Milliseconds() {
+					t.Errorf("attempt %d of call %d waited %dms, want at least a minute", row.Attempt, row.Call, row.WaitedMS)
+				}
+			}
+		})
+	}
 }

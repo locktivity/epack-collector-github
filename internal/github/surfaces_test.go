@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/locktivity/epack/componentsdk"
 )
@@ -27,7 +30,10 @@ func TestHostOnly_StripsPathQueryAndScheme(t *testing.T) {
 }
 
 func TestIsSecurityRelevantAction(t *testing.T) {
-	relevant := []string{"member_add", "repo.create", "protected_branch.update", "org.disable_two_factor_requirement"}
+	relevant := []string{
+		"org.add_member", "org.invite_member", "org.remove_member", "repo.create", "protected_branch.update",
+		"org.disable_two_factor_requirement", "secret_scanning_push_protection.bypass",
+	}
 	for _, a := range relevant {
 		if !isSecurityRelevantAction(a) {
 			t.Errorf("isSecurityRelevantAction(%q) = false, want true", a)
@@ -288,5 +294,238 @@ func TestGetCodeownersInfoPicksTheFileGitHubUses(t *testing.T) {
 	}
 	if len(requested) != 2 {
 		t.Errorf("requested %v, want .github/CODEOWNERS then CODEOWNERS", requested)
+	}
+}
+
+func TestGetCodeownersInfoReadsAFileOver1MB(t *testing.T) {
+	// A CODEOWNERS file of up to 3 MB takes effect. A file over 1 MB is
+	// served only under the raw or object media types. Under the object media
+	// type its content is empty.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/org/repo/contents/.github/CODEOWNERS" {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+			return
+		}
+		if r.Header.Get("Accept") != "application/vnd.github.object+json" {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"message":"This API returns blobs up to 1 MB in size."}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"type":"file","encoding":"none","size":2097152,"content":""}`))
+	}))
+	defer server.Close()
+
+	present, path, hash, err := NewClientWithHTTP(server.Client(), server.URL).GetCodeownersInfo(context.Background(), "org", "repo", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !present || path != ".github/CODEOWNERS" || hash != "" {
+		t.Errorf("present %v at %q with hash %q, want present at .github/CODEOWNERS with no hash", present, path, hash)
+	}
+}
+
+func TestGetCodeownersInfoSkipsADirectory(t *testing.T) {
+	// A directory named CODEOWNERS is no CODEOWNERS file, so the search goes
+	// on to the next location. A directory comes back as its entries.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/org/repo/contents/.github/CODEOWNERS":
+			_, _ = w.Write([]byte(`{"type":"dir","entries":[{"type":"file","name":"a.txt"}]}`))
+		case "/repos/org/repo/contents/CODEOWNERS":
+			_, _ = w.Write([]byte(`[{"type":"file","name":"b.txt"}]`))
+		case "/repos/org/repo/contents/docs/CODEOWNERS":
+			_, _ = w.Write([]byte(`{"type":"file","encoding":"base64","size":22,"content":"KiBAdGVzdC1vcmcvc2VjdXJpdHkK\n"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	present, path, _, err := NewClientWithHTTP(server.Client(), server.URL).GetCodeownersInfo(context.Background(), "org", "repo", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !present || path != "docs/CODEOWNERS" {
+		t.Errorf("present %v at %q, want the docs/CODEOWNERS file past the two directories", present, path)
+	}
+}
+
+func TestListSecretScanningAlertsReadsTheGenericTypes(t *testing.T) {
+	// Without secret_type only the default patterns are listed. The generic
+	// types are listed only by name.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		named := r.URL.Query().Get("secret_type")
+		switch {
+		case named == "":
+			_, _ = w.Write([]byte(`[{"number":1,"secret_type":"aws_access_key_id","state":"open"}]`))
+		case strings.Contains(named, "rsa_private_key") && strings.Contains(named, "password"):
+			_, _ = w.Write([]byte(`[{"number":2,"secret_type":"rsa_private_key","state":"open"},{"number":3,"secret_type":"password","state":"open"}]`))
+		default:
+			_, _ = w.Write([]byte(`[]`))
+		}
+	}))
+	defer server.Close()
+
+	alerts, more, err := NewClientWithHTTP(server.Client(), server.URL).ListSecretScanningAlerts(context.Background(), "org", "repo")
+	if err != nil || more {
+		t.Fatalf("err %v, more %t", err, more)
+	}
+	var got []string
+	for _, a := range alerts {
+		got = append(got, fmt.Sprintf("%d:%s", a.Number, a.SecretType))
+	}
+	if strings.Join(got, ",") != "1:aws_access_key_id,2:rsa_private_key,3:password" {
+		t.Errorf("alerts = %v, want the default alert and both generic alerts", got)
+	}
+}
+
+func TestListDependabotAlertsAtTheCapKeepsTheMostSevere(t *testing.T) {
+	// Alerts are listed newest first, 100 to a page, unless severity or
+	// direction is set. Alert 1 is the oldest and the only critical one.
+	const total = AlertFetchCap + 100
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		var numbers []int
+		for n := total; n >= 1; n-- {
+			severity := "low"
+			if n == 1 {
+				severity = "critical"
+			}
+			if s := q.Get("severity"); s == "" || s == severity {
+				numbers = append(numbers, n)
+			}
+		}
+		if q.Get("direction") == "asc" {
+			slices.Reverse(numbers)
+		}
+		page, _ := strconv.Atoi(q.Get("page"))
+		page = max(page, 1)
+		start, end := min((page-1)*100, len(numbers)), min(page*100, len(numbers))
+		if end < len(numbers) {
+			q.Set("page", strconv.Itoa(page+1))
+			w.Header().Set("Link", fmt.Sprintf(`<http://%s%s?%s>; rel="next"`, r.Host, r.URL.Path, q.Encode()))
+		}
+		var items []string
+		for _, n := range numbers[start:end] {
+			severity := "low"
+			if n == 1 {
+				severity = "critical"
+			}
+			items = append(items, fmt.Sprintf(`{"number":%d,"state":"open","security_vulnerability":{"severity":%q}}`, n, severity))
+		}
+		_, _ = w.Write([]byte("[" + strings.Join(items, ",") + "]"))
+	}))
+	defer server.Close()
+
+	alerts, more, err := NewClientWithHTTP(server.Client(), server.URL).ListDependabotAlerts(context.Background(), "org", "repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !more || len(alerts) != AlertFetchCap {
+		t.Fatalf("read %d alerts, more %t; want the cap of %d, marked as possibly holding more", len(alerts), more, AlertFetchCap)
+	}
+	if alerts[0].Number != 1 || alerts[1].Number != 2 || alerts[len(alerts)-1].Number != AlertFetchCap {
+		t.Errorf("read alerts %d, %d, ..., %d; want the critical alert 1, then the oldest low alerts from 2", alerts[0].Number, alerts[1].Number, alerts[len(alerts)-1].Number)
+	}
+}
+
+// writeAlertPage writes one page of the alerts in numbers, which are newest
+// first. direction=asc reverses them, and a page holds 100 alerts. item
+// writes alert n.
+func writeAlertPage(w http.ResponseWriter, r *http.Request, numbers []int, item func(n int) string) {
+	q := r.URL.Query()
+	if q.Get("direction") == "asc" {
+		slices.Reverse(numbers)
+	}
+	page, _ := strconv.Atoi(q.Get("page"))
+	page = max(page, 1)
+	start, end := min((page-1)*100, len(numbers)), min(page*100, len(numbers))
+	if end < len(numbers) {
+		q.Set("page", strconv.Itoa(page+1))
+		w.Header().Set("Link", fmt.Sprintf(`<http://%s%s?%s>; rel="next"`, r.Host, r.URL.Path, q.Encode()))
+	}
+	var items []string
+	for _, n := range numbers[start:end] {
+		items = append(items, item(n))
+	}
+	_, _ = w.Write([]byte("[" + strings.Join(items, ",") + "]"))
+}
+
+// alertCreatedAt is alert n's created_at, one minute after alert n-1's.
+func alertCreatedAt(n int) string {
+	return time.Date(2026, 1, 1, 0, n, 0, 0, time.UTC).Format(time.RFC3339)
+}
+
+func TestListCodeScanningAlertsAtTheCapKeepsTheMostSevere(t *testing.T) {
+	// Alerts are numbered oldest first. Alert 1 is the only one of error
+	// severity, and alerts 2 to 3000 are notes. The rest have rule severity
+	// none, which no severity filter matches.
+	const total = AlertFetchCap + 100
+	severity := func(n int) string {
+		switch {
+		case n == 1:
+			return "error"
+		case n <= 3000:
+			return "note"
+		}
+		return "none"
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var numbers []int
+		for n := total; n >= 1; n-- {
+			if s := r.URL.Query().Get("severity"); s == "" || s == severity(n) {
+				numbers = append(numbers, n)
+			}
+		}
+		writeAlertPage(w, r, numbers, func(n int) string {
+			return fmt.Sprintf(`{"number":%d,"state":"open","created_at":%q,"rule":{"id":"go/rule","severity":%q}}`, n, alertCreatedAt(n), severity(n))
+		})
+	}))
+	defer server.Close()
+
+	alerts, more, err := NewClientWithHTTP(server.Client(), server.URL).ListCodeScanningAlerts(context.Background(), "org", "repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !more || len(alerts) != AlertFetchCap {
+		t.Fatalf("read %d alerts, more %t; want the cap of %d, marked as possibly holding more", len(alerts), more, AlertFetchCap)
+	}
+	for i, a := range alerts {
+		if a.Number != i+1 {
+			t.Fatalf("alert %d is number %d; want the error alert, then the notes, then the oldest alerts with no severity", i, a.Number)
+		}
+	}
+}
+
+func TestListSecretScanningAlertsAtTheCapKeepsTheOldest(t *testing.T) {
+	// Alerts are numbered oldest first. Only the generic types list alerts 1
+	// and 2. The default patterns list the rest.
+	const total = AlertFetchCap + 100
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		numbers := []int{2, 1}
+		if r.URL.Query().Get("secret_type") == "" {
+			numbers = nil
+			for n := total; n >= 3; n-- {
+				numbers = append(numbers, n)
+			}
+		}
+		writeAlertPage(w, r, numbers, func(n int) string {
+			return fmt.Sprintf(`{"number":%d,"secret_type":"aws_access_key_id","state":"open","created_at":%q}`, n, alertCreatedAt(n))
+		})
+	}))
+	defer server.Close()
+
+	alerts, more, err := NewClientWithHTTP(server.Client(), server.URL).ListSecretScanningAlerts(context.Background(), "org", "repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !more || len(alerts) != AlertFetchCap {
+		t.Fatalf("read %d alerts, more %t; want the cap of %d, marked as possibly holding more", len(alerts), more, AlertFetchCap)
+	}
+	for i, a := range alerts {
+		if a.Number != i+1 {
+			t.Fatalf("alert %d is number %d; want the oldest alerts of both lists, oldest first", i, a.Number)
+		}
 	}
 }

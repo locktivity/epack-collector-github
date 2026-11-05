@@ -9,25 +9,28 @@ import (
 	"github.com/locktivity/epack/componentsdk"
 )
 
-func TestGapsNameThePermissionToGrant(t *testing.T) {
+func TestGapsSayWhichPermissionToGrant(t *testing.T) {
 	app := func(scopes ...string) github.Credential {
 		return github.Credential{Kind: github.CredentialAppInstallation, ID: "1", Scopes: scopes}
 	}
 	denied := &github.APIError{StatusCode: http.StatusForbidden, Path: "/orgs/test-org", Operation: "github.org_settings.get"}
+	tokensDenied := &github.APIError{StatusCode: http.StatusForbidden, Path: "/orgs/test-org/personal-access-tokens", Operation: "github.org_personal_access_tokens.list"}
 	failed := &github.APIError{StatusCode: http.StatusBadGateway, Path: "/orgs/test-org", Operation: "github.org_settings.get"}
 
 	for name, tc := range map[string]struct {
 		credential github.Credential
 		settings   error
+		tokens     error
 		pointer    string
 		warning    string
+		fix        string
 		missing    string
 	}{
 		"a GitHub App without the permission": {
 			credential: app("metadata:read"),
 			settings:   denied,
 			pointer:    "/access_control/default_repository_permission",
-			warning:    "Grant the GitHub App organization_administration:read.",
+			fix:        "Grant the GitHub App organization_administration:read.",
 			missing:    "organization_administration:read",
 		},
 		"a GitHub App with the permission": {
@@ -40,13 +43,26 @@ func TestGapsNameThePermissionToGrant(t *testing.T) {
 			credential: github.Credential{Kind: github.CredentialToken},
 			settings:   denied,
 			pointer:    "/access_control/default_repository_permission",
-			warning:    "A GitHub App or fine-grained token needs organization_administration:read for this.",
+			fix:        "Use a GitHub App or fine-grained token that has organization_administration:read.",
 		},
 		"an installation token": {
 			credential: github.Credential{Kind: github.CredentialInstallationToken},
 			settings:   denied,
 			pointer:    "/access_control/default_repository_permission",
-			warning:    "A GitHub App or fine-grained token needs organization_administration:read for this.",
+			fix:        "Use a GitHub App or fine-grained token that has organization_administration:read.",
+		},
+		"a token refused the token list": {
+			credential: github.Credential{Kind: github.CredentialToken},
+			tokens:     tokensDenied,
+			pointer:    "/tokens",
+			fix:        "Use a GitHub App that has organization_personal_access_tokens:read.",
+		},
+		"a GitHub App refused the token list": {
+			credential: app("metadata:read"),
+			tokens:     tokensDenied,
+			pointer:    "/tokens",
+			fix:        "Grant the GitHub App organization_personal_access_tokens:read.",
+			missing:    "organization_personal_access_tokens:read",
 		},
 		"a failure that is no denial": {
 			credential: app("metadata:read"),
@@ -56,7 +72,7 @@ func TestGapsNameThePermissionToGrant(t *testing.T) {
 		"a value withheld from a GitHub App without the permission": {
 			credential: app("metadata:read"),
 			pointer:    "/access_control/two_factor_required",
-			warning:    "Grant the GitHub App organization_administration:read.",
+			fix:        "Grant the GitHub App organization_administration:read.",
 			missing:    "organization_administration:read",
 		},
 		"a value withheld from a GitHub App with the permission": {
@@ -68,6 +84,7 @@ func TestGapsNameThePermissionToGrant(t *testing.T) {
 			mock := richMock()
 			mock.orgSecurity = &github.OrgSecurity{Credential: tc.credential}
 			mock.orgSettingsErr = tc.settings
+			mock.patsErr = tc.tokens
 			rec := &componentsdk.Recorder{}
 			c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}, Recorder: rec}, mock)
 			if _, err := c.Collect(context.Background(), componentsdk.LevelAudit); err != nil {
@@ -82,8 +99,9 @@ func TestGapsNameThePermissionToGrant(t *testing.T) {
 			if gap == nil {
 				t.Fatalf("no gap at %s", tc.pointer)
 			}
-			if gap.Warning != tc.warning || gap.MissingPermission != tc.missing {
-				t.Errorf("warning %q and missing permission %q, want %q and %q", gap.Warning, gap.MissingPermission, tc.warning, tc.missing)
+			if gap.Warning != tc.warning || gap.Fix != tc.fix || gap.MissingPermission != tc.missing {
+				t.Errorf("warning %q, fix %q, and missing permission %q, want %q, %q, and %q",
+					gap.Warning, gap.Fix, gap.MissingPermission, tc.warning, tc.fix, tc.missing)
 			}
 		})
 	}
@@ -98,8 +116,8 @@ func TestOperationPermissionsCoverEveryCall(t *testing.T) {
 		"github.users.get":                 true,
 	}
 	for _, op := range kitOperations {
-		if _, ok := operationPermissions[op]; ok == needNone[op] {
-			t.Errorf("%s: in operationPermissions %t, but needs a permission %t", op, ok, !needNone[op])
+		if _, ok := github.OperationPermissions[op]; ok == needNone[op] {
+			t.Errorf("%s: in github.OperationPermissions %t, but needs a permission %t", op, ok, !needNone[op])
 		}
 	}
 }

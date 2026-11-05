@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/locktivity/epack-collector-github/internal/github"
 	"github.com/locktivity/epack/componentsdk"
 )
 
@@ -34,10 +35,22 @@ type Config struct {
 	// Transport carries every request, such as componentsdk.NewTransport's.
 	// Nil means http.DefaultTransport.
 	Transport http.RoundTripper `json:"-"`
+	// Grants records the credential the run signs in with, for the
+	// transport's NamesPermission hook. It may be nil.
+	Grants *github.Grants `json:"-"`
 	// Recorder takes the values the collector leaves out. Nil discards them.
 	Recorder *componentsdk.Recorder `json:"-"`
 	// Now stamps the artifacts. Nil means the wall clock.
 	Now func() time.Time `json:"-"`
+
+	// CollectAccess and CollectVulns say whether the run writes the
+	// access-posture and vuln-scanning artifacts. Below the audit level, the
+	// calls that feed only those artifacts are made only when they are set.
+	CollectAccess bool `json:"-"`
+	CollectVulns  bool `json:"-"`
+	// CollectDetails says whether the run writes the detailed artifact. The
+	// SAML identities are read for it only when it is set.
+	CollectDetails bool `json:"-"`
 }
 
 // OrgPosture represents the collected security posture of a GitHub organization.
@@ -66,19 +79,18 @@ type OrgPosture struct {
 	Apps         *Apps         `json:"apps,omitempty"`
 	Tokens       *Tokens       `json:"tokens,omitempty"`
 
-	Diagnostics *Diagnostics `json:"diagnostics,omitempty"`
+	// access and vulns are the normalized access-posture and vuln-scanning
+	// artifacts, nil when the run does not write them.
+	access *AccessPosture
+	vulns  *VulnScanning
 }
 
-// Diagnostics contains warnings and errors encountered during collection.
-// This helps identify permission issues vs features that are genuinely disabled.
-type Diagnostics struct {
-	PermissionErrors []string `json:"permission_errors,omitempty"`
-	Warnings         []string `json:"warnings,omitempty"`
-}
-
-// Scope describes what was included and excluded from collection. The counts
-// and the coverage are nil when the repository list could not be read, and
-// the coverage is nil for an organization with no repositories. For a GitHub
+// Scope describes what was included and excluded from collection.
+// RepositoriesPresent is set at every level and reports whether any
+// repository is in scope. The counts appear from the audit level.
+// RepositoriesPresent, the counts, and the coverage are nil when the
+// repository list could not be read, and the coverage is nil for an
+// organization with no repositories. For a GitHub
 // App installed on selected repositories, RepositoryCount is GitHub's count of
 // the organization's repositories, and it and the coverage are nil when that
 // count is hidden or below the repositories listed. RepositorySelection is nil
@@ -87,19 +99,21 @@ type Scope struct {
 	IncludePatterns         []string `json:"include_patterns"`
 	ExcludePatterns         []string `json:"exclude_patterns"`
 	RepositorySelection     *string  `json:"repository_selection"`
+	RepositoriesPresent     *bool    `json:"repositories_present"`
 	RepositoriesCoverage    *int     `json:"repositories_coverage"`
-	RepositoryCount         *int     `json:"repository_count"`
-	IncludedRepositoryCount *int     `json:"included_repository_count"`
+	RepositoryCount         *int     `json:"repository_count,omitempty"`
+	IncludedRepositoryCount *int     `json:"included_repository_count,omitempty"`
 }
 
-// Posture contains high-level posture coverage metrics. BranchProtectionCoverage
+// Posture contains high-level posture coverage metrics. ProtectedRepositoryCount
+// appears from the audit level. BranchProtectionCoverage
 // and ProtectedRepositoryCount are nil when any in-scope repository's
 // protection could not be determined, and SecurityFeaturesCoverage when any of
 // its security features could not. The coverages are nil when no repository is
 // in scope.
 type Posture struct {
 	BranchProtectionCoverage *int `json:"branch_protection_coverage"`
-	ProtectedRepositoryCount *int `json:"protected_repository_count"`
+	ProtectedRepositoryCount *int `json:"protected_repository_count,omitempty"`
 	SecurityFeaturesCoverage *int `json:"security_features_coverage"`
 }
 
@@ -119,6 +133,7 @@ type AccessControl struct {
 // active rulesets. A rule's percentage is nil when the rule could not be
 // determined for at least one in-scope repository, or when no repository is
 // in scope. RepositoryCounts holds the repositories each percentage counts.
+// It is written from the audit level.
 type BranchProtectionRules struct {
 	PullRequestRequired *int `json:"pull_request_required"`
 	ApprovingReviews    *int `json:"approving_reviews"`
@@ -131,7 +146,7 @@ type BranchProtectionRules struct {
 	DeletionsBlocked    *int `json:"deletions_blocked"`
 	LinearHistory       *int `json:"linear_history"`
 
-	RepositoryCounts BranchProtectionRuleCounts `json:"repository_counts"`
+	RepositoryCounts *BranchProtectionRuleCounts `json:"repository_counts,omitempty"`
 }
 
 // BranchProtectionRuleCounts is the number of in-scope repositories whose
@@ -151,7 +166,7 @@ type BranchProtectionRuleCounts struct {
 }
 
 // SecurityFeatures contains per-feature coverage percentages and the
-// repository counts behind them (trust) plus per-repo rows (audit) and a
+// repository counts behind them (audit) plus per-repo rows (audit) and a
 // findings inventory (internal). A percentage is nil when the feature could
 // not be read for every in-scope repository, or when no repository is in
 // scope.
@@ -162,7 +177,7 @@ type SecurityFeatures struct {
 	SecretScanningPushProtection *int `json:"secret_scanning_push_protection"`
 	DependabotSecurityUpdates    *int `json:"dependabot_security_updates"`
 
-	RepositoryCounts SecurityFeatureCounts `json:"repository_counts"`
+	RepositoryCounts *SecurityFeatureCounts `json:"repository_counts,omitempty"`
 
 	// Audit-level per-repo feature flags + open-alert counts.
 	PerRepo []SecurityFeaturesRow `json:"per_repo,omitempty"`
@@ -216,9 +231,10 @@ type Members struct {
 }
 
 // MemberRow is one member. TwoFactorEnabled is a pointer: nil means the 2FA
-// signal was unavailable (caller not an org owner, or an outside collaborator,
-// whom the 2FA roster does not cover), not "2FA off". Role is empty when the
-// admin roster could not be read.
+// signal was unavailable, such as for a caller that is not an org owner, not
+// "2FA off". Role is empty when the admin roster could not be read.
+// SAMLNameID is the NameID of the member's linked SAML identity, empty when
+// they have none.
 //
 // Name is the public-profile display name. Other collectors emit logins only,
 // but GitHub logins are pseudonyms that reviewers cannot map to people, and
@@ -228,6 +244,7 @@ type MemberRow struct {
 	Login            string `json:"login"`
 	Name             string `json:"name,omitempty"`
 	Role             string `json:"role,omitempty"`
+	SAMLNameID       string `json:"saml_name_id,omitempty"`
 	TwoFactorEnabled *bool  `json:"two_factor_enabled,omitempty"`
 	LastActivity     string `json:"last_activity,omitempty"`
 }

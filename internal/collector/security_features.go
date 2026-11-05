@@ -1,6 +1,10 @@
 package collector
 
-import "github.com/locktivity/epack-collector-github/internal/github"
+import (
+	"context"
+
+	"github.com/locktivity/epack-collector-github/internal/github"
+)
 
 // repoAlerts holds one repository's open alerts of each type, listed once for
 // both its per-repo counts and the findings inventory, so the two agree.
@@ -22,22 +26,36 @@ type alertList struct {
 	err  error
 }
 
-// listAlerts lists a repository's open alerts of each type. A type GitHub
-// reports as not enabled for the repository has none.
-func (c *Collector) listAlerts(p *collectionPass, repo github.Repository) repoAlerts {
+// listAlerts lists a repository's open code scanning and Dependabot alerts,
+// and its secret scanning alerts when withSecrets is set. A type that is not
+// enabled for the repository has none.
+func (c *Collector) listAlerts(ctx context.Context, repo github.Repository, withSecrets bool) repoAlerts {
 	owner, name := repo.Owner.Login, repo.Name
 	var a repoAlerts
-	var moreS, moreC, moreD bool
-	var errS, errC, errD error
-	a.secrets, moreS, errS = c.client.ListSecretScanningAlerts(p.ctx, owner, name)
-	a.code, moreC, errC = c.client.ListCodeScanningAlerts(p.ctx, owner, name)
-	a.deps, moreD, errD = c.client.ListDependabotAlerts(p.ctx, owner, name)
-	a.lists = []alertList{
-		{"secret_scanning", "open_secret_scanning_alerts", len(a.secrets), moreS, errS},
-		{"code_scanning", "open_code_scanning_alerts", len(a.code), moreC, errC},
-		{"dependabot", "open_dependabot_alerts", len(a.deps), moreD, errD},
+	if withSecrets {
+		secrets, more, err := c.client.ListSecretScanningAlerts(ctx, owner, name)
+		a.secrets = secrets
+		a.lists = append(a.lists, alertList{"secret_scanning", "open_secret_scanning_alerts", len(secrets), more, err})
 	}
+	code, moreC, errC := c.client.ListCodeScanningAlerts(ctx, owner, name)
+	deps, moreD, errD := c.client.ListDependabotAlerts(ctx, owner, name)
+	a.code, a.deps = code, deps
+	a.lists = append(a.lists,
+		alertList{"code_scanning", "open_code_scanning_alerts", len(code), moreC, errC},
+		alertList{"dependabot", "open_dependabot_alerts", len(deps), moreD, errD},
+	)
 	return a
+}
+
+// list returns the outcome of listing the alert type that fills findings,
+// such as dependabot, and false when it was not listed.
+func (a repoAlerts) list(findings string) (alertList, bool) {
+	for _, l := range a.lists {
+		if l.findings == findings {
+			return l, true
+		}
+	}
+	return alertList{}, false
 }
 
 // augmentSecurityFeatures adds the audit-level per-repo feature rows (and, at
@@ -53,7 +71,7 @@ func (c *Collector) augmentSecurityFeatures(p *collectionPass) {
 	}
 
 	rows := make([]SecurityFeaturesRow, 0, len(p.metrics.repos.included))
-	listings := make([]repoAlerts, 0, len(p.metrics.repos.included))
+	listings := c.readAlerts(p.ctx, p.metrics, true)
 
 	for i, repo := range p.metrics.repos.included {
 		row := SecurityFeaturesRow{Repository: repo.Owner.Login + "/" + repo.Name}
@@ -65,8 +83,7 @@ func (c *Collector) augmentSecurityFeatures(p *collectionPass) {
 			}
 		}
 
-		alerts := c.listAlerts(p, repo)
-		for _, l := range alerts.lists {
+		for _, l := range listings[i].lists {
 			switch {
 			case l.err == nil && l.more:
 				// Left null; the schema's x-epack-null says why.
@@ -78,11 +95,9 @@ func (c *Collector) augmentSecurityFeatures(p *collectionPass) {
 		}
 
 		rows = append(rows, row)
-		listings = append(listings, alerts)
 	}
 
-	permissionDenied, featureOff := alertListProblems(listings)
-	recordAlertDiagnostic(p, "security_features.alert_counts", permissionDenied, featureOff)
+	noteAlertsOff(p, "security_features.alert_counts", listings)
 
 	p.posture.SecurityFeatures.PerRepo = rows
 
@@ -117,33 +132,18 @@ func (r *SecurityFeaturesRow) setOpenAlerts(field string, n int) {
 	}
 }
 
-// alertListProblems reports whether any alert list was refused for a missing
-// permission, and whether any found its feature off.
-func alertListProblems(listings []repoAlerts) (permissionDenied, featureOff bool) {
+// noteAlertsOff adds a note when some repository has code scanning, secret
+// scanning, or Dependabot alerts turned off. That is the repository's
+// setting, and nothing about the collector needs changing. A refused list
+// gets no note. The values left out because of the refusal have gaps that
+// record the permission.
+func noteAlertsOff(p *collectionPass, surface string, listings []repoAlerts) {
 	for _, a := range listings {
 		for _, l := range a.lists {
-			switch {
-			case isFeatureUnavailable(l.err):
-				featureOff = true
-			case isDenied(l.err):
-				permissionDenied = true
+			if isFeatureUnavailable(l.err) {
+				p.metrics.notes.featureOff(surface, "code/secret scanning or Dependabot alerts not enabled on some repositories")
+				return
 			}
 		}
-	}
-	return permissionDenied, featureOff
-}
-
-// recordAlertDiagnostic records the right diagnostic for a security-alert
-// surface. A genuine permission denial is actionable (grant the scope); a
-// feature-not-enabled 403 is informational (the repo just doesn't have code /
-// secret scanning or Dependabot alerts on). Permission denial takes precedence.
-func recordAlertDiagnostic(p *collectionPass, surface string, permissionDenied, featureOff bool) {
-	switch {
-	case permissionDenied:
-		p.metrics.diag.surfacePermissionDenied(surface,
-			"secret_scanning_alerts:read, code_scanning_alerts:read, dependabot_alerts:read")
-	case featureOff:
-		p.metrics.diag.surfaceUnavailable(surface,
-			"code/secret scanning or Dependabot alerts not enabled on some repositories")
 	}
 }

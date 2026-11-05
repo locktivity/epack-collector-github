@@ -1,0 +1,61 @@
+package github
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/locktivity/epack/componentsdk"
+)
+
+func TestGrantsNamePermissionsTheGitHubAppLacks(t *testing.T) {
+	denied := func(op string) *http.Response {
+		req := httptest.NewRequest(http.MethodGet, "https://api.github.com/orgs/test-org/members", nil)
+		req = req.WithContext(componentsdk.WithOperation(req.Context(), componentsdk.Operation{Name: op, Permission: ReadPermission(op)}))
+		return &http.Response{StatusCode: http.StatusForbidden, Request: req}
+	}
+	app := Credential{Kind: CredentialAppInstallation, Scopes: []string{"members:read", "metadata:read"}}
+	for _, tc := range []struct {
+		name       string
+		credential *Credential
+		op         string
+		want       bool
+	}{
+		{"an App without the permission", &app, "github.org_settings.get", true},
+		{"an App with the permission", &app, "github.org_members.list", false},
+		{"a token", &Credential{Kind: CredentialToken}, "github.org_settings.get", false},
+		{"an installation token", &Credential{Kind: CredentialInstallationToken}, "github.org_settings.get", false},
+		{"a call that needs no permission", &app, "github.orgs.get", false},
+		{"before sign-in", nil, "github.org_settings.get", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var g Grants
+			if tc.credential != nil {
+				g.SignedIn(*tc.credential)
+			}
+			if got := g.NamesPermission(denied(tc.op), nil); got != tc.want {
+				t.Errorf("NamesPermission = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
+// Each call carries the permission GitHub lists for it, so the collector
+// result names it with the operation.
+func TestCallsDeclareTheirPermission(t *testing.T) {
+	var seen []componentsdk.Operation
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		op, _ := componentsdk.OperationOf(req.Context())
+		seen = append(seen, op)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`[]`)), Request: req}, nil
+	})}
+	if _, _, err := NewClientWithHTTP(client, "https://api.github.com").ListRepoDeployKeys(context.Background(), "test-org", "repo"); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 1 || seen[0].Name != "github.deploy_keys.list" || seen[0].Permission != "administration:read" {
+		t.Errorf("operations = %+v, want github.deploy_keys.list with administration:read", seen)
+	}
+}

@@ -61,14 +61,15 @@ func (e *APIError) VendorCode() string { return e.Type }
 
 // CollectionCode returns the code for errors whose status does not tell it:
 // GraphQL errors, which arrive with status 200, and a 403 that says the
-// repository's plan lacks the feature.
+// repository's plan lacks the feature. A 403 over a rate limit is
+// rate_limited, even when only its message names the limit.
 func (e *APIError) CollectionCode() componentsdk.Code {
 	switch {
 	case e.unreadable:
 		return componentsdk.CodeInvalidResponse
 	case e.featureOff:
 		return componentsdk.CodeNotLicensed
-	case e.Type == "RATE_LIMITED":
+	case e.StatusCode == http.StatusForbidden && e.throttled(), e.Type == "RATE_LIMITED":
 		return componentsdk.CodeRateLimited
 	case e.Type == "FORBIDDEN":
 		return componentsdk.CodePermissionDenied
@@ -96,9 +97,35 @@ func (e *APIError) Unwrap() error {
 	return nil
 }
 
-// throttled reports a 403 that is GitHub's rate limit, not a denial.
+// throttled reports a 403 that is GitHub's rate limit, not a denial. A 403
+// over the primary limit has X-RateLimit-Remaining 0. A 403 over a secondary
+// limit can have Retry-After, or only a message that names the limit.
 func (e *APIError) throttled() bool {
-	return e.Header.Get("Retry-After") != "" || e.Header.Get("X-RateLimit-Remaining") == "0"
+	return e.Header.Get("Retry-After") != "" || e.Header.Get("X-RateLimit-Remaining") == "0" ||
+		secondaryRateLimit(e.Message)
+}
+
+// secondaryRateLimit reports whether message is the error message of a
+// response over a secondary rate limit.
+func secondaryRateLimit(message string) bool {
+	return strings.Contains(strings.ToLower(message), "secondary rate limit")
+}
+
+// ClassifyResponse is the componentsdk.HTTPOptions.ClassifyResponse hook. It
+// codes a 403 or 429 whose message names a secondary rate limit as
+// rate_limited, so the call is retried. Such a response can come without
+// Retry-After and with requests remaining.
+func ClassifyResponse(resp *http.Response, body []byte) (componentsdk.Code, bool) {
+	if resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusTooManyRequests {
+		return "", false
+	}
+	var answer struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(body, &answer) != nil || !secondaryRateLimit(answer.Message) {
+		return "", false
+	}
+	return componentsdk.CodeRateLimited, true
 }
 
 // newAPIError reads the message from an error response and closes its body.

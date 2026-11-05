@@ -1,7 +1,6 @@
 package collector
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -29,6 +28,14 @@ type fixtureRepo struct {
 // a server that answers with the testdata/rulesets fixtures. Endpoints the
 // fixtures don't cover return 404.
 func collectFixtureOrg(t *testing.T, level componentsdk.Level, repos ...fixtureRepo) *OrgPosture {
+	t.Helper()
+	p, _ := collectFixtureOrgRecorded(t, level, repos...)
+	return p
+}
+
+// collectFixtureOrgRecorded is collectFixtureOrg with the recorder that holds
+// the run's gaps and warnings.
+func collectFixtureOrgRecorded(t *testing.T, level componentsdk.Level, repos ...fixtureRepo) (*OrgPosture, *componentsdk.Recorder) {
 	t.Helper()
 	byName := map[string]fixtureRepo{}
 	nodes := make([]map[string]any, 0, len(repos))
@@ -81,11 +88,7 @@ func collectFixtureOrg(t *testing.T, level componentsdk.Level, repos ...fixtureR
 	t.Cleanup(server.Close)
 
 	client := github.NewClientWithGraphQL(server.Client(), server.URL, server.URL+"/graphql")
-	posture, err := NewWithClient(Config{Organization: "test-org"}, client).Collect(context.Background(), level)
-	if err != nil {
-		t.Fatalf("Collect(%s) error: %v", level, err)
-	}
-	return posture
+	return collectRecorded(t, Config{Organization: "test-org"}, client, level)
 }
 
 func serveFixture(t *testing.T, w http.ResponseWriter, name string) {
@@ -133,7 +136,7 @@ func onlyRepoRow(t *testing.T, p *OrgPosture) RepoRow {
 }
 
 func TestRulesets_RepositoryRulesetOnly(t *testing.T) {
-	p := collectFixtureOrg(t, componentsdk.LevelAudit, fixtureRepo{name: "repo-ruleset"})
+	p, rec := collectFixtureOrgRecorded(t, componentsdk.LevelAudit, fixtureRepo{name: "repo-ruleset"})
 
 	assertPct(t, "branch_protection_coverage", p.Posture.BranchProtectionCoverage, 100)
 	assertJSONEqual(t, "branch_protection_rules", p.BranchProtectionRules, `{
@@ -199,13 +202,23 @@ func TestRulesets_RepositoryRulesetOnly(t *testing.T) {
 	}]`)
 	assertJSONEqual(t, "default_branch_protected_count", p.Repositories.DefaultProtected, `1`)
 
-	if p.Diagnostics == nil || len(p.Diagnostics.PermissionErrors) != 0 {
-		t.Fatalf("diagnostics = %+v, want warnings only", p.Diagnostics)
+	if w := warningWith(rec, "branch rulesets"); w != nil {
+		t.Errorf("warning %q, want none because the gap covers the hidden bypass list", w.Message)
 	}
-	if !anyContains(p.Diagnostics.Warnings, "bypass lists for 1 of 1 rulesets are not visible to this token") {
-		t.Errorf("warnings = %v, want the hidden bypass list explained", p.Diagnostics.Warnings)
+	// Only a credential that can write the ruleset can read its bypass list.
+	// No read permission fixes that, so the gap gives the customer a choice.
+	g := gapOf(rec, "/branch_protection_rules/admin_enforcement")
+	if g == nil || g.MissingPermission != "" || g.Fix != "" || g.Choice == nil || len(g.Choice.Options) != 2 {
+		t.Fatalf("admin_enforcement gap = %+v, want a choice and no permission", g)
+	}
+	if g.Choice.Options[1].Consequence != "Admin enforcement stays Not collected where those rulesets apply." {
+		t.Errorf("choice = %+v, want the read-only option to leave admin enforcement Not collected", g.Choice)
 	}
 	assertJSONEqual(t, "vcs-posture branch_protection", p.ToVCSPosture().BranchProtection, `{
+		"pr_required_repository_count": 1,
+		"approving_reviews_repository_count": 1,
+		"status_checks_repository_count": 1,
+		"signed_commits_repository_count": 0,
 		"pr_required_pct": 100,
 		"approving_reviews_pct": 100,
 		"status_checks_pct": 100,
@@ -437,9 +450,9 @@ func TestRulesets_EvaluateModeIsNotProtection(t *testing.T) {
 	})
 }
 
-func TestRulesets_ForbiddenRulesCallIsNullWithDiagnostic(t *testing.T) {
+func TestRulesets_ForbiddenRulesCallIsNullWithAGap(t *testing.T) {
 	t.Run("no classic protection", func(t *testing.T) {
-		p := collectFixtureOrg(t, componentsdk.LevelAudit, fixtureRepo{name: "denied", rulesStatus: http.StatusForbidden})
+		p, rec := collectFixtureOrgRecorded(t, componentsdk.LevelAudit, fixtureRepo{name: "denied", rulesStatus: http.StatusForbidden})
 
 		if p.Posture.BranchProtectionCoverage != nil {
 			t.Errorf("branch_protection_coverage = %d, want null", *p.Posture.BranchProtectionCoverage)
@@ -486,13 +499,17 @@ func TestRulesets_ForbiddenRulesCallIsNullWithDiagnostic(t *testing.T) {
 		if p.Repositories.DefaultProtected != nil {
 			t.Errorf("default_branch_protected_count = %d, want null", *p.Repositories.DefaultProtected)
 		}
-		if p.Diagnostics == nil || !anyContains(p.Diagnostics.PermissionErrors, "branch rulesets: got 403 on 1/1 repos when reading default-branch rules") {
-			t.Fatalf("permission errors = %+v, want the 403 on the rules call", p.Diagnostics)
+		g := gapOf(rec, "/branch_protection_rules/pull_request_required")
+		if g == nil || g.Code != componentsdk.CodePermissionDenied {
+			t.Fatalf("pull_request_required gap = %+v, want permission_denied", g)
 		}
-		for _, msg := range p.Diagnostics.PermissionErrors {
-			if strings.Contains(msg, "denied") {
-				t.Errorf("diagnostic %q names the repository", msg)
-			}
+		// Advice appears at every level, so it must not name the repository.
+		// The repository here is called denied.
+		if strings.Contains(g.Fix+g.Warning, "denied") {
+			t.Errorf("fix %q or warning %q names the repository", g.Fix, g.Warning)
+		}
+		if w := warningWith(rec, "branch rulesets"); w != nil {
+			t.Errorf("warning %q, want none because the gaps record the refusal", w.Message)
 		}
 		assertJSONEqual(t, "vcs-posture branch_protection", p.ToVCSPosture().BranchProtection, `{}`)
 	})
