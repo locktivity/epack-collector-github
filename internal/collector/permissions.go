@@ -3,64 +3,20 @@ package collector
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/locktivity/epack-collector-github/internal/github"
 	"github.com/locktivity/epack/componentsdk"
 )
 
-// GitHub App permissions, by their keys in an installation's permissions.
-// Fine-grained tokens use the same permissions.
-const (
-	permActions                 = "actions"
-	permAdministration          = "administration"
-	permContents                = "contents"
-	permDependabotAlerts        = "vulnerability_alerts"
-	permMembers                 = "members"
-	permMetadata                = "metadata"
-	permOrgAdministration       = "organization_administration"
-	permOrgHooks                = "organization_hooks"
-	permOrgPersonalAccessTokens = "organization_personal_access_tokens"
-	permOrgSecrets              = "organization_secrets"
-	permOrgSelfHostedRunners    = "organization_self_hosted_runners"
-	permRepoHooks               = "repository_hooks"
-	permSecretScanningAlerts    = "secret_scanning_alerts"
-	permSecurityEvents          = "security_events"
-)
+// appOnlyOperations are the calls GitHub accepts only from a GitHub App.
+var appOnlyOperations = map[string]bool{
+	"github.org_personal_access_tokens.list": true,
+}
 
-// operationPermissions is the permission each call needs, at read access, as
-// GitHub lists the permissions each endpoint requires.
-var operationPermissions = map[string]string{
-	"github.repositories.list":                 permMetadata,
-	"github.installation_repositories.list":    permMetadata,
-	"github.branch_rules.list":                 permMetadata,
-	"github.rulesets.get":                      permMetadata,
-	"github.repos.get":                         permMetadata,
-	"github.code_scanning_default_setup.get":   permAdministration,
-	"github.code_scanning_analyses.list":       permSecurityEvents,
-	"github.org_settings.get":                  permOrgAdministration,
-	"github.secret_scanning_alerts.list":       permSecretScanningAlerts,
-	"github.code_scanning_alerts.list":         permSecurityEvents,
-	"github.dependabot_alerts.list":            permDependabotAlerts,
-	"github.repo_contents.get":                 permContents,
-	"github.org_hooks.list":                    permOrgHooks,
-	"github.repo_hooks.list":                   permRepoHooks,
-	"github.deploy_keys.list":                  permAdministration,
-	"github.org_runners.list":                  permOrgSelfHostedRunners,
-	"github.org_actions_secrets.list":          permOrgSecrets,
-	"github.repo_runners.list":                 permAdministration,
-	"github.environments.list":                 permActions,
-	"github.environment_branch_policies.list":  permActions,
-	"github.environment_protection_rules.list": permActions,
-	"github.audit_log.list":                    permOrgAdministration,
-	"github.org_installations.list":            permOrgAdministration,
-	"github.org_personal_access_tokens.list":   permOrgPersonalAccessTokens,
-	"github.org_members.list":                  permMembers,
-	"github.member_names.list":                 permMembers,
-	"github.org_admins.list":                   permMembers,
-	"github.outside_collaborators.list":        permMembers,
-	"github.org_members_2fa_disabled.list":     permMembers,
-	"github.org_invitations.list":              permMembers,
+// appOnly reports whether err is a call that only a GitHub App can make.
+func appOnly(err error) bool {
+	var apiErr *github.APIError
+	return errors.As(err, &apiErr) && appOnlyOperations[apiErr.Operation]
 }
 
 // withheldPermissions is the permission without which GitHub leaves each of
@@ -69,10 +25,10 @@ var withheldPermissions = []struct {
 	err        error
 	permission string
 }{
-	{errTwoFactorHidden, permOrgAdministration},
-	{errRepositoryCountHidden, permOrgAdministration},
-	{errOrgSettingsHidden, permOrgAdministration},
-	{github.ErrAnalysisHidden, permAdministration},
+	{errTwoFactorHidden, github.PermOrgAdministration},
+	{errRepositoryCountHidden, github.PermOrgAdministration},
+	{errOrgSettingsHidden, github.PermOrgAdministration},
+	{github.ErrAnalysisHidden, github.PermAdministration},
 }
 
 // neededPermission returns the permission a denial in err's chain calls for,
@@ -87,17 +43,27 @@ func neededPermission(err error) (permission string, withheld bool) {
 	}
 	var apiErr *github.APIError
 	if isDenied(err) && errors.As(err, &apiErr) {
-		return operationPermissions[apiErr.Operation], false
+		return github.OperationPermissions[apiErr.Operation], false
 	}
 	return "", false
 }
 
-// permissionOptions returns the warning for a gap that err, a denial, left,
-// and the permission to grant when the GitHub App signed in without it. A
-// token's permissions cannot be read, so its gaps name none. A call refused
-// with the permission granted gets a warning that something else refused
-// it, but a withheld value needs none: its error says what GitHub asks for.
-func permissionOptions(err error, credential *github.Credential) []componentsdk.GapOption {
+// gapAdvice returns the advice for the gap that err left. Advice appears at
+// every level, so it may contain permission and plan names but never a
+// repository or a person. If the GitHub App lacks the required permission,
+// the fix is to grant it, and the gap records the permission as missing. A
+// token's permissions cannot be read. The fix for a token lists the
+// permission it needs and does not claim the token lacks it. A call only a
+// GitHub App can make has a fix that names the App alone. If the App holds
+// the permission and the call was still refused, there is no known fix. The
+// advice is then a warning that the App holds the permission. If the App
+// holds the permission and a value is still withheld, there is no advice,
+// because the error message states what is required. The customer gets a
+// choice when a ruleset's bypass list is hidden.
+func gapAdvice(err error, credential *github.Credential) []componentsdk.AdviceOption {
+	if errors.Is(err, errBypassHidden) {
+		return []componentsdk.AdviceOption{bypassChoice}
+	}
 	permission, withheld := neededPermission(err)
 	if permission == "" || credential == nil {
 		return nil
@@ -105,29 +71,46 @@ func permissionOptions(err error, credential *github.Credential) []componentsdk.
 	need := permission + ":read"
 	switch credential.Kind {
 	case github.CredentialAppInstallation:
-		if granted := grantedScope(credential.Scopes, permission); granted != "" {
+		if granted := github.GrantedScope(credential.Scopes, permission); granted != "" {
 			if withheld {
 				return nil
 			}
-			return []componentsdk.GapOption{componentsdk.Warning(fmt.Sprintf("GitHub refused this although the GitHub App has %s.", granted))}
+			return []componentsdk.AdviceOption{componentsdk.Warning(fmt.Sprintf("GitHub refused this although the GitHub App has %s.", granted))}
 		}
-		return []componentsdk.GapOption{
-			componentsdk.Warning(fmt.Sprintf("Grant the GitHub App %s.", need)),
+		return []componentsdk.AdviceOption{
+			componentsdk.Fix(fmt.Sprintf("Grant the GitHub App %s.", need)),
 			componentsdk.MissingPermission(need),
 		}
 	case github.CredentialToken, github.CredentialInstallationToken:
-		return []componentsdk.GapOption{componentsdk.Warning(fmt.Sprintf("A GitHub App or fine-grained token needs %s for this.", need))}
+		if appOnly(err) {
+			return []componentsdk.AdviceOption{componentsdk.Fix(fmt.Sprintf("Use a GitHub App that has %s.", need))}
+		}
+		return []componentsdk.AdviceOption{componentsdk.Fix(fmt.Sprintf("Use a GitHub App or fine-grained token that has %s.", need))}
 	}
 	return nil
 }
 
-// grantedScope returns the installation scope that grants permission at any
-// access level, as name:level, or "".
-func grantedScope(scopes []string, permission string) string {
-	for _, s := range scopes {
-		if name, _, _ := strings.Cut(s, ":"); name == permission {
-			return s
-		}
-	}
-	return ""
-}
+// bypassChoice is the customer's choice when a ruleset's bypass list is
+// hidden. Only a credential with write access to a ruleset can read its
+// bypass list.
+var bypassChoice = componentsdk.Decide("Reading a ruleset's bypass list requires write access to the ruleset.",
+	componentsdk.ChoiceOption{
+		Label:       "Give the collector write access to rulesets",
+		Consequence: "The collector's credential can then change rulesets. The next run reads their bypass lists.",
+	},
+	componentsdk.ChoiceOption{
+		Label:       "Keep the collector read-only",
+		Consequence: "Admin enforcement stays Not collected where those rulesets apply.",
+	})
+
+// auditLogChoice is the customer's choice when the organization's plan does
+// not include the audit log API. The API requires GitHub Enterprise Cloud.
+var auditLogChoice = componentsdk.Decide("Reading the audit log through GitHub's API requires GitHub Enterprise Cloud.",
+	componentsdk.ChoiceOption{
+		Label:       "Move the organization to GitHub Enterprise Cloud",
+		Consequence: "Enterprise Cloud is billed per user. The next run reads the audit log.",
+	},
+	componentsdk.ChoiceOption{
+		Label:       "Stay on the current plan",
+		Consequence: "The audit log stays Not collected.",
+	})

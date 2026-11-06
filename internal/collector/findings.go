@@ -108,8 +108,7 @@ func (c *Collector) collectFindings(p *collectionPass, listings []repoAlerts) {
 		c.gaps.partial(unread[list], reasons[list], "/security_features/findings/"+list)
 	}
 
-	permissionDenied, featureOff := alertListProblems(listings)
-	recordAlertDiagnostic(p, "security_features.findings", permissionDenied, featureOff)
+	noteAlertsOff(p, "security_features.findings", listings)
 
 	p.posture.SecurityFeatures.Findings = findings
 }

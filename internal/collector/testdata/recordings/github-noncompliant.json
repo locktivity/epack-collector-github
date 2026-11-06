@@ -4363,7 +4363,7 @@
     {
       "operation": "github.audit_log.list",
       "method": "GET",
-      "url": "https://api.github.com/orgs/test-org/audit-log?per_page=100&phrase=created%3A%3E%3D2026-10-25",
+      "url": "https://api.github.com/orgs/test-org/audit-log?per_page=100&phrase=created%3A%3E%3D2026-10-25T06%3A19%3A14%2B00%3A00",
       "status": 404,
       "header": {
         "Content-Type": [

@@ -420,6 +420,9 @@ func TestFetchOrgSecurity_Success(t *testing.T) {
 	if security.TwoFactorRequired == nil || *security.TwoFactorRequired != true {
 		t.Errorf("TwoFactorRequired = %v, want true", security.TwoFactorRequired)
 	}
+	if security.Login != "test-org" {
+		t.Errorf("Login = %q, want test-org", security.Login)
+	}
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

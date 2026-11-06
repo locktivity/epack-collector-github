@@ -203,18 +203,19 @@ func TestCollect_UnreadableRulesetKeepsItsRules(t *testing.T) {
 		branchRules:  map[string][]github.BranchRule{"test-org/a": {orgRule("non_fast_forward", 2001)}},
 		rulesetErr:   errors.New("ruleset request failed"),
 	}
-	posture, err := NewWithClient(Config{Organization: "test-org"}, mock).Collect(context.Background(), componentsdk.LevelTrust)
-	if err != nil {
-		t.Fatalf("Collect() error: %v", err)
-	}
+	posture, rec := collectRecorded(t, Config{Organization: "test-org"}, mock, componentsdk.LevelTrust)
 
 	assertPct(t, "branch_protection_coverage", posture.Posture.BranchProtectionCoverage, 100)
 	assertPct(t, "force_pushes_blocked", posture.BranchProtectionRules.ForcePushesBlocked, 100)
 	if posture.BranchProtectionRules.AdminEnforcement != nil {
 		t.Errorf("admin_enforcement = %d, want null", *posture.BranchProtectionRules.AdminEnforcement)
 	}
-	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "could not read 1 of 1 rulesets") {
-		t.Errorf("diagnostics = %+v, want the unreadable ruleset reported", posture.Diagnostics)
+	// The gap records why admin enforcement is unknown, so there is no warning.
+	if g := gapOf(rec, "/branch_protection_rules/admin_enforcement"); g == nil || g.Detail != "ruleset request failed" {
+		t.Errorf("admin_enforcement gap = %+v, want the unreadable ruleset as its reason", g)
+	}
+	if len(rec.Warnings()) != 0 {
+		t.Errorf("warnings = %+v, want none", rec.Warnings())
 	}
 }
 
@@ -224,20 +225,18 @@ func TestCollect_FailedRulesReadIsNullWithWarning(t *testing.T) {
 		repositories:   []github.Repository{protectedRepo("a", nil)},
 		branchRulesErr: map[string]error{"test-org/a": errors.New("rules request returned status 502")},
 	}
-	posture, err := NewWithClient(Config{Organization: "test-org"}, mock).Collect(context.Background(), componentsdk.LevelTrust)
-	if err != nil {
-		t.Fatalf("Collect() error: %v", err)
-	}
+	posture, rec := collectRecorded(t, Config{Organization: "test-org"}, mock, componentsdk.LevelTrust)
 
 	if posture.Posture.BranchProtectionCoverage != nil || posture.BranchProtectionRules.StatusChecks != nil {
 		t.Errorf("coverage = %v, status_checks = %v, want null for both",
 			posture.Posture.BranchProtectionCoverage, posture.BranchProtectionRules.StatusChecks)
 	}
-	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "reading default-branch rules failed on 1/1 repos") {
-		t.Errorf("diagnostics = %+v, want the failed read reported", posture.Diagnostics)
+	g := gapOf(rec, "/posture/branch_protection_coverage")
+	if g == nil || g.Detail != "rules request returned status 502" || g.MissingPermission != "" || g.Fix != "" {
+		t.Errorf("gap = %+v, want the failed read as its reason, with no permission and no fix", g)
 	}
-	if len(posture.Diagnostics.PermissionErrors) != 0 {
-		t.Errorf("permission errors = %v, want none for a non-403 failure", posture.Diagnostics.PermissionErrors)
+	if len(rec.Warnings()) != 0 {
+		t.Errorf("warnings = %+v, want none because the gap records the failed read", rec.Warnings())
 	}
 }
 
@@ -250,16 +249,13 @@ func TestCollect_RepositoryRoleBypassIsExplained(t *testing.T) {
 			github.BypassActor{ActorType: "RepositoryRole", ActorID: ptr(int64(5)), BypassMode: "always"},
 		)},
 	}
-	posture, err := NewWithClient(Config{Organization: "test-org"}, mock).Collect(context.Background(), componentsdk.LevelTrust)
-	if err != nil {
-		t.Fatalf("Collect() error: %v", err)
-	}
+	posture, rec := collectRecorded(t, Config{Organization: "test-org"}, mock, componentsdk.LevelTrust)
 
 	if posture.BranchProtectionRules.AdminEnforcement != nil {
 		t.Errorf("admin_enforcement = %d, want null", *posture.BranchProtectionRules.AdminEnforcement)
 	}
-	if posture.Diagnostics == nil || !anyContains(posture.Diagnostics.Warnings, "a repository role or an unrecognized actor type may bypass 1 of 1 rulesets") {
-		t.Errorf("diagnostics = %+v, want the repository-role bypass explained", posture.Diagnostics)
+	if w := warningWith(rec, "a repository role or an unrecognized actor type may bypass 1 of 1 rulesets"); w == nil || !w.NoAction {
+		t.Errorf("warnings = %+v, want a warning about the repository-role bypass that needs no action", rec.Warnings())
 	}
 }
 
@@ -303,26 +299,43 @@ func TestCollect_NoRepositoriesLeavesBranchMetricsNull(t *testing.T) {
 // unreadable repository list leaves the counts unknown.
 func TestCollect_CountsAreZeroForNoRepositoriesAndNullForAnUnreadList(t *testing.T) {
 	for name, tc := range map[string]struct {
-		mock *mockGitHubClient
-		want *int
+		mock    *mockGitHubClient
+		want    *int
+		present *bool
 	}{
-		"empty organization":          {mock: &mockGitHubClient{orgSecurity: &github.OrgSecurity{}}, want: ptr(0)},
+		"empty organization":          {mock: &mockGitHubClient{orgSecurity: &github.OrgSecurity{}}, want: ptr(0), present: ptr(false)},
 		"repository list unavailable": {mock: &mockGitHubClient{orgSecurity: &github.OrgSecurity{}, repositoriesErr: errors.New("network timeout")}},
 	} {
-		posture, err := NewWithClient(Config{Organization: "test-org"}, tc.mock).Collect(context.Background(), componentsdk.LevelTrust)
-		if err != nil {
-			t.Fatalf("%s: Collect() error: %v", name, err)
-		}
-		for field, got := range map[string]*int{
-			"protected_repository_count":                                  posture.Posture.ProtectedRepositoryCount,
-			"branch_protection_rules/repository_counts/admin_enforcement": posture.BranchProtectionRules.RepositoryCounts.AdminEnforcement,
-			"security_features/repository_counts/code_scanning":           posture.SecurityFeatures.RepositoryCounts.CodeScanning,
-		} {
-			switch {
-			case tc.want == nil && got != nil:
-				t.Errorf("%s: %s = %d, want null", name, field, *got)
-			case tc.want != nil && (got == nil || *got != *tc.want):
-				t.Errorf("%s: %s = %v, want %d", name, field, got, *tc.want)
+		for _, level := range []componentsdk.Level{componentsdk.LevelTrust, componentsdk.LevelAudit} {
+			posture, err := NewWithClient(Config{Organization: "test-org"}, tc.mock).Collect(context.Background(), level)
+			if err != nil {
+				t.Fatalf("%s at %s: Collect() error: %v", name, level, err)
+			}
+			if got := posture.Scope.RepositoriesPresent; (got == nil) != (tc.present == nil) || got != nil && *got != *tc.present {
+				t.Errorf("%s at %s: repositories_present = %v, want %v", name, level, got, tc.present)
+			}
+			var admin, codeScanning *int
+			if c := posture.BranchProtectionRules.RepositoryCounts; c != nil {
+				admin = c.AdminEnforcement
+			}
+			if c := posture.SecurityFeatures.RepositoryCounts; c != nil {
+				codeScanning = c.CodeScanning
+			}
+			want := tc.want
+			if level == componentsdk.LevelTrust {
+				want = nil // the counts start at the audit level
+			}
+			for field, got := range map[string]*int{
+				"protected_repository_count":                                  posture.Posture.ProtectedRepositoryCount,
+				"branch_protection_rules/repository_counts/admin_enforcement": admin,
+				"security_features/repository_counts/code_scanning":           codeScanning,
+			} {
+				switch {
+				case want == nil && got != nil:
+					t.Errorf("%s at %s: %s = %d, want none", name, level, field, *got)
+				case want != nil && (got == nil || *got != *want):
+					t.Errorf("%s at %s: %s = %v, want %d", name, level, field, got, *want)
+				}
 			}
 		}
 	}

@@ -97,6 +97,12 @@ func kitOrgURL(rest string) string {
 	return fmt.Sprintf("%s/orgs/%s%s", kitAPI, kitOrg, rest)
 }
 
+// kitAuditLogURL is the audit log read for the 7 days before kitClock, to the
+// second.
+func kitAuditLogURL() string {
+	return kitOrgURL("/audit-log?phrase=created%3A%3E%3D2026-10-10T12%3A00%3A00%2B00%3A00&per_page=100")
+}
+
 // kitTokenResponse answers the GitHub App's installation token exchange for
 // an installation on all repositories.
 func kitTokenResponse() collectortest.Response {
@@ -216,7 +222,7 @@ func kitRepoNode(name, visibility string, archived, vulnAlerts bool, classic map
 		"description":                   "Fixture repository " + name,
 		"primaryLanguage":               map[string]any{"name": "Go"},
 		"licenseInfo":                   map[string]any{"spdxId": "Apache-2.0"},
-		"repositoryTopics":              map[string]any{"nodes": []any{map[string]any{"topic": map[string]any{"name": "security"}}}},
+		"repositoryTopics":              map[string]any{"nodes": []any{map[string]any{"topic": map[string]any{"name": "infrastructure"}}}},
 	}
 }
 
@@ -320,6 +326,12 @@ func kitAlertListURL(repo, kind string) string {
 	return kitRepoURL(repo, "/"+kind+"/alerts"+query)
 }
 
+// kitGenericSecretsURL is the read of a repository's open secret scanning
+// alerts of the generic types, which are listed only when a request names them.
+func kitGenericSecretsURL(repo string) string {
+	return kitAlertListURL(repo, "secret-scanning") + "&secret_type=ec_private_key%2Cgeneric_private_key%2Chttp_basic_authentication_header%2Chttp_bearer_authentication_header%2Cmongodb_connection_string%2Cmysql_connection_url%2Copenssh_private_key%2Cpgp_private_key%2Cpostgres_connection_string%2Crsa_private_key%2Cpassword"
+}
+
 // kitDependabotNextPage is the second page of repo-ruleset's Dependabot
 // alerts, served under the repository's numeric ID.
 const kitDependabotNextPage = kitAPI + "/repositories/1/dependabot/alerts?state=open&per_page=100&after=Y3Vyc29yOjg"
@@ -361,9 +373,10 @@ func kitAuditResponses() []collectortest.Response {
 		{URL: kitAlertListURL("repo-ruleset", "secret-scanning"), Body: kitJSON([]any{map[string]any{
 			"number": 3, "secret_type": "aws_access_key_id", "state": "open", "created_at": "2026-05-01T00:00:00Z",
 		}})},
+		{URL: kitGenericSecretsURL("repo-ruleset"), Body: `[]`},
 		{URL: kitAlertListURL("repo-ruleset", "code-scanning"), Body: kitJSON([]any{map[string]any{
 			"number": 4, "state": "open", "created_at": "2026-05-02T00:00:00Z",
-			"rule":                 map[string]any{"id": "go/sql-injection", "severity": "error"},
+			"rule":                 map[string]any{"id": "go/sql-injection", "severity": "error", "security_severity_level": "critical"},
 			"most_recent_instance": map[string]any{"location": map[string]any{"path": "internal/db/query.go"}},
 		}})},
 		// Dependabot pages by cursor, so its Link header has no last page.
@@ -380,6 +393,7 @@ func kitAuditResponses() []collectortest.Response {
 			"security_vulnerability": map[string]any{"severity": "medium", "package": map[string]any{"ecosystem": "npm", "name": "lodash"}},
 		}})},
 		{URL: kitAlertListURL("org-ruleset", "secret-scanning"), Body: `[]`},
+		{URL: kitGenericSecretsURL("org-ruleset"), Body: `[]`},
 		{URL: kitAlertListURL("org-ruleset", "code-scanning"), Body: kitJSON([]any{map[string]any{
 			"number": 1, "state": "open", "created_at": "2026-04-02T00:00:00Z",
 			"rule": map[string]any{"id": "js/xss", "severity": "warning"},
@@ -393,6 +407,7 @@ func kitAuditResponses() []collectortest.Response {
 			"security_vulnerability": map[string]any{"severity": "high", "package": map[string]any{"ecosystem": "go", "name": "golang.org/x/net"}},
 		}})},
 		{URL: kitAlertListURL("classic-and-org", "secret-scanning"), Body: `[]`},
+		{URL: kitGenericSecretsURL("classic-and-org"), Body: `[]`},
 		{URL: kitAlertListURL("classic-and-org", "code-scanning"), Body: `[]`},
 		{URL: kitAlertListURL("classic-and-org", "dependabot"), Body: `[]`},
 
@@ -420,10 +435,11 @@ func kitAuditResponses() []collectortest.Response {
 
 		{URL: kitRepoURL("repo-ruleset", "/keys?per_page=100"), Body: kitJSON([]any{map[string]any{
 			"id": 3, "title": "deploy", "read_only": false, "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixtureKeyOne", "created_at": "2026-01-05T00:00:00Z",
+			"last_used": "2026-10-01T00:00:00Z",
 		}})},
 		{URL: kitRepoURL("org-ruleset", "/keys?per_page=100"), Body: `[]`},
 		{URL: kitRepoURL("classic-only", "/keys?per_page=100"), Body: kitJSON([]any{map[string]any{
-			"id": 4, "title": "read-only mirror", "read_only": true, "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixtureKeyTwo",
+			"id": 4, "title": "read-only mirror", "read_only": true, "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFixtureKeyTwo", "created_at": "2026-09-01T00:00:00Z",
 		}})},
 		{URL: kitRepoURL("classic-and-org", "/keys?per_page=100"), Body: `[]`},
 
@@ -450,9 +466,9 @@ func kitAuditResponses() []collectortest.Response {
 		{URL: kitRepoURL("repo-ruleset", "/environments/production/deployment_protection_rules?per_page=100"), Body: `{"total_count":1,"custom_deployment_protection_rules":[{"id":1,"enabled":true,"app":{"id":100,"slug":"deploy-gate"}}]}`},
 		{URL: kitRepoURL("repo-ruleset", "/environments/staging/deployment_protection_rules?per_page=100"), Body: `{"total_count":0,"custom_deployment_protection_rules":[]}`},
 
-		{URL: kitOrgURL("/audit-log?phrase=created%3A%3E%3D2026-10-10&per_page=100"), Body: kitJSON([]any{
+		{URL: kitAuditLogURL(), Body: kitJSON([]any{
 			map[string]any{"action": "repo.create", "actor": "alice", "repo": "test-org/repo-ruleset", "created_at": 1760000000000},
-			map[string]any{"action": "member_add", "actor": "bob", "created_at": 1760000100000},
+			map[string]any{"action": "org.add_member", "actor": "bob", "created_at": 1760000100000},
 			map[string]any{"action": "issues.opened", "actor": "bob", "created_at": 1760000200000},
 		})},
 		{URL: kitOrgURL("/installations?per_page=100"), Header: kitNextPage("/organizations/1/installations"), Body: kitJSON(map[string]any{"total_count": 2, "installations": []any{map[string]any{
@@ -473,6 +489,7 @@ func kitAuditResponses() []collectortest.Response {
 		{URL: kitOrgURL("/members?role=admin&per_page=100"), Body: `[{"login":"alice"}]`},
 		{URL: kitOrgURL("/outside_collaborators?per_page=100"), Body: `[{"login":"carol"}]`},
 		{URL: kitOrgURL("/members?filter=2fa_disabled&per_page=100"), Body: `[{"login":"bob"}]`},
+		{URL: kitCollaboratorsTwoFactorURL, Body: `[]`},
 		{URL: kitOrgURL("/invitations?per_page=100"), Body: `[{"id":1,"login":"dana"}]`},
 		{URL: kitAPI + "/users/carol", Body: `{"login":"carol","name":"Carol Chen"}`},
 		{Operation: "github.member_names.list", Method: http.MethodPost, URL: kitGraphQL, Body: kitJSON(map[string]any{"data": map[string]any{"organization": map[string]any{
@@ -482,7 +499,7 @@ func kitAuditResponses() []collectortest.Response {
 			},
 		}}})},
 	}
-	return responses
+	return append(responses, kitSAMLPages()...)
 }
 
 // codeownersMaxBytesForKit sits at the hashing limit, so the sensitivity
@@ -507,6 +524,45 @@ func replaceResponse(responses []collectortest.Response, replacement collectorte
 	panic("no response to replace for " + replacement.URL)
 }
 
+// kitCollaboratorsTwoFactorURL lists the outside collaborators without
+// two-factor authentication.
+var kitCollaboratorsTwoFactorURL = kitOrgURL("/outside_collaborators?filter=2fa_disabled&per_page=100")
+
+// kitSAMLPages answer the read of the organization's SAML identities in two
+// pages. Both members have a linked SAML identity, and alice's came from
+// SCIM.
+func kitSAMLPages() []collectortest.Response {
+	page := func(node map[string]any, next string) string {
+		return kitJSON(map[string]any{"data": map[string]any{"organization": map[string]any{
+			"samlIdentityProvider": map[string]any{"externalIdentities": map[string]any{
+				"nodes":    []any{node},
+				"pageInfo": map[string]any{"hasNextPage": next != "", "endCursor": next},
+			}},
+		}}})
+	}
+	return []collectortest.Response{
+		{Operation: "github.saml_identities.list", Method: http.MethodPost, URL: kitGraphQL, Times: 1, Body: page(map[string]any{
+			"samlIdentity": map[string]any{"nameId": "alice@idp.example.com"},
+			"scimIdentity": map[string]any{"groups": []any{"engineering"}},
+			"user":         map[string]any{"login": "alice"},
+		}, "identities-2")},
+		{Operation: "github.saml_identities.list", Method: http.MethodPost, URL: kitGraphQL, Body: page(map[string]any{
+			"samlIdentity": map[string]any{"nameId": "bob@idp.example.com"},
+			"scimIdentity": nil,
+			"user":         map[string]any{"login": "bob"},
+		}, "")},
+	}
+}
+
+// kitNoSAMLResponse answers the SAML read for an organization with no SAML
+// identity provider, as on any plan below GitHub Enterprise Cloud.
+func kitNoSAMLResponse() collectortest.Response {
+	return collectortest.Response{
+		Operation: "github.saml_identities.list", Method: http.MethodPost, URL: kitGraphQL,
+		Body: kitJSON(map[string]any{"data": map[string]any{"organization": map[string]any{"samlIdentityProvider": nil}}}),
+	}
+}
+
 // kitEmptyTenantResponses answer a run against an organization with no
 // repositories, members, or other resources.
 func kitEmptyTenantResponses() []collectortest.Response {
@@ -517,7 +573,7 @@ func kitEmptyTenantResponses() []collectortest.Response {
 		{URL: kitOrgURL("/hooks?per_page=100"), Body: `[]`},
 		{URL: kitOrgURL("/actions/runners?per_page=100"), Body: `{"total_count":0,"runners":[]}`},
 		{URL: kitOrgURL("/actions/secrets?per_page=100"), Body: `{"total_count":0,"secrets":[]}`},
-		{URL: kitOrgURL("/audit-log?phrase=created%3A%3E%3D2026-10-10&per_page=100"), Body: `[]`},
+		{URL: kitAuditLogURL(), Body: `[]`},
 		{URL: kitOrgURL("/installations?per_page=100"), Body: `{"total_count":0,"installations":[]}`},
 		{URL: kitOrgURL("/personal-access-tokens?per_page=100"), Body: `[]`},
 		{URL: kitOrgURL("/members?per_page=100"), Body: `[]`},
@@ -528,7 +584,55 @@ func kitEmptyTenantResponses() []collectortest.Response {
 		{Operation: "github.member_names.list", Method: http.MethodPost, URL: kitGraphQL, Body: kitJSON(map[string]any{"data": map[string]any{"organization": map[string]any{
 			"membersWithRole": map[string]any{"nodes": []any{}, "pageInfo": map[string]any{"hasNextPage": false, "endCursor": nil}},
 		}}})},
+		kitNoSAMLResponse(),
 	}
+}
+
+// kitWithSAML replaces the clean run's SAML read with answer.
+func kitWithSAML(responses []collectortest.Response, answer collectortest.Response) []collectortest.Response {
+	var out []collectortest.Response
+	for _, r := range responses {
+		if r.Operation != "github.saml_identities.list" {
+			out = append(out, r)
+		}
+	}
+	return append(out, answer)
+}
+
+// kitIntegrationDenied is GitHub's answer to a GitHub App that lacks a
+// permission.
+const kitIntegrationDenied = `{"message":"Resource not accessible by integration","documentation_url":"https://docs.github.com/rest"}`
+
+// kitNoMembersPermissionResponses answer the clean run as GitHub does for a
+// GitHub App without the members permission.
+func kitNoMembersPermissionResponses() []collectortest.Response {
+	responses := replaceResponse(kitResponses(), collectortest.Response{URL: kitOrgURL("/members?per_page=100"), Status: http.StatusForbidden, Body: kitIntegrationDenied})
+	return kitWithSAML(responses, collectortest.Response{
+		Operation: "github.saml_identities.list", Method: http.MethodPost, URL: kitGraphQL,
+		Body: kitJSON(map[string]any{
+			"data":   map[string]any{"organization": map[string]any{"samlIdentityProvider": nil}},
+			"errors": []any{map[string]any{"type": "FORBIDDEN", "message": "Resource not accessible by integration"}},
+		}),
+	})
+}
+
+// kitNoRequirementsResponses answer the clean run for an organization with no
+// SAML identity provider that does not require two-factor authentication.
+// The outside collaborator carol has none.
+func kitNoRequirementsResponses() []collectortest.Response {
+	responses := replaceResponse(kitResponses(), kitOrgResponse(false))
+	responses = replaceResponse(responses, collectortest.Response{URL: kitCollaboratorsTwoFactorURL, Body: `[{"login":"carol"}]`})
+	return kitWithSAML(responses, kitNoSAMLResponse())
+}
+
+// kitAlertsRefusedResponses answer the clean run with repo-ruleset's code
+// scanning and Dependabot alerts refused.
+func kitAlertsRefusedResponses() []collectortest.Response {
+	responses := kitResponses()
+	for _, kind := range []string{"code-scanning", "dependabot"} {
+		responses = replaceResponse(responses, collectortest.Response{URL: kitAlertListURL("repo-ruleset", kind), Status: http.StatusForbidden, Body: kitIntegrationDenied})
+	}
+	return responses
 }
 
 // kitReadOnlyResponses answer the clean run as GitHub does for a token

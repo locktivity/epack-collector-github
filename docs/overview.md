@@ -14,6 +14,14 @@ This collector queries your GitHub organization and aggregates security posture 
 
 All metrics are expressed as coverage percentages (0-100) rather than raw counts, making it easy to track and compare security posture over time. The scope is included in the output, with the repository counts the percentages are taken over, so receivers can understand exactly what was covered.
 
+The collector also writes three files in epack's normalized formats:
+
+- **`artifacts/github.vcs-posture.json`** (`evidencepack/vcs-posture@v1`): branch protection coverage and the share of repositories the scan covered
+- **`artifacts/github.access-posture.json`** (`evidencepack/access-posture@v1`): the two-factor requirement, SAML single sign-on, members, outside collaborators, owners and their two-factor authentication, fine-grained personal access tokens, deploy keys, and installed GitHub Apps
+- **`artifacts/github.vuln-scanning.json`** (`evidencepack/vuln-scanning@v1`): Dependabot, code scanning, and secret scanning coverage, with the open Dependabot and code scanning alerts by severity and the overdue ones
+
+A value GitHub has no data for, such as when a member last signed in, is left out with an `unsupported` gap. A value GitHub reports that the collector does not read, such as whether the organization requires SAML single sign-on, is left out with a `not_read` gap. You can leave any of these files out with the `collect` config key. The calls that feed only that file are then skipped.
+
 ## Use Cases
 
 - **Third-party risk assessments**: Provide evidence of your GitHub security posture to customers and auditors
@@ -27,8 +35,10 @@ All metrics are expressed as coverage percentages (0-100) rather than raw counts
    - a `GITHUB_TOKEN` supplied by the runtime
 2. It queries the GitHub GraphQL API to fetch repository metadata and classic branch protection rules
 3. It queries the GitHub REST API to fetch the rulesets that apply to each default branch and security settings (secret scanning, push protection, Dependabot)
-4. Metrics are aggregated into coverage percentages
-5. The output is wrapped in the epack collector protocol envelope and written to stdout, with a collector result artifact that records each value the collector could not read and why
+4. For the access file, it reads the organization's members, owners, outside collaborators, and the members and outside collaborators without two-factor authentication. It also reads the fine-grained token grants, deploy keys, and installed Apps, and the SAML identities from the GraphQL API
+5. For the vulnerability file, it lists each in-scope repository's open code scanning and Dependabot alerts
+6. Metrics are aggregated into coverage percentages
+7. The output is wrapped in the epack collector protocol envelope and written to stdout, with a collector result artifact that records each value the collector could not read and why
 
 ## Authentication
 

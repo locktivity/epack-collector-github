@@ -6,7 +6,7 @@ toolchain go1.26.10
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0
-	github.com/locktivity/epack v0.9.4
+	github.com/locktivity/epack v0.10.2
 	golang.org/x/oauth2 v0.36.0
 )
 

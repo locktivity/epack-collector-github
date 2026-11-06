@@ -2,10 +2,12 @@ package collector
 
 import (
 	"cmp"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/locktivity/epack-collector-github/internal/github"
+	"github.com/locktivity/epack/componentsdk"
 )
 
 // Per-surface truncation caps bounding output size and pagination.
@@ -157,13 +159,11 @@ func (c *Collector) collectCodeowners(p *collectionPass) {
 	}
 	wantHash := p.internal()
 	rows := make([]CodeownersRow, 0, len(p.metrics.repos.included))
-	permissionDenied := false
 
 	for i, r := range p.metrics.repos.included {
 		row := CodeownersRow{Repository: r.Owner.Login + "/" + r.Name}
 		present, path, hash, err := c.client.GetCodeownersInfo(p.ctx, r.Owner.Login, r.Name, wantHash)
 		if err != nil {
-			permissionDenied = permissionDenied || isDenied(err)
 			c.gaps.leaveOut(err, rowPointer("/codeowners/per_repo", i, "present"), rowPointer("/codeowners/per_repo", i, "path"))
 			if wantHash {
 				c.gaps.leaveOut(err, rowPointer("/codeowners/per_repo", i, "hash"))
@@ -175,9 +175,6 @@ func (c *Collector) collectCodeowners(p *collectionPass) {
 		}
 		rows = append(rows, row)
 	}
-	if permissionDenied {
-		p.metrics.diag.surfacePermissionDenied("codeowners", "contents:read")
-	}
 	p.posture.Codeowners = &Codeowners{PerRepo: rows}
 }
 
@@ -186,7 +183,6 @@ func (c *Collector) collectCodeowners(p *collectionPass) {
 func (c *Collector) collectWebhooks(p *collectionPass) {
 	w := &Webhooks{}
 	countByEvent := map[string]int{}
-	permissionDenied := false
 	// truncated reports a list that reached github.HookFetchCap, so it may
 	// hold more webhooks than it read. Its count and the breakdown are left
 	// null or out, as the schema explains.
@@ -194,7 +190,6 @@ func (c *Collector) collectWebhooks(p *collectionPass) {
 
 	orgHooks, orgMore, orgErr := c.client.ListOrgHooks(p.ctx, p.org)
 	if orgErr != nil {
-		permissionDenied = isDenied(orgErr)
 		c.gaps.leaveOut(orgErr, "/webhooks/org_count", "/webhooks/count_by_event")
 		if p.internal() {
 			c.gaps.leaveOut(orgErr, "/webhooks/org")
@@ -222,7 +217,6 @@ func (c *Collector) collectWebhooks(p *collectionPass) {
 		for _, r := range p.metrics.repos.included {
 			hooks, more, herr := c.client.ListRepoHooks(p.ctx, r.Owner.Login, r.Name)
 			if herr != nil {
-				permissionDenied = permissionDenied || isDenied(herr)
 				failed.add(herr)
 				continue
 			}
@@ -254,9 +248,6 @@ func (c *Collector) collectWebhooks(p *collectionPass) {
 	if p.internal() {
 		w.Truncated = truncated
 	}
-	if permissionDenied {
-		p.metrics.diag.surfacePermissionDenied("webhooks", "organization_hooks:read, repository_hooks:read")
-	}
 	p.posture.Webhooks = w
 }
 
@@ -286,39 +277,29 @@ func (c *Collector) collectDeployKeys(p *collectionPass) {
 		return
 	}
 	dk := &DeployKeys{}
-	permissionDenied := false
-	failed := perRepoFailures{}
+	list := c.readDeployKeys(p.ctx, p.metrics)
+	failed := list.failed
 	total, readWrite := 0, 0
 	// truncated reports a list that reached github.DeployKeyFetchCap, so it
 	// may hold more keys than it read. The counts are then left null, as the
 	// schema explains.
-	truncated := false
+	truncated := list.truncated
 
-	for _, r := range p.metrics.repos.included {
-		keys, more, err := c.client.ListRepoDeployKeys(p.ctx, r.Owner.Login, r.Name)
-		if err != nil {
-			permissionDenied = permissionDenied || isDenied(err)
-			failed.add(err)
-			continue
+	for _, k := range list.keys {
+		total++
+		if !k.ReadOnly {
+			readWrite++
 		}
-		truncated = truncated || more
-		repoKey := r.Owner.Login + "/" + r.Name
-		for _, k := range keys {
-			total++
-			if !k.ReadOnly {
-				readWrite++
-			}
-			if p.internal() {
-				dk.PerKey = append(dk.PerKey, DeployKeyRow{
-					Repository:  repoKey,
-					ID:          k.ID,
-					Title:       k.Title,
-					ReadOnly:    k.ReadOnly,
-					CreatedAt:   k.CreatedAt,
-					LastUsed:    k.LastUsed,
-					Fingerprint: k.Fingerprint,
-				})
-			}
+		if p.internal() {
+			dk.PerKey = append(dk.PerKey, DeployKeyRow{
+				Repository:  k.Repository,
+				ID:          k.ID,
+				Title:       k.Title,
+				ReadOnly:    k.ReadOnly,
+				CreatedAt:   k.CreatedAt,
+				LastUsed:    k.LastUsed,
+				Fingerprint: k.Fingerprint,
+			})
 		}
 	}
 	switch {
@@ -335,9 +316,6 @@ func (c *Collector) collectDeployKeys(p *collectionPass) {
 		dk.TotalCount = ptr(total)
 		dk.ReadWriteCount = ptr(readWrite)
 	}
-	if permissionDenied {
-		p.metrics.diag.surfacePermissionDenied("deploy_keys", "administration:read")
-	}
 	p.posture.DeployKeys = dk
 }
 
@@ -345,7 +323,6 @@ func (c *Collector) collectDeployKeys(p *collectionPass) {
 // emits counts; internal adds per-runner rows + secret names.
 func (c *Collector) collectActions(p *collectionPass) {
 	a := &Actions{}
-	permissionDenied := false
 	// truncated reports a list read short of the count GitHub gives for it.
 	// unknown is the first list failure, which leaves truncated undecided
 	// unless another list was cut short.
@@ -353,7 +330,6 @@ func (c *Collector) collectActions(p *collectionPass) {
 	var unknown error
 
 	if orgRunners, total, err := c.client.ListOrgRunners(p.ctx, p.org); err != nil {
-		permissionDenied = permissionDenied || isDenied(err)
 		unknown = err
 		c.gaps.leaveOut(err, "/actions/org_runner_count")
 		if p.internal() {
@@ -370,7 +346,6 @@ func (c *Collector) collectActions(p *collectionPass) {
 	}
 
 	if names, total, err := c.client.ListOrgActionsSecretNames(p.ctx, p.org); err != nil {
-		permissionDenied = permissionDenied || isDenied(err)
 		unknown = cmp.Or(unknown, err)
 		c.gaps.leaveOut(err, "/actions/org_secret_count")
 		if p.internal() {
@@ -396,7 +371,6 @@ func (c *Collector) collectActions(p *collectionPass) {
 		for _, r := range p.metrics.repos.included {
 			runners, total, err := c.client.ListRepoRunners(p.ctx, r.Owner.Login, r.Name)
 			if err != nil {
-				permissionDenied = permissionDenied || isDenied(err)
 				failed.add(err)
 				continue
 			}
@@ -426,10 +400,6 @@ func (c *Collector) collectActions(p *collectionPass) {
 			c.gaps.leaveOut(unknown, "/actions/truncated")
 		}
 	}
-	if permissionDenied {
-		p.metrics.diag.surfacePermissionDenied("actions",
-			"actions:read, organization_self_hosted_runners:read, organization_secrets:read")
-	}
 	p.posture.Actions = a
 }
 
@@ -454,7 +424,6 @@ func (c *Collector) collectEnvironments(p *collectionPass) {
 		return
 	}
 	e := &Environments{}
-	permissionDenied := false
 	var rows []EnvironmentRow
 	fetchDropped := 0
 	failed := perRepoFailures{}
@@ -463,7 +432,6 @@ func (c *Collector) collectEnvironments(p *collectionPass) {
 	for _, r := range p.metrics.repos.included {
 		envs, repoTotal, err := c.client.ListRepoEnvironments(p.ctx, r.Owner.Login, r.Name)
 		if err != nil {
-			permissionDenied = permissionDenied || isDenied(err)
 			failed.add(err)
 			continue
 		}
@@ -483,9 +451,6 @@ func (c *Collector) collectEnvironments(p *collectionPass) {
 	if failed.count > 0 {
 		c.gaps.partial(failed.count, failed.err,
 			"/environments/total_count", "/environments/with_required_reviewers_count", "/environments/per_environment")
-		if permissionDenied {
-			p.metrics.diag.surfacePermissionDenied("environments", "actions:read")
-		}
 		p.posture.Environments = e
 		return
 	}
@@ -510,7 +475,6 @@ func (c *Collector) collectEnvironments(p *collectionPass) {
 		if kept[i].BranchPolicy == github.BranchPolicyCustom {
 			patterns, err := c.client.ListEnvironmentBranchPolicies(p.ctx, owner, repo, kept[i].Name)
 			if err != nil {
-				permissionDenied = permissionDenied || isDenied(err)
 				c.gaps.leaveOut(err, rowPointer("/environments/per_environment", i, "branch_policy_patterns"))
 			}
 			for _, pat := range patterns {
@@ -520,7 +484,6 @@ func (c *Collector) collectEnvironments(p *collectionPass) {
 		}
 		apps, err := c.client.ListEnvironmentProtectionApps(p.ctx, owner, repo, kept[i].Name)
 		if err != nil {
-			permissionDenied = permissionDenied || isDenied(err)
 			c.gaps.leaveOut(err, rowPointer("/environments/per_environment", i, "protection_apps"))
 			continue
 		}
@@ -530,9 +493,6 @@ func (c *Collector) collectEnvironments(p *collectionPass) {
 	e.PerEnvironment = kept
 	e.Truncated = truncated || fetchDropped > 0
 	e.TruncatedDropped = dropped + fetchDropped
-	if permissionDenied {
-		p.metrics.diag.surfacePermissionDenied("environments", "actions:read")
-	}
 	p.posture.Environments = e
 }
 
@@ -559,20 +519,29 @@ func toEnvironmentRow(repo string, env github.Environment) EnvironmentRow {
 	return row
 }
 
+// errAuditLogCut is why a person with no event in an audit log read cut
+// short at AuditLogCap has no last activity. Their last event in the window
+// can be older than the events read.
+var errAuditLogCut = componentsdk.CodeError(componentsdk.CodeTooLarge,
+	errors.New("only the 5,000 most recent audit log events were read, and this person's last event may be older"))
+
 // collectAuditLog fetches security-relevant audit events (Enterprise Cloud
 // only). Audit emits counts by category; internal adds the event slice. It
 // returns the actor→last-activity map (login → most recent event, in epoch
 // milliseconds as GitHub reports it),
-// which collectMembers consumes for per-member last-activity, or the error
-// that kept the audit log from being read.
+// which collectMembers consumes for per-member last-activity. The error is
+// why a login missing from the map has no last activity. It is the error
+// that kept the audit log from being read, or errAuditLogCut when the read
+// stopped at AuditLogCap.
 func (c *Collector) collectAuditLog(p *collectionPass) (map[string]int64, error) {
-	since := c.now().UTC().AddDate(0, 0, -AuditLogWindowDays).Format("2006-01-02")
+	// The window starts at the run's time of day. A date with no time would
+	// mean the start of that day.
+	since := c.now().UTC().AddDate(0, 0, -AuditLogWindowDays).Format("2006-01-02T15:04:05-07:00")
 	events, more, err := c.client.GetOrgAuditLog(p.ctx, p.org, since, AuditLogCap)
 	if err != nil {
 		if isFeatureUnavailable(err) {
-			p.metrics.diag.surfaceUnavailable("audit_log", "requires GitHub Enterprise Cloud")
-		} else if isDenied(err) {
-			p.metrics.diag.surfacePermissionDenied("audit_log", "organization_administration:read")
+			c.gaps.leaveOutAdvised(err, []componentsdk.AdviceOption{auditLogChoice}, "/audit_log")
+			return nil, err
 		}
 		c.gaps.leaveOut(err, "/audit_log")
 		return nil, err
@@ -595,10 +564,11 @@ func (c *Collector) collectAuditLog(p *collectionPass) (map[string]int64, error)
 			})
 		}
 	}
+	p.posture.AuditLog = al
 	if more {
 		al.Truncated = true
+		return activity, errAuditLogCut
 	}
-	p.posture.AuditLog = al
 	return activity, nil
 }
 
@@ -613,11 +583,8 @@ func categoryOf(action string) string {
 // collectApps gathers GitHub Apps installed in the org. Audit emits count +
 // per-installation summary; internal adds timestamps + repo selection + events.
 func (c *Collector) collectApps(p *collectionPass) {
-	installs, total, err := c.client.ListOrgInstallations(p.ctx, p.org)
+	installs, total, err := c.readInstallations(p.ctx, p.metrics)
 	if err != nil {
-		if isDenied(err) {
-			p.metrics.diag.surfacePermissionDenied("apps", "organization_administration:read")
-		}
 		c.gaps.leaveOut(err, "/apps")
 		return
 	}
@@ -643,13 +610,8 @@ func (c *Collector) collectApps(p *collectionPass) {
 // collectTokens gathers fine-grained PAT grants (Enterprise / FGT-policy orgs
 // only). Audit emits the count; internal adds per-token metadata (no values).
 func (c *Collector) collectTokens(p *collectionPass) {
-	grants, more, err := c.client.ListOrgPATs(p.ctx, p.org)
+	grants, more, err := c.readGrants(p.ctx, p.metrics)
 	if err != nil {
-		if isFeatureUnavailable(err) {
-			p.metrics.diag.surfaceUnavailable("tokens", "requires a fine-grained personal-access-token policy")
-		} else if isDenied(err) {
-			p.metrics.diag.surfacePermissionDenied("tokens", "organization_personal_access_tokens:read")
-		}
 		c.gaps.leaveOut(err, "/tokens")
 		return
 	}
@@ -678,19 +640,16 @@ func (c *Collector) collectTokens(p *collectionPass) {
 // collectMembers builds the member inventory. Audit emits counts + per-member
 // login/name/role; internal adds per-member 2FA + last-activity. The activity map
 // (login → most recent audit-log event, in epoch milliseconds) comes from collectAuditLog;
-// activityErr is why it is missing, which leaves last activity unknown.
+// activityErr is why a login missing from it has unknown last activity.
 func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64, activityErr error) {
-	membership, err := c.client.GetOrgMembership(p.ctx, p.org)
+	membership, err := c.readMembership(p.ctx, p.metrics, true)
 	if err != nil {
-		if isDenied(err) {
-			p.metrics.diag.surfacePermissionDenied("members", "members:read")
-		}
 		c.gaps.leaveOut(err, "/members")
 		return
 	}
 
 	for _, reason := range membership.NamesIncomplete {
-		p.metrics.diag.memberNamesIncomplete(reason)
+		p.metrics.notes.memberNamesIncomplete(reason)
 	}
 
 	// A roster that reached github.MemberFetchCap may hold more logins, so its
@@ -739,8 +698,8 @@ func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64,
 			row.Role = roleFor(login, adminSet, ocSet)
 		}
 		if p.internal() {
-			if membership.TwoFADisabled != nil && memberSet[login] {
-				enabled := !membership.TwoFADisabled[login]
+			if disabled := twoFactorRoster(membership, memberSet[login]); disabled != nil {
+				enabled := !disabled[login]
 				row.TwoFactorEnabled = &enabled
 			}
 			if ts, ok := activity[login]; ok && ts > 0 {
@@ -769,15 +728,58 @@ func (c *Collector) collectMembers(p *collectionPass, activity map[string]int64,
 			c.gaps.leaveOut(membership.NameLookupErr, rowPointer("/members/per_member", i, "name"))
 		}
 		if p.internal() {
-			if member && membership.TwoFADisabled == nil {
+			switch {
+			case member && membership.TwoFADisabled == nil:
 				c.gaps.leaveOut(membership.TwoFAErr, rowPointer("/members/per_member", i, "two_factor_enabled"))
+			case !member && membership.CollaboratorsTwoFADisabled == nil:
+				c.gaps.leaveOut(membership.CollaboratorsTwoFAErr, rowPointer("/members/per_member", i, "two_factor_enabled"))
 			}
-			c.gaps.leaveOut(activityErr, rowPointer("/members/per_member", i, "last_activity"))
+			if row.LastActivity == "" {
+				c.gaps.leaveOut(activityErr, rowPointer("/members/per_member", i, "last_activity"))
+			}
 		}
 	}
 	m.PerMember = kept
 	m.Truncated = truncated || membership.MembersMore || membership.OutsideCollaboratorsMore
 	m.TruncatedDropped = dropped
+}
+
+// twoFactorRoster is the set of people without two-factor authentication
+// on the roster that covers a member, or an outside collaborator when member
+// is false. It is nil when that roster could not be read in full.
+func twoFactorRoster(membership *github.OrgMembership, member bool) map[string]bool {
+	if member {
+		return membership.TwoFADisabled
+	}
+	return membership.CollaboratorsTwoFADisabled
+}
+
+// collectSAMLIdentities reads the organization's SAML identities and adds
+// the NameID of each member's linked identity to their row. A member's
+// NameID is left out with a gap when the identities could not be read, or
+// when the read stopped at github.IdentityFetchCap. Outside collaborators
+// have no SAML identity in the organization.
+func (c *Collector) collectSAMLIdentities(p *collectionPass) {
+	sso, err := c.readSSO(p.ctx, p.metrics)
+	m := p.posture.Members
+	if m == nil {
+		return
+	}
+	if err == nil && sso.More {
+		err = errIdentitiesCut
+	}
+	for i := range m.PerMember {
+		row := &m.PerMember[i]
+		if row.Role == "outside_collaborator" {
+			continue
+		}
+		if sso != nil {
+			row.SAMLNameID = sso.NameIDs[row.Login]
+		}
+		if row.SAMLNameID == "" {
+			c.gaps.leaveOut(err, rowPointer("/members/per_member", i, "saml_name_id"))
+		}
+	}
 }
 
 func toSet(items []string) map[string]bool {
@@ -799,11 +801,13 @@ func roleFor(login string, adminSet, ocSet map[string]bool) string {
 	}
 }
 
+// roleRank orders the rows the per_member cap keeps. A row with no role is a
+// member whose owner status could not be read, so it ranks with the members.
 func roleRank(role string) int {
 	switch role {
 	case "admin":
 		return 0
-	case "member":
+	case "member", "":
 		return 1
 	default:
 		return 2

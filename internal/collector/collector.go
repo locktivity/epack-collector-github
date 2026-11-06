@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -125,6 +126,7 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 	posture := NewOrgPosture(c.config.Organization)
 	posture.CollectedAt = c.now().UTC().Format(time.RFC3339)
 	posture.CollectedAtLevel = string(level)
+	c.gaps.level = level
 
 	metrics := &metricsAggregator{}
 	steps := &stepper{ctx: ctx}
@@ -135,6 +137,9 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 		return nil, fmt.Errorf("signing in to GitHub organization %s: %w", c.config.Organization, err)
 	}
 	c.recordSignIn(orgSecurity)
+	// The organization's name is matched in any case, so the configured name
+	// can differ from its login.
+	posture.Organization = cmp.Or(orgSecurity.Login, c.config.Organization)
 
 	// A repository list that fails on any page is discarded, because a partial
 	// list would skew every repository-derived value.
@@ -150,8 +155,8 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 		metrics.repositorySelection, listed, err = c.installedOn(reposCtx, orgSecurity.Credential, listed)
 	}
 	if err != nil {
+		// Each value derived from the list is left out with err as its reason.
 		metrics.reposErr = err
-		c.degradeCore(metrics, "repositories", "metadata: read", err)
 	} else {
 		for _, repo := range listed {
 			metrics.processRepository(repo, includePatterns, c.config.ExcludePatterns)
@@ -161,15 +166,28 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 	c.fetchBranchRules(steps.next("branch_rules", "Branch protection and rulesets"), metrics)
 	c.fetchSecuritySettings(steps.next("security_settings", "Security settings"), metrics)
 
-	c.populatePosture(posture, orgSecurity, metrics, includePatterns)
+	c.populatePosture(posture, orgSecurity, metrics, includePatterns, level)
 
+	if !level.AtLeast(componentsdk.LevelAudit) {
+		c.readTrustLists(steps, metrics)
+	}
 	c.collectSurfaces(steps, posture, metrics, level)
 	steps.end()
 
-	// Diagnostics are assembled last so surface-collector permission errors and
-	// feature-unavailable warnings are included alongside the core ones.
-	posture.Diagnostics = metrics.toDiagnostics()
-	c.gaps.mirrorNormalized()
+	if c.config.CollectAccess {
+		posture.access = c.toAccessPosture(posture, orgSecurity, metrics)
+	}
+	if c.config.CollectVulns {
+		posture.vulns = c.toVulnScanning(posture, metrics)
+	}
+
+	// Notes are recorded last, so the surface collectors' notes come after the
+	// core notes.
+	for _, n := range metrics.runNotes() {
+		c.gaps.note(n)
+	}
+	c.gaps.mirrorNormalized(c.config.CollectAccess, c.config.CollectVulns)
+	c.gaps.movedDeprecated()
 
 	c.status("Collection complete")
 
@@ -180,6 +198,9 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 func (c *Collector) recordSignIn(sec *github.OrgSecurity) {
 	if sec.Credential.Kind == "" {
 		return
+	}
+	if c.config.Grants != nil {
+		c.config.Grants.SignedIn(sec.Credential)
 	}
 	c.gaps.credential = &sec.Credential
 	principal := componentsdk.Principal{
@@ -212,15 +233,25 @@ func readOnly(scopes []string) bool {
 	return true
 }
 
-// degradeCore records a diagnostic for a failed core-surface fetch instead of
-// failing the run. A permission denial names the missing permission; any other
-// error becomes an informational warning.
-func (c *Collector) degradeCore(metrics *metricsAggregator, surface, missingPerm string, err error) {
-	if errors.Is(err, github.ErrPermissionDenied) {
-		metrics.diag.surfacePermissionDenied(surface, missingPerm)
+// readTrustLists reads the lists that the access-posture and vuln-scanning
+// artifacts need below the audit level, where the detailed artifact is not
+// written. Each list is read only for an artifact the run writes, as a step
+// of its own.
+func (c *Collector) readTrustLists(steps *stepper, metrics *metricsAggregator) {
+	reposRead := metrics.reposErr == nil
+	if c.config.CollectVulns && reposRead {
+		c.readAlerts(steps.next("security_alerts", "Security alerts"), metrics, false)
+	}
+	if !c.config.CollectAccess {
 		return
 	}
-	metrics.diag.surfaceUnavailable(surface, fmt.Sprintf("fetch failed: %v", err))
+	if reposRead {
+		c.readDeployKeys(steps.next("deploy_keys", "Deploy keys"), metrics)
+	}
+	_, _, _ = c.readInstallations(steps.next("apps", "Installed Apps"), metrics)
+	_, _, _ = c.readGrants(steps.next("tokens", "Fine-grained personal access tokens"), metrics)
+	_, _ = c.readMembership(steps.next("members", "Members and outside collaborators"), metrics, false)
+	_, _ = c.readSSO(steps.next("sso", "SAML single sign-on"), metrics)
 }
 
 // collectionPass carries the shared state for one audit/internal surface pass.
@@ -291,6 +322,12 @@ func (c *Collector) collectSurfaces(steps *stepper, posture *OrgPosture, metrics
 	c.collectTokens(p)
 	step("members", "Members and outside collaborators")
 	c.collectMembers(p, activity, activityErr)
+	// The SAML identities feed the detailed member rows and the access file,
+	// so they are read when the run writes either.
+	if c.config.CollectDetails || c.config.CollectAccess {
+		step("sso", "SAML single sign-on")
+		c.collectSAMLIdentities(p)
+	}
 }
 
 // augmentAccessControl adds audit-level org access-control fields (default repo
@@ -300,9 +337,6 @@ func (c *Collector) augmentAccessControl(p *collectionPass) {
 	const permission, canCreate = "/access_control/default_repository_permission", "/access_control/members_can_create_repositories"
 	settings, err := c.client.GetOrgSettings(p.ctx, p.org)
 	if err != nil {
-		if isDenied(err) {
-			p.metrics.diag.surfacePermissionDenied("access_control", "organization_administration:read")
-		}
 		c.gaps.leaveOut(err, permission, canCreate)
 		return
 	}
@@ -334,7 +368,6 @@ func (c *Collector) fetchBranchRules(ctx context.Context, metrics *metricsAggreg
 			var err error
 			rules, err = c.client.GetBranchRules(ctx, owner, name, branch)
 			if err != nil {
-				metrics.trackBranchRulesError(err)
 				metrics.branchRulesErrs[owner+"/"+name] = err
 				metrics.repos.recordProtection(owner, name, evaluateProtection(classic, nil, false, nil))
 				continue
@@ -361,15 +394,9 @@ func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsA
 		c.progress(int64(i+1), total, fmt.Sprintf("Checking security settings for %s", name))
 		settings, err := c.client.FetchSecuritySettings(ctx, owner, name)
 		if err != nil {
-			if errors.Is(err, github.ErrPermissionDenied) {
-				metrics.trackSecuritySettingsPermissionDenied()
-			} else {
-				metrics.securitySettingsFailed++
-			}
 			metrics.repos.recordSettingsErr(owner, name, err)
 			continue
 		}
-		metrics.countSecuritySettings(settings)
 		metrics.repos.recordSettings(owner, name, settings)
 	}
 }
@@ -426,6 +453,7 @@ func organizationRepositoryCount(sec *github.OrgSecurity, metrics *metricsAggreg
 // repoDerivedPointers are the trust-level values computed from the repository
 // list, all left out when the list cannot be read.
 var repoDerivedPointers = []string{
+	"/scope/repositories_present",
 	"/scope/repositories_coverage",
 	"/scope/repository_count",
 	"/scope/included_repository_count",
@@ -434,8 +462,16 @@ var repoDerivedPointers = []string{
 	"/posture/security_features_coverage",
 }
 
-// populatePosture fills in the posture struct from collected metrics.
-func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.OrgSecurity, metrics *metricsAggregator, includePatterns []string) {
+// populatePosture fills in the posture struct from collected metrics. The
+// repository counts behind the percentages are written from the audit level.
+func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.OrgSecurity, metrics *metricsAggregator, includePatterns []string, level componentsdk.Level) {
+	audit := level.AtLeast(componentsdk.LevelAudit)
+	count := func(n *int) *int {
+		if !audit {
+			return nil
+		}
+		return n
+	}
 	excludePatterns := c.config.ExcludePatterns
 	if excludePatterns == nil {
 		excludePatterns = []string{}
@@ -468,12 +504,16 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 		return
 	}
 	posture.BranchProtectionRules = metrics.toBranchProtectionRules()
+	if !audit {
+		posture.BranchProtectionRules.RepositoryCounts = nil
+	}
 
-	posture.Scope.IncludedRepositoryCount = ptr(metrics.totalRepos)
+	posture.Scope.RepositoriesPresent = ptr(metrics.totalRepos > 0)
+	posture.Scope.IncludedRepositoryCount = count(ptr(metrics.totalRepos))
 	if orgRepos, err := organizationRepositoryCount(orgSecurity, metrics); err != nil {
 		c.gaps.leaveOut(err, "/scope/repository_count", "/scope/repositories_coverage")
 	} else {
-		posture.Scope.RepositoryCount = ptr(orgRepos)
+		posture.Scope.RepositoryCount = count(ptr(orgRepos))
 		if orgRepos > 0 {
 			posture.Scope.RepositoriesCoverage = ptr(percent(metrics.totalRepos, orgRepos))
 		}
@@ -484,7 +524,7 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 	protected := metrics.protectedRepositoryCount()
 	posture.Posture = Posture{
 		BranchProtectionCoverage: percentOf(protected, len(metrics.repos.included)),
-		ProtectedRepositoryCount: protected,
+		ProtectedRepositoryCount: count(protected),
 		SecurityFeaturesCoverage: coverage.pct,
 	}
 	c.recordBranchProtectionGaps(posture, metrics)
@@ -501,13 +541,15 @@ func (c *Collector) populatePosture(posture *OrgPosture, orgSecurity *github.Org
 		SecretScanning:               byFeature[featureSecretScanning].pct,
 		SecretScanningPushProtection: byFeature[featureSecretScanningPushProtection].pct,
 		DependabotSecurityUpdates:    byFeature[featureDependabotSecurityUpdates].pct,
-		RepositoryCounts: SecurityFeatureCounts{
+	}
+	if audit {
+		posture.SecurityFeatures.RepositoryCounts = &SecurityFeatureCounts{
 			VulnerabilityAlerts:          byFeature[featureVulnerabilityAlerts].count,
 			CodeScanning:                 byFeature[featureCodeScanning].count,
 			SecretScanning:               byFeature[featureSecretScanning].count,
 			SecretScanningPushProtection: byFeature[featureSecretScanningPushProtection].count,
 			DependabotSecurityUpdates:    byFeature[featureDependabotSecurityUpdates].count,
-		},
+		}
 	}
 }
 

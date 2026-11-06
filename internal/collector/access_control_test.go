@@ -55,39 +55,15 @@ func TestAccessControl_PermissionDeniedRecordsDiagnostic(t *testing.T) {
 	mock := newAccessControlMock()
 	mock.orgSettingsErr = github.ErrPermissionDenied
 
-	c := NewWithClient(Config{Organization: "test-org"}, mock)
-
-	posture, err := c.Collect(context.Background(), componentsdk.LevelAudit)
-	if err != nil {
-		t.Fatalf("Collect() error: %v", err)
-	}
+	posture, rec := collectRecorded(t, Config{Organization: "test-org"}, mock, componentsdk.LevelAudit)
 
 	if posture.AccessControl.DefaultRepositoryPermission != "" {
 		t.Error("expected DefaultRepositoryPermission empty on permission denial")
 	}
-	if posture.Diagnostics == nil || len(posture.Diagnostics.PermissionErrors) == 0 {
-		t.Fatal("expected a permission-denied diagnostic")
+	if gapOf(rec, "/access_control/default_repository_permission") == nil {
+		t.Error("default_repository_permission has no gap")
 	}
-	found := false
-	for _, e := range posture.Diagnostics.PermissionErrors {
-		if contains(e, "access_control") && contains(e, "organization_administration:read") {
-			found = true
-		}
+	if len(rec.Warnings()) != 0 {
+		t.Errorf("warnings = %+v, want none because the gap records the denial", rec.Warnings())
 	}
-	if !found {
-		t.Errorf("diagnostics = %v, want one naming access_control + organization_administration:read", posture.Diagnostics.PermissionErrors)
-	}
-}
-
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || indexOf(s, sub) >= 0)
-}
-
-func indexOf(s, sub string) int {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
 }
