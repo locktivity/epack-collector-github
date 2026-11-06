@@ -1910,6 +1910,10 @@
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:606"
+          },
+          {
+            "role": "input",
             "line": "internal/github/surfaces.go:607"
           },
           {
@@ -2505,6 +2509,10 @@
           {
             "role": "input",
             "line": "internal/github/sso.go:89"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:604"
           }
         ],
         "gaps": [
