@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.4.1
+
+- The collector is built on epack v0.10.1.
+- `artifacts/github.vcs-posture.json` has `org_security` and `security_features` again, as deprecated blocks that epack v0.10.1 declares. They hold the values v0.3 wrote, copied from the detailed artifact. Profiles that read them grade as they did before v0.4.0. A later minor removes them.
+
 ## v0.4.0
 
 - The collector is built on epack v0.10.0. The detailed artifact moves from `artifacts/github.json` to `artifacts/github.details.json`, the path epack's `ArtifactPath` gives it. A reader of the old path needs the new one

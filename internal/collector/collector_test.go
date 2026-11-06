@@ -1260,12 +1260,14 @@ func TestToVCSPostureCopiesTheCountsTheDetailedArtifactHolds(t *testing.T) {
 			"pr_required_repository_count": 1, "approving_reviews_repository_count": 1,
 			"status_checks_repository_count": 2, "signed_commits_repository_count": 0,
 			"pr_required_pct": 50, "approving_reviews_pct": 50, "status_checks_pct": 100, "signed_commits_pct": 0
-		}
+		},
+		"security_features": {"vuln_alerts_pct": 100, "secret_scanning_pct": 50, "code_scanning_pct": 0}
 	}`)
 	assertJSONEqual(t, "trust", scanned(componentsdk.LevelTrust).ToVCSPosture(), `{
 		"schema_version": "1.0.0", "collected_at": "", "provider": "github", "organization": "",
 		"repositories_present": true, "repo_coverage_pct": 66,
-		"branch_protection": {"pr_required_pct": 50, "approving_reviews_pct": 50, "status_checks_pct": 100, "signed_commits_pct": 0}
+		"branch_protection": {"pr_required_pct": 50, "approving_reviews_pct": 50, "status_checks_pct": 100, "signed_commits_pct": 0},
+		"security_features": {"vuln_alerts_pct": 100, "secret_scanning_pct": 50, "code_scanning_pct": 0}
 	}`)
 }
 
@@ -1295,26 +1297,25 @@ func TestToVCSPostureWritesNullOverNoRepositories(t *testing.T) {
 }
 
 // The two-factor requirement and the security features moved to the
-// access-posture and vuln-scanning artifacts, so vcs-posture has neither.
-func TestToVCSPostureHasNoTwoFactorOrSecurityFeatures(t *testing.T) {
+// access-posture and vuln-scanning artifacts. vcs-posture keeps a copy of
+// each in its deprecated blocks, and leaves out a value the detailed
+// artifact reports as unknown.
+func TestToVCSPostureKeepsTheDeprecatedBlocks(t *testing.T) {
 	orgPosture := &OrgPosture{
 		Organization:     "test-org",
 		AccessControl:    AccessControl{TwoFactorRequired: boolPtr(true)},
 		SecurityFeatures: SecurityFeatures{VulnerabilityAlerts: ptr(90)},
 	}
-	raw, err := json.Marshal(orgPosture.ToVCSPosture())
-	if err != nil {
-		t.Fatal(err)
-	}
-	var data map[string]any
-	if err := json.Unmarshal(raw, &data); err != nil {
-		t.Fatal(err)
-	}
-	for _, field := range []string{"org_security", "security_features"} {
-		if _, ok := data[field]; ok {
-			t.Errorf("vcs-posture has %s", field)
-		}
-	}
+	assertJSONEqual(t, "copied", orgPosture.ToVCSPosture(), `{
+		"schema_version": "1.0.0", "collected_at": "", "provider": "github", "organization": "test-org",
+		"org_security": {"two_factor_required": true},
+		"security_features": {"vuln_alerts_pct": 90}
+	}`)
+
+	unknown := &OrgPosture{Organization: "test-org"}
+	assertJSONEqual(t, "unknown", unknown.ToVCSPosture(), `{
+		"schema_version": "1.0.0", "collected_at": "", "provider": "github", "organization": "test-org"
+	}`)
 }
 
 func TestVCSPostureJSONStructure(t *testing.T) {

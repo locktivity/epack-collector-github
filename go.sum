@@ -13,8 +13,8 @@ github.com/google/go-github/v75 v75.0.0 h1:k7q8Bvg+W5KxRl9Tjq16a9XEgVY1pwuiG5sIL
 github.com/google/go-github/v75 v75.0.0/go.mod h1:H3LUJEA1TCrzuUqtdAQniBNwuKiQIqdGKgBo1/M/uqI=
 github.com/google/go-querystring v1.1.0 h1:AnCroh3fv4ZBgVIf1Iwtovgjaw/GiKJo8M8yD/fhyJ8=
 github.com/google/go-querystring v1.1.0/go.mod h1:Kcdr2DB4koayq7X8pmAG4sNG59So17icRSOU623lUBU=
-github.com/locktivity/epack v0.10.0 h1:8M53ZWIhocwl0i3wclG0/TmPLjf8f1m2kePIjqlH3Dw=
-github.com/locktivity/epack v0.10.0/go.mod h1:Ikc+QzXpnNYXh306vW73YKHOcnMK/34AVAhL42cdqKo=
+github.com/locktivity/epack v0.10.1 h1:Jktc3iBHETk6Gm63n0evh5RS1UPbGWNoPc8dmbuC7Js=
+github.com/locktivity/epack v0.10.1/go.mod h1:Ikc+QzXpnNYXh306vW73YKHOcnMK/34AVAhL42cdqKo=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
 github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
 golang.org/x/net v0.60.0 h1:79p50tfZlm0J9YfoDsSi639qSXNGVwEzOPLCxM2FsYU=

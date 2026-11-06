@@ -18956,23 +18956,23 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/normalized.go:63"
+            "line": "internal/collector/normalized.go:67"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:86"
+            "line": "internal/collector/normalized.go:90"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:99"
+            "line": "internal/collector/normalized.go:104"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:100"
+            "line": "internal/collector/normalized.go:105"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:101"
+            "line": "internal/collector/normalized.go:106"
           }
         ],
         "gaps": [
@@ -19003,7 +19003,7 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:82"
+            "line": "internal/collector/normalized.go:86"
           }
         ],
         "gaps": [
@@ -19047,23 +19047,23 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/normalized.go:63"
+            "line": "internal/collector/normalized.go:67"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:85"
+            "line": "internal/collector/normalized.go:89"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:99"
+            "line": "internal/collector/normalized.go:104"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:100"
+            "line": "internal/collector/normalized.go:105"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:101"
+            "line": "internal/collector/normalized.go:106"
           }
         ],
         "gaps": [
@@ -19094,7 +19094,7 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:81"
+            "line": "internal/collector/normalized.go:85"
           }
         ],
         "gaps": [
@@ -19138,23 +19138,23 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/normalized.go:63"
+            "line": "internal/collector/normalized.go:67"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:88"
+            "line": "internal/collector/normalized.go:92"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:99"
+            "line": "internal/collector/normalized.go:104"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:100"
+            "line": "internal/collector/normalized.go:105"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:101"
+            "line": "internal/collector/normalized.go:106"
           }
         ],
         "gaps": [
@@ -19185,7 +19185,7 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:84"
+            "line": "internal/collector/normalized.go:88"
           }
         ],
         "gaps": [
@@ -19229,23 +19229,23 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/normalized.go:63"
+            "line": "internal/collector/normalized.go:67"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:87"
+            "line": "internal/collector/normalized.go:91"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:99"
+            "line": "internal/collector/normalized.go:104"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:100"
+            "line": "internal/collector/normalized.go:105"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:101"
+            "line": "internal/collector/normalized.go:106"
           }
         ],
         "gaps": [
@@ -19276,7 +19276,7 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:83"
+            "line": "internal/collector/normalized.go:87"
           }
         ],
         "gaps": [
@@ -19302,11 +19302,49 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:71"
+            "line": "internal/collector/normalized.go:75"
           },
           {
             "role": "input",
             "line": "internal/collector/posture.go:545"
+          }
+        ]
+      },
+      "/org_security/two_factor_required": {
+        "code": [
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:489"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/deprecated.go:25"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/client.go:430"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/client.go:433"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/client.go:443"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/client.go:446"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/client.go:450"
+          }
+        ],
+        "copies": [
+          {
+            "path": "artifacts/github.details.json",
+            "pointer": "/access_control/two_factor_required"
           }
         ]
       },
@@ -19334,7 +19372,7 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:73"
+            "line": "internal/collector/normalized.go:77"
           },
           {
             "role": "input",
@@ -19366,7 +19404,7 @@
         "code": [
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:72"
+            "line": "internal/collector/normalized.go:76"
           }
         ]
       },
@@ -19415,32 +19453,32 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/normalized.go:61"
+            "line": "internal/collector/normalized.go:65"
           },
           {
             "role": "input",
-            "line": "internal/collector/normalized.go:62"
+            "line": "internal/collector/normalized.go:66"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:79"
+            "line": "internal/collector/normalized.go:83"
           },
           {
             "role": "helper",
-            "line": "internal/collector/normalized.go:98",
-            "end": 107
+            "line": "internal/collector/normalized.go:103",
+            "end": 112
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:99"
+            "line": "internal/collector/normalized.go:104"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:100"
+            "line": "internal/collector/normalized.go:105"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:101"
+            "line": "internal/collector/normalized.go:106"
           }
         ],
         "gaps": [
@@ -19481,11 +19519,11 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/normalized.go:61"
+            "line": "internal/collector/normalized.go:65"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:74"
+            "line": "internal/collector/normalized.go:78"
           }
         ],
         "gaps": [
@@ -19522,7 +19560,7 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:75"
+            "line": "internal/collector/normalized.go:79"
           }
         ],
         "gaps": [
@@ -19567,7 +19605,7 @@
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:76"
+            "line": "internal/collector/normalized.go:80"
           }
         ],
         "gaps": [
@@ -19584,7 +19622,475 @@
         "code": [
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:70"
+            "line": "internal/collector/normalized.go:74"
+          }
+        ]
+      },
+      "/security_features/code_scanning_pct": {
+        "operations": [
+          "github.code_scanning_analyses.list",
+          "github.code_scanning_default_setup.get",
+          "github.installation_repositories.list",
+          "github.repos.get",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:495"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:539"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/deprecated.go:29"
+          },
+          {
+            "role": "helper",
+            "line": "internal/collector/deprecated.go:35",
+            "end": 40
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:72"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:145"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:147"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:148"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:149"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:150"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:151"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:152"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:156"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:157"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:160"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:161"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:162"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:170"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:171"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:175"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:176"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:177"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:178"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:179"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:180"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:181"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:182"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:186"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:187"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:190"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:191"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:194"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:195"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/repo_cache.go:17"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:501",
+          "internal/collector/collector.go:535"
+        ],
+        "copies": [
+          {
+            "path": "artifacts/github.details.json",
+            "pointer": "/security_features/code_scanning"
+          }
+        ]
+      },
+      "/security_features/secret_scanning_pct": {
+        "operations": [
+          "github.installation_repositories.list",
+          "github.repos.get",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:495"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:540"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/deprecated.go:28"
+          },
+          {
+            "role": "helper",
+            "line": "internal/collector/deprecated.go:35",
+            "end": 40
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:72"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:145"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:147"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:148"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:149"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:150"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:151"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:152"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:156"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:157"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:160"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:161"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:162"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:170"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:171"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:175"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:176"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:177"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:178"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:179"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:180"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:181"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:182"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:186"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:187"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:190"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:191"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:194"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:195"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/repo_cache.go:17"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:501",
+          "internal/collector/collector.go:535"
+        ],
+        "copies": [
+          {
+            "path": "artifacts/github.details.json",
+            "pointer": "/security_features/secret_scanning"
+          }
+        ]
+      },
+      "/security_features/vuln_alerts_pct": {
+        "operations": [
+          "github.installation_repositories.list",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:495"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:538"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/deprecated.go:27"
+          },
+          {
+            "role": "helper",
+            "line": "internal/collector/deprecated.go:35",
+            "end": 40
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:72"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:145"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:147"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:148"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:149"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:150"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:151"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:152"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:156"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:157"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:160"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:161"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:162"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:170"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:171"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:175"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:176"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:177"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:178"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:179"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:180"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:181"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:182"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:186"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:187"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:190"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:191"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:194"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:195"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/repo_cache.go:17"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:501"
+        ],
+        "copies": [
+          {
+            "path": "artifacts/github.details.json",
+            "pointer": "/security_features/vulnerability_alerts"
           }
         ]
       }
@@ -19682,20 +20188,20 @@
           },
           {
             "role": "helper",
-            "line": "internal/collector/normalized.go:98",
-            "end": 107
+            "line": "internal/collector/normalized.go:103",
+            "end": 112
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:99"
+            "line": "internal/collector/normalized.go:104"
           },
           {
             "role": "condition",
-            "line": "internal/collector/normalized.go:100"
+            "line": "internal/collector/normalized.go:105"
           },
           {
             "role": "assign",
-            "line": "internal/collector/normalized.go:101"
+            "line": "internal/collector/normalized.go:106"
           },
           {
             "role": "input",
@@ -20873,6 +21379,16 @@
     "internal/collector/collector.go:559": "\t}",
     "internal/collector/collector.go:560": "\treturn (count * MaxPercentage) / total",
     "internal/collector/collector.go:561": "}",
+    "internal/collector/deprecated.go:25": "\treturn VCSPostureOrgSecurity{TwoFactorRequired: o.AccessControl.TwoFactorRequired},",
+    "internal/collector/deprecated.go:27": "\t\t\tVulnAlertsPct:     pctFloat(o.SecurityFeatures.VulnerabilityAlerts),",
+    "internal/collector/deprecated.go:28": "\t\t\tSecretScanningPct: pctFloat(o.SecurityFeatures.SecretScanning),",
+    "internal/collector/deprecated.go:29": "\t\t\tCodeScanningPct:   pctFloat(o.SecurityFeatures.CodeScanning),",
+    "internal/collector/deprecated.go:35": "func pctFloat(pct *int) *float64 {",
+    "internal/collector/deprecated.go:36": "\tif pct == nil {",
+    "internal/collector/deprecated.go:37": "\t\treturn nil",
+    "internal/collector/deprecated.go:38": "\t}",
+    "internal/collector/deprecated.go:39": "\treturn ptr(float64(*pct))",
+    "internal/collector/deprecated.go:40": "}",
     "internal/collector/findings.go:66": "\tfindings := \u0026SecurityFindings{}",
     "internal/collector/findings.go:67": "\tunread := map[string]int{}",
     "internal/collector/findings.go:70": "\tfor _, a := range listings {",
@@ -20961,35 +21477,35 @@
     "internal/collector/metrics.go:234": "\t\tForcePushesBlocked:  pct(counts.ForcePushesBlocked),",
     "internal/collector/metrics.go:235": "\t\tDeletionsBlocked:    pct(counts.DeletionsBlocked),",
     "internal/collector/metrics.go:236": "\t\tLinearHistory:       pct(counts.LinearHistory),",
-    "internal/collector/normalized.go:61": "\tpresent := o.Scope.RepositoriesPresent",
-    "internal/collector/normalized.go:62": "\tnoRepositories := present != nil \u0026\u0026 !*present",
-    "internal/collector/normalized.go:63": "\tpct := func(p *int) Reading[float64] { return percentage(p, noRepositories) }",
-    "internal/collector/normalized.go:70": "\t\tSchemaVersion:          \"1.0.0\",",
-    "internal/collector/normalized.go:71": "\t\tCollectedAt:            o.CollectedAt,",
-    "internal/collector/normalized.go:72": "\t\tProvider:               \"github\",",
-    "internal/collector/normalized.go:73": "\t\tOrganization:           o.Organization,",
-    "internal/collector/normalized.go:74": "\t\tRepositoriesPresent:    present,",
-    "internal/collector/normalized.go:75": "\t\tRepositoryCount:        o.Scope.RepositoryCount,",
-    "internal/collector/normalized.go:76": "\t\tScannedRepositoryCount: o.Scope.IncludedRepositoryCount,",
-    "internal/collector/normalized.go:79": "\t\tRepoCoveragePct: percentage(o.Scope.RepositoriesCoverage, noRepositories),",
-    "internal/collector/normalized.go:81": "\t\t\tPRRequiredRepositoryCount:       bpCounts.PullRequestRequired,",
-    "internal/collector/normalized.go:82": "\t\t\tApprovingReviewsRepositoryCount: bpCounts.ApprovingReviews,",
-    "internal/collector/normalized.go:83": "\t\t\tStatusChecksRepositoryCount:     bpCounts.StatusChecks,",
-    "internal/collector/normalized.go:84": "\t\t\tSignedCommitsRepositoryCount:    bpCounts.SignedCommits,",
-    "internal/collector/normalized.go:85": "\t\t\tPRRequiredPct:                   pct(bp.PullRequestRequired),",
-    "internal/collector/normalized.go:86": "\t\t\tApprovingReviewsPct:             pct(bp.ApprovingReviews),",
-    "internal/collector/normalized.go:87": "\t\t\tStatusChecksPct:                 pct(bp.StatusChecks),",
-    "internal/collector/normalized.go:88": "\t\t\tSignedCommitsPct:                pct(bp.SignedCommits),",
-    "internal/collector/normalized.go:98": "func percentage(pct *int, none bool) Reading[float64] {",
-    "internal/collector/normalized.go:99": "\tswitch {",
-    "internal/collector/normalized.go:100": "\tcase pct != nil:",
-    "internal/collector/normalized.go:101": "\t\treturn Reading[float64]{Value: ptr(float64(*pct)), Read: true}",
-    "internal/collector/normalized.go:102": "\tcase none:",
-    "internal/collector/normalized.go:103": "\t\treturn Reading[float64]{Read: true}",
-    "internal/collector/normalized.go:104": "\tdefault:",
-    "internal/collector/normalized.go:105": "\t\treturn Reading[float64]{}",
-    "internal/collector/normalized.go:106": "\t}",
-    "internal/collector/normalized.go:107": "}",
+    "internal/collector/normalized.go:65": "\tpresent := o.Scope.RepositoriesPresent",
+    "internal/collector/normalized.go:66": "\tnoRepositories := present != nil \u0026\u0026 !*present",
+    "internal/collector/normalized.go:67": "\tpct := func(p *int) Reading[float64] { return percentage(p, noRepositories) }",
+    "internal/collector/normalized.go:74": "\t\tSchemaVersion:          \"1.0.0\",",
+    "internal/collector/normalized.go:75": "\t\tCollectedAt:            o.CollectedAt,",
+    "internal/collector/normalized.go:76": "\t\tProvider:               \"github\",",
+    "internal/collector/normalized.go:77": "\t\tOrganization:           o.Organization,",
+    "internal/collector/normalized.go:78": "\t\tRepositoriesPresent:    present,",
+    "internal/collector/normalized.go:79": "\t\tRepositoryCount:        o.Scope.RepositoryCount,",
+    "internal/collector/normalized.go:80": "\t\tScannedRepositoryCount: o.Scope.IncludedRepositoryCount,",
+    "internal/collector/normalized.go:83": "\t\tRepoCoveragePct: percentage(o.Scope.RepositoriesCoverage, noRepositories),",
+    "internal/collector/normalized.go:85": "\t\t\tPRRequiredRepositoryCount:       bpCounts.PullRequestRequired,",
+    "internal/collector/normalized.go:86": "\t\t\tApprovingReviewsRepositoryCount: bpCounts.ApprovingReviews,",
+    "internal/collector/normalized.go:87": "\t\t\tStatusChecksRepositoryCount:     bpCounts.StatusChecks,",
+    "internal/collector/normalized.go:88": "\t\t\tSignedCommitsRepositoryCount:    bpCounts.SignedCommits,",
+    "internal/collector/normalized.go:89": "\t\t\tPRRequiredPct:                   pct(bp.PullRequestRequired),",
+    "internal/collector/normalized.go:90": "\t\t\tApprovingReviewsPct:             pct(bp.ApprovingReviews),",
+    "internal/collector/normalized.go:91": "\t\t\tStatusChecksPct:                 pct(bp.StatusChecks),",
+    "internal/collector/normalized.go:92": "\t\t\tSignedCommitsPct:                pct(bp.SignedCommits),",
+    "internal/collector/normalized.go:103": "func percentage(pct *int, none bool) Reading[float64] {",
+    "internal/collector/normalized.go:104": "\tswitch {",
+    "internal/collector/normalized.go:105": "\tcase pct != nil:",
+    "internal/collector/normalized.go:106": "\t\treturn Reading[float64]{Value: ptr(float64(*pct)), Read: true}",
+    "internal/collector/normalized.go:107": "\tcase none:",
+    "internal/collector/normalized.go:108": "\t\treturn Reading[float64]{Read: true}",
+    "internal/collector/normalized.go:109": "\tdefault:",
+    "internal/collector/normalized.go:110": "\t\treturn Reading[float64]{}",
+    "internal/collector/normalized.go:111": "\t}",
+    "internal/collector/normalized.go:112": "}",
     "internal/collector/posture.go:544": "\t\tSchemaVersion: SchemaVersion,",
     "internal/collector/posture.go:545": "\t\tCollectedAt:   time.Now().UTC().Format(time.RFC3339),",
     "internal/collector/posture.go:546": "\t\tOrganization:  org,",
