@@ -14,7 +14,9 @@ import (
 // whose every metric is. A percentage over no repositories is null.
 // RepositoriesPresent is written at every level and is false when no
 // repository is in scope. The repository counts are written from the audit
-// level, as the schema specifies.
+// level, as the schema specifies. OrgSecurity and SecurityFeatures are
+// deprecated blocks, written at every level as before epack v0.10.0 (see
+// deprecated.go).
 type VCSPosture struct {
 	SchemaVersion          string                     `json:"schema_version"`
 	CollectedAt            string                     `json:"collected_at"`
@@ -25,6 +27,8 @@ type VCSPosture struct {
 	ScannedRepositoryCount *int                       `json:"scanned_repository_count,omitempty"`
 	RepoCoveragePct        Reading[float64]           `json:"repo_coverage_pct,omitzero"`
 	BranchProtection       VCSPostureBranchProtection `json:"branch_protection,omitzero"`
+	OrgSecurity            VCSPostureOrgSecurity      `json:"org_security,omitzero"`
+	SecurityFeatures       VCSPostureSecurityFeatures `json:"security_features,omitzero"`
 }
 
 // Reading is a normalized value that may have no reading in the detailed
@@ -88,6 +92,7 @@ func (o *OrgPosture) ToVCSPosture() *VCSPosture {
 			SignedCommitsPct:                pct(bp.SignedCommits),
 		},
 	}
+	posture.OrgSecurity, posture.SecurityFeatures = o.deprecatedBlocks()
 	return posture
 }
 

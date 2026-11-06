@@ -147,6 +147,11 @@ var normalizedSources = []struct {
 	{"/branch_protection/status_checks_repository_count", "/branch_protection_rules/repository_counts/status_checks", true},
 	{"/branch_protection/signed_commits_pct", "/branch_protection_rules/signed_commits", false},
 	{"/branch_protection/signed_commits_repository_count", "/branch_protection_rules/repository_counts/signed_commits", true},
+	// The deprecated blocks in deprecated.go.
+	{"/org_security/two_factor_required", "/access_control/two_factor_required", false},
+	{"/security_features/vuln_alerts_pct", "/security_features/vulnerability_alerts", false},
+	{"/security_features/secret_scanning_pct", "/security_features/secret_scanning", false},
+	{"/security_features/code_scanning_pct", "/security_features/code_scanning", false},
 }
 
 // mirrorNormalized records each normalized value copied from the detailed
