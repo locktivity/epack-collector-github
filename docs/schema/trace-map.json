@@ -1910,10 +1910,6 @@
           },
           {
             "role": "input",
-            "line": "internal/github/surfaces.go:606"
-          },
-          {
-            "role": "input",
             "line": "internal/github/surfaces.go:607"
           },
           {
@@ -2509,10 +2505,6 @@
           {
             "role": "input",
             "line": "internal/github/sso.go:89"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:604"
           }
         ],
         "gaps": [
@@ -2845,37 +2837,7 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:338"
-          },
-          {
-            "role": "assign",
-            "line": "internal/collector/collector.go:342"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:71"
-          },
-          {
-            "role": "condition",
-            "line": "internal/github/surfaces.go:74"
-          },
-          {
-            "role": "input",
-            "line": "internal/github/surfaces.go:78"
-          }
-        ],
-        "gaps": [
-          "internal/collector/collector.go:339"
-        ]
-      },
-      "/access_control/members_can_create_repositories": {
-        "operations": [
-          "github.org_settings.get"
-        ],
-        "code": [
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:338"
+            "line": "internal/collector/collector.go:339"
           },
           {
             "role": "assign",
@@ -2891,18 +2853,48 @@
           },
           {
             "role": "input",
+            "line": "internal/github/surfaces.go:78"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:340"
+        ]
+      },
+      "/access_control/members_can_create_repositories": {
+        "operations": [
+          "github.org_settings.get"
+        ],
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:339"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:344"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:71"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:74"
+          },
+          {
+            "role": "input",
             "line": "internal/github/surfaces.go:79"
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:339"
+          "internal/collector/collector.go:340"
         ]
       },
       "/access_control/two_factor_required": {
         "code": [
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:489"
+            "line": "internal/collector/collector.go:490"
           },
           {
             "role": "condition",
@@ -2938,15 +2930,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -2976,15 +2968,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3248,15 +3240,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3286,15 +3278,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3328,15 +3320,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3377,11 +3369,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3450,11 +3442,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3740,15 +3732,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3846,15 +3838,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3884,15 +3876,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3918,15 +3910,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -3980,15 +3972,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4042,15 +4034,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4108,15 +4100,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4171,15 +4163,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4227,15 +4219,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4286,15 +4278,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4345,15 +4337,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4404,15 +4396,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4463,15 +4455,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4519,15 +4511,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4575,15 +4567,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4631,15 +4623,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4690,15 +4682,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4749,15 +4741,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4805,15 +4797,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4861,15 +4853,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4917,15 +4909,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -4976,15 +4968,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5042,15 +5034,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5104,15 +5096,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5193,15 +5185,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5285,15 +5277,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5377,15 +5369,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5464,15 +5456,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5551,15 +5543,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5638,15 +5630,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -5764,7 +5756,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/approving_reviews": {
@@ -5793,7 +5785,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/code_owner_reviews": {
@@ -5822,7 +5814,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/deletions_blocked": {
@@ -5851,7 +5843,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/dismiss_stale_reviews": {
@@ -5880,7 +5872,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/force_pushes_blocked": {
@@ -5909,7 +5901,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/linear_history": {
@@ -5938,7 +5930,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/pull_request_required": {
@@ -5967,7 +5959,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/admin_enforcement": {
@@ -5994,7 +5986,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/approving_reviews": {
@@ -6015,7 +6007,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/code_owner_reviews": {
@@ -6036,7 +6028,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/deletions_blocked": {
@@ -6057,7 +6049,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/dismiss_stale_reviews": {
@@ -6078,7 +6070,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/force_pushes_blocked": {
@@ -6099,7 +6091,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/linear_history": {
@@ -6120,7 +6112,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/pull_request_required": {
@@ -6141,7 +6133,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/signed_commits": {
@@ -6162,7 +6154,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/repository_counts/status_checks": {
@@ -6183,7 +6175,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/signed_commits": {
@@ -6212,7 +6204,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/branch_protection_rules/status_checks": {
@@ -6241,7 +6233,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ]
       },
       "/codeowners": {
@@ -6292,11 +6284,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -6341,11 +6333,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -6395,11 +6387,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -7359,8 +7351,8 @@
         "code": [
           {
             "role": "helper",
-            "line": "internal/collector/collector.go:266",
-            "end": 268
+            "line": "internal/collector/collector.go:267",
+            "end": 269
           },
           {
             "role": "condition",
@@ -7450,11 +7442,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -7565,11 +7557,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -7730,11 +7722,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -7897,11 +7889,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -8173,11 +8165,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -8274,11 +8266,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -8693,11 +8685,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -8755,11 +8747,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -9483,15 +9475,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "condition",
@@ -9642,15 +9634,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -9994,15 +9986,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:523"
+            "line": "internal/collector/collector.go:524"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:525"
+            "line": "internal/collector/collector.go:526"
           },
           {
             "role": "input",
@@ -10011,7 +10003,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ]
       },
       "/posture/protected_repository_count": {
@@ -10023,24 +10015,24 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:468"
+            "line": "internal/collector/collector.go:469"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:523"
+            "line": "internal/collector/collector.go:524"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:526"
+            "line": "internal/collector/collector.go:527"
           }
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ]
       },
       "/posture/security_features_coverage": {
@@ -10054,11 +10046,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:527"
+            "line": "internal/collector/collector.go:528"
           },
           {
             "role": "input",
@@ -10182,8 +10174,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496",
-          "internal/collector/collector.go:522"
+          "internal/collector/collector.go:497",
+          "internal/collector/collector.go:523"
         ]
       },
       "/repositories": {
@@ -13708,19 +13700,19 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:474"
-          },
-          {
-            "role": "condition",
             "line": "internal/collector/collector.go:475"
           },
           {
-            "role": "input",
+            "role": "condition",
             "line": "internal/collector/collector.go:476"
           },
           {
+            "role": "input",
+            "line": "internal/collector/collector.go:477"
+          },
+          {
             "role": "assign",
-            "line": "internal/collector/collector.go:481"
+            "line": "internal/collector/collector.go:482"
           },
           {
             "role": "input",
@@ -13736,7 +13728,7 @@
         "code": [
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:480"
+            "line": "internal/collector/collector.go:481"
           }
         ]
       },
@@ -13753,11 +13745,96 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:468"
+            "line": "internal/collector/collector.go:469"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:512"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:46"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:52"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:57"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:497"
+        ]
+      },
+      "/scope/repositories_coverage": {
+        "operations": [
+          "github.installation_repositories.list",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "helper",
+            "line": "internal/collector/branch_protection.go:376",
+            "end": 378
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:496"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:513"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:517"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:518"
+          },
+          {
+            "role": "helper",
+            "line": "internal/collector/collector.go:557",
+            "end": 562
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:46"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:52"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:57"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:497"
+        ]
+      },
+      "/scope/repositories_present": {
+        "operations": [
+          "github.installation_repositories.list",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "helper",
+            "line": "internal/collector/branch_protection.go:376",
+            "end": 378
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "assign",
@@ -13777,92 +13854,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
-        ]
-      },
-      "/scope/repositories_coverage": {
-        "operations": [
-          "github.installation_repositories.list",
-          "github.repositories.list"
-        ],
-        "code": [
-          {
-            "role": "helper",
-            "line": "internal/collector/branch_protection.go:376",
-            "end": 378
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:495"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:512"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:516"
-          },
-          {
-            "role": "assign",
-            "line": "internal/collector/collector.go:517"
-          },
-          {
-            "role": "helper",
-            "line": "internal/collector/collector.go:556",
-            "end": 561
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:46"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:52"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:57"
-          }
-        ],
-        "gaps": [
-          "internal/collector/collector.go:496"
-        ]
-      },
-      "/scope/repositories_present": {
-        "operations": [
-          "github.installation_repositories.list",
-          "github.repositories.list"
-        ],
-        "code": [
-          {
-            "role": "helper",
-            "line": "internal/collector/branch_protection.go:376",
-            "end": 378
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:495"
-          },
-          {
-            "role": "assign",
-            "line": "internal/collector/collector.go:510"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:46"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:52"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:57"
-          }
-        ],
-        "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ]
       },
       "/scope/repository_count": {
@@ -13878,23 +13870,23 @@
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:468"
+            "line": "internal/collector/collector.go:469"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:512"
+            "line": "internal/collector/collector.go:513"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:515"
+            "line": "internal/collector/collector.go:516"
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ]
       },
       "/scope/repository_selection": {
@@ -13946,11 +13938,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:483"
+            "line": "internal/collector/collector.go:484"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:484"
+            "line": "internal/collector/collector.go:485"
           },
           {
             "role": "input",
@@ -14029,11 +14021,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:539"
+            "line": "internal/collector/collector.go:540"
           },
           {
             "role": "input",
@@ -14157,8 +14149,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ]
       },
       "/security_features/dependabot_security_updates": {
@@ -14170,11 +14162,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:542"
+            "line": "internal/collector/collector.go:543"
           },
           {
             "role": "input",
@@ -14298,8 +14290,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ]
       },
       "/security_features/findings": {
@@ -16111,265 +16103,15 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:467"
+            "line": "internal/collector/collector.go:468"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:544"
-          },
-          {
-            "role": "assign",
-            "line": "internal/collector/collector.go:547"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:72"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:145"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:147"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:148"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:149"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:150"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:151"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:152"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:156"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:157"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:160"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:161"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:170"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:171"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:176"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:177"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:178"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:179"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:180"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:181"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:182"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:190"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:191"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/repo_cache.go:17"
-          }
-        ],
-        "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
-        ]
-      },
-      "/security_features/repository_counts/dependabot_security_updates": {
-        "operations": [
-          "github.installation_repositories.list",
-          "github.repos.get",
-          "github.repositories.list"
-        ],
-        "code": [
-          {
-            "role": "input",
-            "line": "internal/collector/collector.go:467"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:495"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:544"
-          },
-          {
-            "role": "assign",
-            "line": "internal/collector/collector.go:550"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:72"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:145"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:147"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:148"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:149"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:150"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:151"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:152"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:156"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:157"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:160"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:161"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:170"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:171"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:176"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:177"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:178"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:179"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:180"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:181"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:182"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:190"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:191"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/repo_cache.go:17"
-          }
-        ],
-        "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
-        ]
-      },
-      "/security_features/repository_counts/secret_scanning": {
-        "operations": [
-          "github.installation_repositories.list",
-          "github.repos.get",
-          "github.repositories.list"
-        ],
-        "code": [
-          {
-            "role": "input",
-            "line": "internal/collector/collector.go:467"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:495"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:544"
+            "line": "internal/collector/collector.go:545"
           },
           {
             "role": "assign",
@@ -16473,11 +16215,11 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ]
       },
-      "/security_features/repository_counts/secret_scanning_push_protection": {
+      "/security_features/repository_counts/dependabot_security_updates": {
         "operations": [
           "github.installation_repositories.list",
           "github.repos.get",
@@ -16486,15 +16228,140 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:467"
+            "line": "internal/collector/collector.go:468"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:544"
+            "line": "internal/collector/collector.go:545"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:551"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:72"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:145"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:147"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:148"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:149"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:150"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:151"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:152"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:156"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:157"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:160"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:161"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:170"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:171"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:176"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:177"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:178"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:179"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:180"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:181"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:182"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:190"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:191"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/repo_cache.go:17"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
+        ]
+      },
+      "/security_features/repository_counts/secret_scanning": {
+        "operations": [
+          "github.installation_repositories.list",
+          "github.repos.get",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:468"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:496"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:545"
           },
           {
             "role": "assign",
@@ -16598,31 +16465,32 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ]
       },
-      "/security_features/repository_counts/vulnerability_alerts": {
+      "/security_features/repository_counts/secret_scanning_push_protection": {
         "operations": [
           "github.installation_repositories.list",
+          "github.repos.get",
           "github.repositories.list"
         ],
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:467"
+            "line": "internal/collector/collector.go:468"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:544"
+            "line": "internal/collector/collector.go:545"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:546"
+            "line": "internal/collector/collector.go:550"
           },
           {
             "role": "input",
@@ -16722,7 +16590,131 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
+        ]
+      },
+      "/security_features/repository_counts/vulnerability_alerts": {
+        "operations": [
+          "github.installation_repositories.list",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:468"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:496"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:545"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:547"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:72"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:145"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:147"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:148"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:149"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:150"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:151"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:152"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:156"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:157"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:160"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:161"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:170"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:171"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:176"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:177"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:178"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:179"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:180"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:181"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:182"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:190"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:191"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/repo_cache.go:17"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:502"
         ]
       },
       "/security_features/secret_scanning": {
@@ -16734,148 +16726,7 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
-          },
-          {
-            "role": "assign",
-            "line": "internal/collector/collector.go:540"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:72"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:145"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:147"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:148"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:149"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:150"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:151"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:152"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:156"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:157"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:160"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:161"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:162"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:170"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:171"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:175"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:176"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:177"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:178"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:179"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:180"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:181"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:182"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:186"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:187"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:190"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:191"
-          },
-          {
-            "role": "condition",
-            "line": "internal/collector/metrics.go:194"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/metrics.go:195"
-          },
-          {
-            "role": "input",
-            "line": "internal/collector/repo_cache.go:17"
-          }
-        ],
-        "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
-        ]
-      },
-      "/security_features/secret_scanning_push_protection": {
-        "operations": [
-          "github.installation_repositories.list",
-          "github.repos.get",
-          "github.repositories.list"
-        ],
-        "code": [
-          {
-            "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "assign",
@@ -17003,23 +16854,24 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ]
       },
-      "/security_features/vulnerability_alerts": {
+      "/security_features/secret_scanning_push_protection": {
         "operations": [
           "github.installation_repositories.list",
+          "github.repos.get",
           "github.repositories.list"
         ],
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "assign",
-            "line": "internal/collector/collector.go:538"
+            "line": "internal/collector/collector.go:542"
           },
           {
             "role": "input",
@@ -17143,7 +16995,147 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
+        ]
+      },
+      "/security_features/vulnerability_alerts": {
+        "operations": [
+          "github.installation_repositories.list",
+          "github.repositories.list"
+        ],
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:496"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:539"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:72"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:145"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:147"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:148"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:149"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:150"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:151"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:152"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:156"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:157"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:160"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:161"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:162"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:170"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:171"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:175"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:176"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:177"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:178"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:179"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:180"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:181"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:182"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:186"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:187"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:190"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:191"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/metrics.go:194"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/metrics.go:195"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/repo_cache.go:17"
+          }
+        ],
+        "gaps": [
+          "internal/collector/collector.go:502"
         ]
       },
       "/tokens": {
@@ -17180,15 +17172,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17218,15 +17210,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17284,15 +17276,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17350,15 +17342,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17416,15 +17408,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17498,15 +17490,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17561,15 +17553,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:293"
+            "line": "internal/collector/collector.go:294"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17635,15 +17627,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17810,15 +17802,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -17985,15 +17977,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -18121,15 +18113,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -18419,15 +18411,15 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -18467,11 +18459,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -18764,11 +18756,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -18832,15 +18824,15 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:287"
+            "line": "internal/collector/collector.go:288"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:295"
+            "line": "internal/collector/collector.go:296"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:297"
+            "line": "internal/collector/collector.go:298"
           },
           {
             "role": "input",
@@ -18977,7 +18969,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19008,7 +19000,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19068,7 +19060,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19099,7 +19091,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19159,7 +19151,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19190,7 +19182,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19250,7 +19242,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19281,7 +19273,7 @@
         ],
         "gaps": [
           "internal/collector/branch_protection_gaps.go:69",
-          "internal/collector/collector.go:498"
+          "internal/collector/collector.go:499"
         ],
         "copies": [
           {
@@ -19314,11 +19306,11 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:489"
+            "line": "internal/collector/collector.go:490"
           },
           {
             "role": "assign",
-            "line": "internal/collector/deprecated.go:25"
+            "line": "internal/collector/deprecated.go:29"
           },
           {
             "role": "condition",
@@ -19421,23 +19413,23 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:510"
+            "line": "internal/collector/collector.go:511"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:512"
+            "line": "internal/collector/collector.go:513"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:516"
-          },
-          {
-            "role": "input",
             "line": "internal/collector/collector.go:517"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:518"
           },
           {
             "role": "condition",
@@ -19482,7 +19474,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ],
         "copies": [
           {
@@ -19499,11 +19491,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:510"
+            "line": "internal/collector/collector.go:511"
           },
           {
             "role": "condition",
@@ -19527,7 +19519,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ],
         "copies": [
           {
@@ -19544,19 +19536,19 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:468"
+            "line": "internal/collector/collector.go:469"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:512"
+            "line": "internal/collector/collector.go:513"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:515"
+            "line": "internal/collector/collector.go:516"
           },
           {
             "role": "assign",
@@ -19564,7 +19556,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ],
         "copies": [
           {
@@ -19581,15 +19573,15 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:468"
+            "line": "internal/collector/collector.go:469"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:511"
+            "line": "internal/collector/collector.go:512"
           },
           {
             "role": "condition",
@@ -19609,7 +19601,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ],
         "copies": [
           {
@@ -19637,20 +19629,20 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:539"
+            "line": "internal/collector/collector.go:540"
           },
           {
             "role": "assign",
-            "line": "internal/collector/deprecated.go:29"
+            "line": "internal/collector/deprecated.go:33"
           },
           {
             "role": "helper",
-            "line": "internal/collector/deprecated.go:35",
-            "end": 40
+            "line": "internal/collector/deprecated.go:47",
+            "end": 52
           },
           {
             "role": "input",
@@ -19774,8 +19766,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ],
         "copies": [
           {
@@ -19793,20 +19785,20 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:540"
+            "line": "internal/collector/collector.go:541"
           },
           {
             "role": "assign",
-            "line": "internal/collector/deprecated.go:28"
+            "line": "internal/collector/deprecated.go:32"
           },
           {
             "role": "helper",
-            "line": "internal/collector/deprecated.go:35",
-            "end": 40
+            "line": "internal/collector/deprecated.go:47",
+            "end": 52
           },
           {
             "role": "input",
@@ -19930,8 +19922,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ],
         "copies": [
           {
@@ -19948,20 +19940,20 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:538"
+            "line": "internal/collector/collector.go:539"
           },
           {
             "role": "assign",
-            "line": "internal/collector/deprecated.go:27"
+            "line": "internal/collector/deprecated.go:31"
           },
           {
             "role": "helper",
-            "line": "internal/collector/deprecated.go:35",
-            "end": 40
+            "line": "internal/collector/deprecated.go:47",
+            "end": 52
           },
           {
             "role": "input",
@@ -20085,7 +20077,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501"
+          "internal/collector/collector.go:502"
         ],
         "copies": [
           {
@@ -20168,11 +20160,11 @@
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:510"
+            "line": "internal/collector/collector.go:511"
           },
           {
             "role": "condition",
@@ -20242,8 +20234,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ],
         "copies": [
           {
@@ -20823,15 +20815,15 @@
         "code": [
           {
             "role": "input",
-            "line": "internal/collector/collector.go:468"
+            "line": "internal/collector/collector.go:469"
           },
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:511"
+            "line": "internal/collector/collector.go:512"
           },
           {
             "role": "condition",
@@ -20859,7 +20851,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ],
         "copies": [
           {
@@ -20876,11 +20868,11 @@
         "code": [
           {
             "role": "condition",
-            "line": "internal/collector/collector.go:495"
+            "line": "internal/collector/collector.go:496"
           },
           {
             "role": "input",
-            "line": "internal/collector/collector.go:510"
+            "line": "internal/collector/collector.go:511"
           },
           {
             "role": "condition",
@@ -20912,7 +20904,7 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:496"
+          "internal/collector/collector.go:497"
         ],
         "copies": [
           {
@@ -20961,8 +20953,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/collector.go:501",
-          "internal/collector/collector.go:535"
+          "internal/collector/collector.go:502",
+          "internal/collector/collector.go:536"
         ],
         "copies": [
           {
@@ -21325,70 +21317,70 @@
     "internal/collector/collector.go:155": "\t\tmetrics.repositorySelection, listed, err = c.installedOn(reposCtx, orgSecurity.Credential, listed)",
     "internal/collector/collector.go:157": "\tif err != nil {",
     "internal/collector/collector.go:159": "\t\tmetrics.reposErr = err",
-    "internal/collector/collector.go:266": "func (p *collectionPass) internal() bool {",
-    "internal/collector/collector.go:267": "\treturn p.level.AtLeast(componentsdk.LevelInternal)",
-    "internal/collector/collector.go:268": "}",
-    "internal/collector/collector.go:287": "\tif !level.AtLeast(componentsdk.LevelAudit) {",
-    "internal/collector/collector.go:293": "\t\tmetrics: metrics,",
-    "internal/collector/collector.go:295": "\t\torg:     c.config.Organization,",
-    "internal/collector/collector.go:297": "\tstep := func(name, title string) { p.ctx = steps.next(name, title) }",
-    "internal/collector/collector.go:338": "\tif err != nil {",
-    "internal/collector/collector.go:339": "\t\tc.gaps.leaveOut(err, permission, canCreate)",
-    "internal/collector/collector.go:342": "\tp.posture.AccessControl.DefaultRepositoryPermission = settings.DefaultRepositoryPermission",
-    "internal/collector/collector.go:343": "\tp.posture.AccessControl.MembersCanCreateRepositories = settings.MembersCanCreateRepositories",
-    "internal/collector/collector.go:467": "\taudit := level.AtLeast(componentsdk.LevelAudit)",
-    "internal/collector/collector.go:468": "\tcount := func(n *int) *int {",
-    "internal/collector/collector.go:474": "\texcludePatterns := c.config.ExcludePatterns",
-    "internal/collector/collector.go:475": "\tif excludePatterns == nil {",
-    "internal/collector/collector.go:476": "\t\texcludePatterns = []string{}",
-    "internal/collector/collector.go:480": "\t\tIncludePatterns: includePatterns,",
-    "internal/collector/collector.go:481": "\t\tExcludePatterns: excludePatterns,",
-    "internal/collector/collector.go:483": "\tif metrics.repositorySelection != \"\" {",
-    "internal/collector/collector.go:484": "\t\tposture.Scope.RepositorySelection = ptr(metrics.repositorySelection)",
-    "internal/collector/collector.go:489": "\t\tTwoFactorRequired: orgSecurity.TwoFactorRequired,",
-    "internal/collector/collector.go:495": "\tif metrics.reposErr != nil {",
-    "internal/collector/collector.go:496": "\t\tc.gaps.leaveOut(metrics.reposErr, repoDerivedPointers...)",
-    "internal/collector/collector.go:498": "\t\t\tc.gaps.leaveOut(metrics.reposErr, r.pointer, r.countPointer)",
-    "internal/collector/collector.go:501": "\t\t\tc.gaps.leaveOut(metrics.reposErr, f.pointer(), f.countPointer())",
-    "internal/collector/collector.go:510": "\tposture.Scope.RepositoriesPresent = ptr(metrics.totalRepos \u003e 0)",
-    "internal/collector/collector.go:511": "\tposture.Scope.IncludedRepositoryCount = count(ptr(metrics.totalRepos))",
-    "internal/collector/collector.go:512": "\tif orgRepos, err := organizationRepositoryCount(orgSecurity, metrics); err != nil {",
-    "internal/collector/collector.go:515": "\t\tposture.Scope.RepositoryCount = count(ptr(orgRepos))",
-    "internal/collector/collector.go:516": "\t\tif orgRepos \u003e 0 {",
-    "internal/collector/collector.go:517": "\t\t\tposture.Scope.RepositoriesCoverage = ptr(percent(metrics.totalRepos, orgRepos))",
-    "internal/collector/collector.go:522": "\tc.gaps.partial(coverage.unknown, coverage.err, \"/posture/security_features_coverage\")",
-    "internal/collector/collector.go:523": "\tprotected := metrics.protectedRepositoryCount()",
-    "internal/collector/collector.go:525": "\t\tBranchProtectionCoverage: percentOf(protected, len(metrics.repos.included)),",
-    "internal/collector/collector.go:526": "\t\tProtectedRepositoryCount: count(protected),",
-    "internal/collector/collector.go:527": "\t\tSecurityFeaturesCoverage: coverage.pct,",
-    "internal/collector/collector.go:535": "\t\tc.gaps.partial(r.unknown, r.err, f.pointer(), f.countPointer())",
-    "internal/collector/collector.go:538": "\t\tVulnerabilityAlerts:          byFeature[featureVulnerabilityAlerts].pct,",
-    "internal/collector/collector.go:539": "\t\tCodeScanning:                 byFeature[featureCodeScanning].pct,",
-    "internal/collector/collector.go:540": "\t\tSecretScanning:               byFeature[featureSecretScanning].pct,",
-    "internal/collector/collector.go:541": "\t\tSecretScanningPushProtection: byFeature[featureSecretScanningPushProtection].pct,",
-    "internal/collector/collector.go:542": "\t\tDependabotSecurityUpdates:    byFeature[featureDependabotSecurityUpdates].pct,",
-    "internal/collector/collector.go:544": "\tif audit {",
-    "internal/collector/collector.go:546": "\t\t\tVulnerabilityAlerts:          byFeature[featureVulnerabilityAlerts].count,",
-    "internal/collector/collector.go:547": "\t\t\tCodeScanning:                 byFeature[featureCodeScanning].count,",
-    "internal/collector/collector.go:548": "\t\t\tSecretScanning:               byFeature[featureSecretScanning].count,",
-    "internal/collector/collector.go:549": "\t\t\tSecretScanningPushProtection: byFeature[featureSecretScanningPushProtection].count,",
-    "internal/collector/collector.go:550": "\t\t\tDependabotSecurityUpdates:    byFeature[featureDependabotSecurityUpdates].count,",
-    "internal/collector/collector.go:556": "func percent(count, total int) int {",
-    "internal/collector/collector.go:557": "\tif total == 0 {",
-    "internal/collector/collector.go:558": "\t\treturn 0",
-    "internal/collector/collector.go:559": "\t}",
-    "internal/collector/collector.go:560": "\treturn (count * MaxPercentage) / total",
-    "internal/collector/collector.go:561": "}",
-    "internal/collector/deprecated.go:25": "\treturn VCSPostureOrgSecurity{TwoFactorRequired: o.AccessControl.TwoFactorRequired},",
-    "internal/collector/deprecated.go:27": "\t\t\tVulnAlertsPct:     pctFloat(o.SecurityFeatures.VulnerabilityAlerts),",
-    "internal/collector/deprecated.go:28": "\t\t\tSecretScanningPct: pctFloat(o.SecurityFeatures.SecretScanning),",
-    "internal/collector/deprecated.go:29": "\t\t\tCodeScanningPct:   pctFloat(o.SecurityFeatures.CodeScanning),",
-    "internal/collector/deprecated.go:35": "func pctFloat(pct *int) *float64 {",
-    "internal/collector/deprecated.go:36": "\tif pct == nil {",
-    "internal/collector/deprecated.go:37": "\t\treturn nil",
-    "internal/collector/deprecated.go:38": "\t}",
-    "internal/collector/deprecated.go:39": "\treturn ptr(float64(*pct))",
-    "internal/collector/deprecated.go:40": "}",
+    "internal/collector/collector.go:267": "func (p *collectionPass) internal() bool {",
+    "internal/collector/collector.go:268": "\treturn p.level.AtLeast(componentsdk.LevelInternal)",
+    "internal/collector/collector.go:269": "}",
+    "internal/collector/collector.go:288": "\tif !level.AtLeast(componentsdk.LevelAudit) {",
+    "internal/collector/collector.go:294": "\t\tmetrics: metrics,",
+    "internal/collector/collector.go:296": "\t\torg:     c.config.Organization,",
+    "internal/collector/collector.go:298": "\tstep := func(name, title string) { p.ctx = steps.next(name, title) }",
+    "internal/collector/collector.go:339": "\tif err != nil {",
+    "internal/collector/collector.go:340": "\t\tc.gaps.leaveOut(err, permission, canCreate)",
+    "internal/collector/collector.go:343": "\tp.posture.AccessControl.DefaultRepositoryPermission = settings.DefaultRepositoryPermission",
+    "internal/collector/collector.go:344": "\tp.posture.AccessControl.MembersCanCreateRepositories = settings.MembersCanCreateRepositories",
+    "internal/collector/collector.go:468": "\taudit := level.AtLeast(componentsdk.LevelAudit)",
+    "internal/collector/collector.go:469": "\tcount := func(n *int) *int {",
+    "internal/collector/collector.go:475": "\texcludePatterns := c.config.ExcludePatterns",
+    "internal/collector/collector.go:476": "\tif excludePatterns == nil {",
+    "internal/collector/collector.go:477": "\t\texcludePatterns = []string{}",
+    "internal/collector/collector.go:481": "\t\tIncludePatterns: includePatterns,",
+    "internal/collector/collector.go:482": "\t\tExcludePatterns: excludePatterns,",
+    "internal/collector/collector.go:484": "\tif metrics.repositorySelection != \"\" {",
+    "internal/collector/collector.go:485": "\t\tposture.Scope.RepositorySelection = ptr(metrics.repositorySelection)",
+    "internal/collector/collector.go:490": "\t\tTwoFactorRequired: orgSecurity.TwoFactorRequired,",
+    "internal/collector/collector.go:496": "\tif metrics.reposErr != nil {",
+    "internal/collector/collector.go:497": "\t\tc.gaps.leaveOut(metrics.reposErr, repoDerivedPointers...)",
+    "internal/collector/collector.go:499": "\t\t\tc.gaps.leaveOut(metrics.reposErr, r.pointer, r.countPointer)",
+    "internal/collector/collector.go:502": "\t\t\tc.gaps.leaveOut(metrics.reposErr, f.pointer(), f.countPointer())",
+    "internal/collector/collector.go:511": "\tposture.Scope.RepositoriesPresent = ptr(metrics.totalRepos \u003e 0)",
+    "internal/collector/collector.go:512": "\tposture.Scope.IncludedRepositoryCount = count(ptr(metrics.totalRepos))",
+    "internal/collector/collector.go:513": "\tif orgRepos, err := organizationRepositoryCount(orgSecurity, metrics); err != nil {",
+    "internal/collector/collector.go:516": "\t\tposture.Scope.RepositoryCount = count(ptr(orgRepos))",
+    "internal/collector/collector.go:517": "\t\tif orgRepos \u003e 0 {",
+    "internal/collector/collector.go:518": "\t\t\tposture.Scope.RepositoriesCoverage = ptr(percent(metrics.totalRepos, orgRepos))",
+    "internal/collector/collector.go:523": "\tc.gaps.partial(coverage.unknown, coverage.err, \"/posture/security_features_coverage\")",
+    "internal/collector/collector.go:524": "\tprotected := metrics.protectedRepositoryCount()",
+    "internal/collector/collector.go:526": "\t\tBranchProtectionCoverage: percentOf(protected, len(metrics.repos.included)),",
+    "internal/collector/collector.go:527": "\t\tProtectedRepositoryCount: count(protected),",
+    "internal/collector/collector.go:528": "\t\tSecurityFeaturesCoverage: coverage.pct,",
+    "internal/collector/collector.go:536": "\t\tc.gaps.partial(r.unknown, r.err, f.pointer(), f.countPointer())",
+    "internal/collector/collector.go:539": "\t\tVulnerabilityAlerts:          byFeature[featureVulnerabilityAlerts].pct,",
+    "internal/collector/collector.go:540": "\t\tCodeScanning:                 byFeature[featureCodeScanning].pct,",
+    "internal/collector/collector.go:541": "\t\tSecretScanning:               byFeature[featureSecretScanning].pct,",
+    "internal/collector/collector.go:542": "\t\tSecretScanningPushProtection: byFeature[featureSecretScanningPushProtection].pct,",
+    "internal/collector/collector.go:543": "\t\tDependabotSecurityUpdates:    byFeature[featureDependabotSecurityUpdates].pct,",
+    "internal/collector/collector.go:545": "\tif audit {",
+    "internal/collector/collector.go:547": "\t\t\tVulnerabilityAlerts:          byFeature[featureVulnerabilityAlerts].count,",
+    "internal/collector/collector.go:548": "\t\t\tCodeScanning:                 byFeature[featureCodeScanning].count,",
+    "internal/collector/collector.go:549": "\t\t\tSecretScanning:               byFeature[featureSecretScanning].count,",
+    "internal/collector/collector.go:550": "\t\t\tSecretScanningPushProtection: byFeature[featureSecretScanningPushProtection].count,",
+    "internal/collector/collector.go:551": "\t\t\tDependabotSecurityUpdates:    byFeature[featureDependabotSecurityUpdates].count,",
+    "internal/collector/collector.go:557": "func percent(count, total int) int {",
+    "internal/collector/collector.go:558": "\tif total == 0 {",
+    "internal/collector/collector.go:559": "\t\treturn 0",
+    "internal/collector/collector.go:560": "\t}",
+    "internal/collector/collector.go:561": "\treturn (count * MaxPercentage) / total",
+    "internal/collector/collector.go:562": "}",
+    "internal/collector/deprecated.go:29": "\treturn VCSPostureOrgSecurity{TwoFactorRequired: o.AccessControl.TwoFactorRequired},",
+    "internal/collector/deprecated.go:31": "\t\t\tVulnAlertsPct:     pctFloat(o.SecurityFeatures.VulnerabilityAlerts),",
+    "internal/collector/deprecated.go:32": "\t\t\tSecretScanningPct: pctFloat(o.SecurityFeatures.SecretScanning),",
+    "internal/collector/deprecated.go:33": "\t\t\tCodeScanningPct:   pctFloat(o.SecurityFeatures.CodeScanning),",
+    "internal/collector/deprecated.go:47": "func pctFloat(pct *int) *float64 {",
+    "internal/collector/deprecated.go:48": "\tif pct == nil {",
+    "internal/collector/deprecated.go:49": "\t\treturn nil",
+    "internal/collector/deprecated.go:50": "\t}",
+    "internal/collector/deprecated.go:51": "\treturn ptr(float64(*pct))",
+    "internal/collector/deprecated.go:52": "}",
     "internal/collector/findings.go:66": "\tfindings := \u0026SecurityFindings{}",
     "internal/collector/findings.go:67": "\tunread := map[string]int{}",
     "internal/collector/findings.go:70": "\tfor _, a := range listings {",

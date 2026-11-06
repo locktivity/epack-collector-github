@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The collector is built on epack v0.10.2.
+- The deprecated `org_security` block is left out when `collect` leaves out `access-posture`, and `security_features` when it leaves out `vuln-scanning`. Each has a `not_shared` gap. v0.4.1 wrote both whatever `collect` listed.
+
 ## v0.4.1
 
 - The collector is built on epack v0.10.1.

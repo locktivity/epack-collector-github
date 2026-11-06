@@ -187,6 +187,7 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 		c.gaps.note(n)
 	}
 	c.gaps.mirrorNormalized(c.config.CollectAccess, c.config.CollectVulns)
+	c.gaps.movedDeprecated()
 
 	c.status("Collection complete")
 
