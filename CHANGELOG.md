@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.4.3
+
+- The collector is built on epack v0.10.5.
+- The collector result has `targets` now. They name the organization, at `organization` in `artifacts/github.vcs-posture.json`, and the repositories the run assessed, at `repositories.per_repo` in `artifacts/github.details.json`, with how each was chosen. When a GitHub App is installed on selected repositories, the repositories are `granted`, or `granted_filtered` when patterns also narrow them, since the organization may have others the run never saw. Audit and internal runs write `"per_repo": []` for an organization with no repositories, where they left `per_repo` out before.
+
+## v0.4.2
+
 - The collector is built on epack v0.10.2.
 - The deprecated `org_security` block is left out when `collect` leaves out `access-posture`, and `security_features` when it leaves out `vuln-scanning`. Each has a `not_shared` gap. v0.4.1 wrote both whatever `collect` listed.
 
