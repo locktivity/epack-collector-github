@@ -262,7 +262,7 @@ type Repositories struct {
 	InternalCount    int       `json:"internal_count"`
 	ArchivedCount    int       `json:"archived_count"`
 	DefaultProtected *int      `json:"default_branch_protected_count"`
-	PerRepo          []RepoRow `json:"per_repo,omitempty"`
+	PerRepo          []RepoRow `json:"per_repo"`
 	Truncated        bool      `json:"truncated,omitempty"`
 	TruncatedDropped int       `json:"truncated_dropped,omitempty"`
 }

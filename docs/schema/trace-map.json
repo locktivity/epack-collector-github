@@ -10336,6 +10336,42 @@
           "internal/collector/surface_collectors.go:44"
         ]
       },
+      "/repositories/per_repo": {
+        "code": [
+          {
+            "role": "input",
+            "line": "internal/collector/repo_cache.go:17"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:53"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:57"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:61"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:80"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:122"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:137"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:148"
+          }
+        ]
+      },
       "/repositories/per_repo/*/archived": {
         "operations": [
           "github.installation_repositories.list",
@@ -21553,6 +21589,7 @@
     "internal/collector/surface_collectors.go:44": "\tc.gaps.leaveOut(p.metrics.reposErr, pointers...)",
     "internal/collector/surface_collectors.go:53": "\tif c.reposUnknown(p, \"/repositories\") {",
     "internal/collector/surface_collectors.go:56": "\trepos := \u0026Repositories{ArchivedCount: p.metrics.archivedRepos}",
+    "internal/collector/surface_collectors.go:57": "\trows := make([]RepoRow, 0, len(p.metrics.repos.included))",
     "internal/collector/surface_collectors.go:59": "\tprotected, protectedUnknown := 0, false",
     "internal/collector/surface_collectors.go:61": "\tfor _, r := range p.metrics.repos.included {",
     "internal/collector/surface_collectors.go:62": "\t\trepos.TotalCount++",
@@ -21568,6 +21605,7 @@
     "internal/collector/surface_collectors.go:75": "\t\t\tprotectedUnknown = true",
     "internal/collector/surface_collectors.go:76": "\t\tcase *v:",
     "internal/collector/surface_collectors.go:77": "\t\t\tprotected++",
+    "internal/collector/surface_collectors.go:80": "\t\trow := RepoRow{",
     "internal/collector/surface_collectors.go:81": "\t\t\tName:          r.Owner.Login + \"/\" + r.Name,",
     "internal/collector/surface_collectors.go:82": "\t\t\tVisibility:    r.Visibility,",
     "internal/collector/surface_collectors.go:83": "\t\t\tArchived:      r.IsArchived,",
@@ -21599,9 +21637,12 @@
     "internal/collector/surface_collectors.go:116": "\t\t\t\trow.LicenseSPDX = r.LicenseInfo.SpdxID",
     "internal/collector/surface_collectors.go:118": "\t\t\tfor _, t := range r.RepositoryTopics.Nodes {",
     "internal/collector/surface_collectors.go:119": "\t\t\t\trow.Topics = append(row.Topics, t.Topic.Name)",
+    "internal/collector/surface_collectors.go:122": "\t\trows = append(rows, row)",
     "internal/collector/surface_collectors.go:125": "\tif !protectedUnknown {",
     "internal/collector/surface_collectors.go:126": "\t\trepos.DefaultProtected = \u0026protected",
     "internal/collector/surface_collectors.go:134": "\t\tc.gaps.partial(unknown.count, unknown.err, \"/repositories/default_branch_protected_count\")",
+    "internal/collector/surface_collectors.go:137": "\tkept, dropped, truncated := Truncate(rows, ReposCap, func(a, b RepoRow) bool {",
+    "internal/collector/surface_collectors.go:148": "\trepos.PerRepo = kept",
     "internal/collector/surface_collectors.go:151": "\tp.posture.Repositories = repos",
     "internal/collector/surface_collectors.go:157": "\tif c.reposUnknown(p, \"/codeowners\") {",
     "internal/collector/surface_collectors.go:160": "\twantHash := p.internal()",
