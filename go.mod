@@ -2,7 +2,7 @@ module github.com/locktivity/epack-collector-github
 
 go 1.26.0
 
-toolchain go1.26.10
+toolchain go1.26.11
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.17.0
