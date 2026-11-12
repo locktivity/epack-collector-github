@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The collector is built on epack v0.11.1.
+
 ## v0.4.5
 
 - In the access file, every member counts as an admin when the members' base permission is admin, since each of them can then change who has access to every repository. Outside collaborators do not get the base permission and are not counted.
