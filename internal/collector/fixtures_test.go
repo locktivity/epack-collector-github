@@ -135,6 +135,14 @@ func kitOrgResponse(twoFactor bool) collectortest.Response {
 	return collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(kitOrgBody(twoFactor))}
 }
 
+// kitOrgBasePermissionResponse is kitOrgResponse with the members' base
+// permission set to base.
+func kitOrgBasePermissionResponse(base string) collectortest.Response {
+	body := kitOrgBody(true)
+	body["default_repository_permission"] = base
+	return collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(body)}
+}
+
 func kitOrgBody(twoFactor bool) map[string]any {
 	return map[string]any{
 		"login":                           kitOrg,

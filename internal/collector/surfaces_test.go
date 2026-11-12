@@ -26,7 +26,7 @@ func richMock() *mockGitHubClient {
 		return r
 	}
 	return &mockGitHubClient{
-		orgSecurity:  &github.OrgSecurity{TwoFactorRequired: boolPtr(true)},
+		orgSecurity:  &github.OrgSecurity{TwoFactorRequired: boolPtr(true), DefaultRepositoryPermission: "read"},
 		repositories: []github.Repository{repo("repo1", "PRIVATE"), repo("repo2", "PUBLIC")},
 		securitySettings: map[string]*github.SecuritySettings{
 			"test-org/repo1": {SecretScanning: true, CodeScanningEnabled: true},
