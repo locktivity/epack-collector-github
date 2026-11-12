@@ -54,7 +54,8 @@ level, they hold present flags and percentages and leave out the counts.
   counts behind them. Its members are the organization's members and
   outside collaborators, and its admins are the owners. Its credentials are
   the fine-grained personal access tokens approved for the organization and
-  the deploy keys of the in-scope repositories.
+  the deploy keys of the in-scope repositories, less the tokens that expired
+  and the deploy keys GitHub disabled.
 - **`artifacts/github.vuln-scanning.json`**: one entry each for Dependabot,
   code scanning, and secret scanning. Each has the scanner's coverage of the
   in-scope repositories. The Dependabot and code scanning entries also say

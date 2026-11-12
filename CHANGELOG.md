@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The collector is built on epack v0.11.1.
+- The credential values in the access file leave out a fine-grained personal access token that expired, which GitHub lists until its grant is revoked, and a deploy key GitHub disabled, as it does when the organization or its enterprise stops allowing deploy keys. Before, both counted.
 
 ## v0.4.5
 
