@@ -131,6 +131,12 @@ var (
 		fmt.Errorf("a repository has more than %d deploy keys, and only the first %d were read", github.DeployKeyFetchCap, github.DeployKeyFetchCap))
 	errInstallationsCut = componentsdk.CodeError(componentsdk.CodeTooLarge,
 		fmt.Errorf("only the first %d GitHub App installations were read", github.InventoryFetchCap))
+	// errOrgRolesNotRead is why the admin values are left out unless the
+	// members' base permission is admin.
+	errOrgRolesNotRead = componentsdk.CodeError(componentsdk.CodeNotRead,
+		errors.New("GitHub's organization roles API lists the members and teams given a role such as All-repository admin, "+
+			"or a custom role that can administer repositories. Reading it needs the Custom organization roles read permission, "+
+			"which the collector's GitHub App does not request"))
 	// errGrantCreationUnreported is why the rotation values are left out
 	// when the organization has approved a fine-grained token.
 	errGrantCreationUnreported = componentsdk.CodeError(componentsdk.CodeUnsupported,
@@ -270,8 +276,14 @@ type people struct {
 	ssoConfigured, scimEnabled      measure[bool]
 }
 
-// countPeople counts the people in ms, read with err.
-func countPeople(ms *github.OrgMembership, err error) people {
+// countPeople counts the people in ms, read with err. basePermission is the
+// members' base permission on every repository. When it is admin, every
+// member can change who has access to every repository, so every member is
+// an admin. Otherwise a member can still be an admin through an
+// organization role, which the collector does not read, so the admin count
+// is left out unless there are no members. The owners still make
+// admins_present true.
+func countPeople(ms *github.OrgMembership, err error, basePermission string) people {
 	var p people
 	if err != nil {
 		p.members, p.external, p.localMFA, p.admins, p.adminMFA = unknown[int](err, 0), unknown[int](err, 0), unknown[int](err, 0), unknown[int](err, 0), unknown[int](err, 0)
@@ -305,15 +317,23 @@ func countPeople(ms *github.OrgMembership, err error) people {
 	p.members = sum(orgMembers, p.external)
 	p.membersPresent = anyAbove(len(memberSet) > 0 || len(outsideSet) > 0, p.members)
 
+	owners := len(adminSet) > 0
 	switch {
+	case basePermission == "admin":
+		adminSet, p.admins = memberSet, orgMembers
+		owners = len(memberSet) > 0
 	case ms.AdminsErr != nil:
 		p.admins = unknown[int](ms.AdminsErr, 0)
 	case ms.AdminsMore:
 		p.admins = unknown[int](errOwnersCut, 0)
+	case orgMembers.err == nil && orgMembers.value == 0:
+		p.admins = known(0)
+	case basePermission == "":
+		p.admins = unknown[int](errOrgSettingsHidden, 0)
 	default:
-		p.admins = known(len(adminSet))
+		p.admins = unknown[int](errOrgRolesNotRead, 0)
 	}
-	p.adminsPresent = anyAbove(ms.AdminsErr == nil && len(adminSet) > 0, p.admins)
+	p.adminsPresent = anyAbove(ms.AdminsErr == nil && owners, p.admins)
 
 	// GitHub lists the members without two-factor authentication and the
 	// outside collaborators without it separately.
@@ -387,7 +407,7 @@ func (c *Collector) toAccessPosture(posture *OrgPosture, sec *github.OrgSecurity
 		SystemType:    "code_host",
 	}
 	l := &m.lists
-	p := countPeople(l.membership, readErr(l.membershipRead, l.membershipErr))
+	p := countPeople(l.membership, readErr(l.membershipRead, l.membershipErr), sec.DefaultRepositoryPermission)
 	p.addSSO(l.sso, readErr(l.ssoRead, l.ssoErr))
 
 	a.SignIn = AccessSignIn{

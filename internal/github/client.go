@@ -358,6 +358,10 @@ type OrgSecurity struct {
 	TwoFactorRequired *bool
 	RepositoryCount   *int
 	Credential        Credential
+
+	// DefaultRepositoryPermission is the members' base permission on every
+	// repository, empty when GitHub withholds it.
+	DefaultRepositoryPermission string
 }
 
 // Credential kinds. For CredentialAppInstallation, the collector exchanges the
@@ -437,6 +441,7 @@ func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity
 	var body struct {
 		Login                       string `json:"login"`
 		TwoFactorRequirementEnabled *bool  `json:"two_factor_requirement_enabled"`
+		DefaultRepositoryPermission string `json:"default_repository_permission"`
 		PublicRepos                 *int   `json:"public_repos"`
 		OwnedPrivateRepos           *int   `json:"owned_private_repos"`
 	}
@@ -448,6 +453,7 @@ func (c *Client) FetchOrgSecurity(ctx context.Context, org string) (*OrgSecurity
 	}
 	result.Login = body.Login
 	result.TwoFactorRequired = body.TwoFactorRequirementEnabled
+	result.DefaultRepositoryPermission = body.DefaultRepositoryPermission
 	if body.PublicRepos != nil && body.OwnedPrivateRepos != nil {
 		count := *body.PublicRepos + *body.OwnedPrivateRepos
 		result.RepositoryCount = &count

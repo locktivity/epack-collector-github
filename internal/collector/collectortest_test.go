@@ -103,7 +103,9 @@ func kitTrustStepPins() map[string]any {
 
 // kitCleanAccess pins the clean run's access-posture values. alice and bob
 // are members, carol an outside collaborator, and alice the one owner. bob
-// has no two-factor authentication. Both members have a linked SAML
+// has no two-factor authentication. The members' base permission is read,
+// and a member could be an admin through an organization role, which is not
+// read, so the admin counts are left out and alice makes the flags true. Both members have a linked SAML
 // identity. The organization has no root account. It has a fine-grained
 // token that has never been used and expires, and two deploy keys, one of
 // them read-write. The token has no creation date, so the rotation values
@@ -124,10 +126,12 @@ func kitCleanAccess() map[string]any {
 		"/members/local_mfa_member_count":              2,
 		"/members/local_mfa_coverage_pct":              66,
 		"/members/inactive_pct":                        collectortest.Absent,
-		"/admins/admin_count":                          1,
-		"/admins/admin_share_pct":                      34,
-		"/admins/local_mfa_admin_count":                1,
-		"/admins/local_admin_mfa_coverage_pct":         100,
+		"/admins/admins_present":                       true,
+		"/admins/admin_count":                          collectortest.Absent,
+		"/admins/admin_share_pct":                      collectortest.Absent,
+		"/admins/local_admins_present":                 true,
+		"/admins/local_mfa_admin_count":                collectortest.Absent,
+		"/admins/local_admin_mfa_coverage_pct":         collectortest.Absent,
 		"/root/root_accounts_present":                  false,
 		"/root/root_account_count":                     0,
 		"/root/root_mfa_account_count":                 0,
@@ -298,7 +302,7 @@ func kitSuite() collectortest.Suite {
 						"/members/members_present":             true,
 						"/members/member_count":                collectortest.Absent,
 						"/admins/local_admins_present":         true,
-						"/admins/local_admin_mfa_coverage_pct": 100,
+						"/admins/local_admin_mfa_coverage_pct": collectortest.Absent,
 						"/admins/admin_count":                  collectortest.Absent,
 						"/credentials/credentials_present":     true,
 						"/credentials/never_expiring_pct":      67,
@@ -343,14 +347,13 @@ func kitSuite() collectortest.Suite {
 				// SAML NameID.
 				Expect: map[string]map[string]any{
 					AccessPath: {
-						"/sign_in/sso_configured":              false,
-						"/sign_in/scim_enabled":                false,
-						"/sign_in/mfa_required":                false,
-						"/members/sso_member_count":            0,
-						"/members/sso_coverage_pct":            0,
-						"/members/local_mfa_member_count":      1,
-						"/members/local_mfa_coverage_pct":      33,
-						"/admins/local_admin_mfa_coverage_pct": 100,
+						"/sign_in/sso_configured":         false,
+						"/sign_in/scim_enabled":           false,
+						"/sign_in/mfa_required":           false,
+						"/members/sso_member_count":       0,
+						"/members/sso_coverage_pct":       0,
+						"/members/local_mfa_member_count": 1,
+						"/members/local_mfa_coverage_pct": 33,
 					},
 					DetailedPath: {
 						"/members/per_member/0/saml_name_id":       collectortest.Absent,
@@ -358,6 +361,22 @@ func kitSuite() collectortest.Suite {
 						"/members/per_member/2/two_factor_enabled": false,
 					},
 				},
+			},
+			{
+				Name:      "admin base permission",
+				Responses: replaceResponse(kitResponses(), kitOrgBasePermissionResponse("admin")),
+				// Every member can change who has access to every
+				// repository, so alice and bob are admins. The outside
+				// collaborator carol is not. bob has no two-factor
+				// authentication.
+				Expect: map[string]map[string]any{AccessPath: {
+					"/admins/admins_present":               true,
+					"/admins/admin_count":                  2,
+					"/admins/admin_share_pct":              67,
+					"/admins/local_admin_count":            2,
+					"/admins/local_mfa_admin_count":        1,
+					"/admins/local_admin_mfa_coverage_pct": 50,
+				}},
 			},
 			{
 				Name:      "no fine-grained tokens",

@@ -166,6 +166,7 @@ A trust run reads these lists only for `artifacts/github.access-posture.json` an
 | Access | Members, owners, outside collaborators, and the members and outside collaborators without 2FA | `members: read` |
 | Access | SAML identities of the members | `members: read` |
 | Access | Installed GitHub Apps | `organization_administration: read` |
+| Access | The members' base permission, from the organization | `organization_administration: read` |
 | Access | Fine-grained personal access tokens | `organization_personal_access_tokens: read` |
 | Access | Deploy keys of each in-scope repository | `administration: read` |
 | Vulnerability | Code scanning alerts of each in-scope repository | `security_events: read` |

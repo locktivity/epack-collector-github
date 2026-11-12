@@ -43,7 +43,7 @@ GitHub offers the following through its API, and the collector does not read the
    - a `GITHUB_TOKEN` supplied by the runtime
 2. It queries the GitHub GraphQL API to fetch repository metadata and classic branch protection rules
 3. It queries the GitHub REST API to fetch the rulesets that apply to each default branch and security settings (secret scanning, push protection, Dependabot)
-4. For the access file, it reads the organization's members, owners, outside collaborators, and the members and outside collaborators without two-factor authentication. It also reads the fine-grained token grants, deploy keys, and installed Apps, and the SAML identities from the GraphQL API
+4. For the access file, it reads the organization's members, owners, outside collaborators, and the members and outside collaborators without two-factor authentication. When the members' base permission is admin, every member counts as an admin. Below it, a member can be an admin through an organization role, which the collector does not read, so the admin counts are left out with a `not_read` gap. It also reads the fine-grained token grants, deploy keys, and installed Apps, and the SAML identities from the GraphQL API
 5. For the vulnerability file, it lists each in-scope repository's open code scanning and Dependabot alerts
 6. Metrics are aggregated into coverage percentages
 7. The output is wrapped in the epack collector protocol envelope and written to stdout, with a collector result artifact that records each value the collector could not read and why

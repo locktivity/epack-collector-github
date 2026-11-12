@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.5
+
+- In the access file, every member counts as an admin when the members' base permission is admin, since each of them can then change who has access to every repository. Outside collaborators do not get the base permission and are not counted.
+- Below the admin base permission, a member can still be an admin through an organization role, such as All-repository admin or a custom role that can administer repositories. The collector does not read organization roles, so `admin_count`, `admin_share_pct`, `local_admin_count`, `local_mfa_admin_count` and `local_admin_mfa_coverage_pct` are left out with a `not_read` gap. The owners still make `admins_present` and `local_admins_present` true. When GitHub withholds the base permission, these values are left out with a `permission_denied` gap.
+
 ## v0.4.4
 
 - The collector is built on Go 1.26.11.

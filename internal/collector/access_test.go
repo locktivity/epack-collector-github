@@ -96,24 +96,25 @@ func TestAccessSignInReadsSAML(t *testing.T) {
 	}
 }
 
-// The second App access check: owners who sign in with two-factor
-// authentication, over all owners.
+// The second App access check: admins who sign in with two-factor
+// authentication, over all admins. With the admin base permission, both
+// members are admins.
 func TestAccessAdminsMFAComesFromTheTwoFactorList(t *testing.T) {
 	mock := richMock()
-	mock.membership.Admins = []string{"alice", "bob"}
+	mock.orgSecurity.DefaultRepositoryPermission = "admin"
 	mock.membership.TwoFADisabled = map[string]bool{"bob": true}
 	a, _ := accessAt(t, componentsdk.LevelAudit, mock)
 	wantFlag(t, "local_admins_present", a.Admins.LocalAdminsPresent, true)
 	if a.Admins.LocalAdminCount == nil || *a.Admins.LocalAdminCount != 2 || a.Admins.LocalMFAAdminCount == nil || *a.Admins.LocalMFAAdminCount != 1 {
-		t.Errorf("admins = %+v, want 1 of 2 owners with MFA", a.Admins)
+		t.Errorf("admins = %+v, want 1 of 2 admins with MFA", a.Admins)
 	}
 	wantPct(t, "local_admin_mfa_coverage_pct", a.Admins.LocalAdminMFACoveragePct, 50)
 	wantPct(t, "admin_share_pct", a.Admins.AdminSharePct, 67) // 2 of 3 people, rounded up
 }
 
-func TestAccessAdminsMFAWithNoOwnersIsNull(t *testing.T) {
+func TestAccessAdminsMFAWithNoAdminsIsNull(t *testing.T) {
 	mock := richMock()
-	mock.membership.Admins = nil
+	mock.membership.Members, mock.membership.Admins = nil, nil
 	a, _ := accessAt(t, componentsdk.LevelTrust, mock)
 	wantFlag(t, "local_admins_present", a.Admins.LocalAdminsPresent, false)
 	wantNull(t, "local_admin_mfa_coverage_pct", a.Admins.LocalAdminMFACoveragePct)
@@ -124,6 +125,7 @@ func TestAccessAdminsMFAWithNoOwnersIsNull(t *testing.T) {
 
 func TestAccessAdminsMFAUnknownWithoutTheTwoFactorList(t *testing.T) {
 	mock := richMock()
+	mock.orgSecurity.DefaultRepositoryPermission = "admin"
 	mock.membership.TwoFADisabled = nil
 	mock.membership.TwoFAErr = componentsdk.CodeError(componentsdk.CodePermissionDenied, github.ErrPermissionDenied)
 	a, gaps := accessAt(t, componentsdk.LevelTrust, mock)
@@ -160,6 +162,7 @@ func TestAccessMembersMFAForOutsideCollaborators(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mock := richMock()
 			mock.orgSecurity.TwoFactorRequired = tc.required
+			mock.orgSecurity.DefaultRepositoryPermission = "admin"
 			mock.membership.CollaboratorsTwoFADisabled, mock.membership.CollaboratorsTwoFAErr = tc.disabled, tc.err
 			a, gaps := accessAt(t, componentsdk.LevelAudit, mock)
 			g := accessGap(gaps, "/members/local_mfa_member_count")
@@ -176,8 +179,9 @@ func TestAccessMembersMFAForOutsideCollaborators(t *testing.T) {
 			if g == nil || g.Code != tc.code || g.Status != componentsdk.GapPartial || g.Unmeasured != 1 {
 				t.Errorf("gap = %+v, want a partial %s gap with the 1 outside collaborator unmeasured", g, tc.code)
 			}
-			// Owners are members, so their MFA stays.
-			wantPct(t, "local_admin_mfa_coverage_pct", a.Admins.LocalAdminMFACoveragePct, 100)
+			// The admins are members, so their MFA stays: alice has it
+			// and bob does not.
+			wantPct(t, "local_admin_mfa_coverage_pct", a.Admins.LocalAdminMFACoveragePct, 50)
 		})
 	}
 }
@@ -208,13 +212,63 @@ func TestAccessMembersCountOutsideCollaboratorsAsExternal(t *testing.T) {
 // requires SAML is not read. So local and SSO members overlap.
 func TestAccessMembersLinkedToSAMLAreLocal(t *testing.T) {
 	mock := richMock()
+	mock.orgSecurity.DefaultRepositoryPermission = "admin"
 	mock.sso = &github.OrgSSO{Configured: true, LinkedMembers: 2, NameIDs: map[string]string{"alice": "alice@idp", "bob": "bob@idp"}}
 	a, _ := accessAt(t, componentsdk.LevelAudit, mock)
 	if a.Members.SSOMemberCount == nil || *a.Members.SSOMemberCount != 2 || a.Members.LocalMemberCount == nil || *a.Members.LocalMemberCount != 3 {
 		t.Errorf("members = %+v, want 2 linked to SAML and all 3 local", a.Members)
 	}
-	if a.Admins.LocalAdminCount == nil || *a.Admins.LocalAdminCount != 1 {
-		t.Errorf("local_admin_count = %v, want the one owner, who is linked to SAML", a.Admins.LocalAdminCount)
+	if a.Admins.LocalAdminCount == nil || *a.Admins.LocalAdminCount != 2 {
+		t.Errorf("local_admin_count = %v, want both members, who are linked to SAML", a.Admins.LocalAdminCount)
+	}
+}
+
+// With the admin base permission, every member can change who has access
+// to every repository, so every member is an admin. An outside
+// collaborator does not get the base permission.
+func TestAccessAdminsAreEveryMemberWithTheAdminBasePermission(t *testing.T) {
+	mock := richMock()
+	mock.orgSecurity.DefaultRepositoryPermission = "admin"
+	a, gaps := accessAt(t, componentsdk.LevelAudit, mock)
+	if a.Admins.AdminCount == nil || *a.Admins.AdminCount != 2 {
+		t.Errorf("admin_count = %v, want alice and bob", a.Admins.AdminCount)
+	}
+	wantPct(t, "admin_share_pct", a.Admins.AdminSharePct, 67)
+	if g := accessGap(gaps, "/admins/admin_count"); g != nil {
+		t.Errorf("admin_count gap = %+v, want none", g)
+	}
+}
+
+// Below the admin base permission, a member can still be an admin through
+// an organization role, which the collector does not read. The admin
+// values are left out with a not_read gap, and the owner still makes the
+// present flags true. When GitHub withholds the base permission, the gap is
+// permission_denied.
+func TestAccessAdminsLeftOutWithoutOrganizationRoles(t *testing.T) {
+	for _, tc := range []struct {
+		base string
+		code componentsdk.Code
+	}{
+		{"read", componentsdk.CodeNotRead},
+		{"write", componentsdk.CodeNotRead},
+		{"", componentsdk.CodePermissionDenied},
+	} {
+		mock := richMock()
+		mock.orgSecurity.DefaultRepositoryPermission = tc.base
+		a, gaps := accessAt(t, componentsdk.LevelAudit, mock)
+		wantFlag(t, "admins_present", a.Admins.AdminsPresent, true)
+		wantFlag(t, "local_admins_present", a.Admins.LocalAdminsPresent, true)
+		if a.Admins.AdminCount != nil || a.Admins.AdminSharePct.Read || a.Admins.LocalMFAAdminCount != nil || a.Admins.LocalAdminMFACoveragePct.Read {
+			t.Errorf("base %q: admins = %+v, want the counts and percentages left out", tc.base, a.Admins)
+		}
+		for _, pointer := range []string{"/admins/admin_count", "/admins/admin_share_pct", "/admins/local_admin_count", "/admins/local_mfa_admin_count", "/admins/local_admin_mfa_coverage_pct"} {
+			if g := accessGap(gaps, pointer); g == nil || g.Code != tc.code {
+				t.Errorf("base %q: %s gap = %+v, want %s", tc.base, pointer, g, tc.code)
+			}
+		}
+		if g := accessGap(gaps, "/admins/admin_count"); tc.code == componentsdk.CodeNotRead && (g == nil || !strings.Contains(g.Detail, "Custom organization roles")) {
+			t.Errorf("base %q: admin_count gap = %+v, want it to name the permission", tc.base, g)
+		}
 	}
 }
 
