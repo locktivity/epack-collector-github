@@ -104,10 +104,11 @@ func kitTrustStepPins() map[string]any {
 // kitCleanAccess pins the clean run's access-posture values. alice and bob
 // are members, carol an outside collaborator, and alice the one owner. bob
 // has no two-factor authentication. Both members have a linked SAML
-// identity. The organization has a fine-grained token that has never been
-// used and expires, and two deploy keys, one of them read-write. The token
-// has no creation date, so the rotation values are left out. Of the two
-// installed Apps, renovate is suspended and does not count.
+// identity. The organization has no root account. It has a fine-grained
+// token that has never been used and expires, and two deploy keys, one of
+// them read-write. The token has no creation date, so the rotation values
+// are left out. Of the two installed Apps, renovate is suspended and does
+// not count.
 func kitCleanAccess() map[string]any {
 	return map[string]any{
 		"/system_type":                                 "code_host",
@@ -127,7 +128,11 @@ func kitCleanAccess() map[string]any {
 		"/admins/admin_share_pct":                      34,
 		"/admins/local_mfa_admin_count":                1,
 		"/admins/local_admin_mfa_coverage_pct":         100,
-		"/root":                                        collectortest.Absent,
+		"/root/root_accounts_present":                  false,
+		"/root/root_account_count":                     0,
+		"/root/root_mfa_account_count":                 0,
+		"/root/root_mfa_coverage_pct":                  nil,
+		"/root/root_access_keys_present":               false,
 		"/credentials/credential_count":                3,
 		"/credentials/never_expiring_credential_count": 2,
 		"/credentials/never_expiring_pct":              67,
@@ -271,7 +276,7 @@ func kitSuite() collectortest.Suite {
 						"/credentials/never_expiring_pct":      nil,
 						"/connected_apps/apps_present":         false,
 						"/members/inactive_pct":                collectortest.Absent,
-						"/root":                                collectortest.Absent,
+						"/root/root_accounts_present":          false,
 					},
 					VulnPath: {
 						"/scanners/0/resources_present":     false,
@@ -298,6 +303,9 @@ func kitSuite() collectortest.Suite {
 						"/credentials/credentials_present":     true,
 						"/credentials/never_expiring_pct":      67,
 						"/credentials/credential_count":        collectortest.Absent,
+						"/root/root_accounts_present":          false,
+						"/root/root_account_count":             collectortest.Absent,
+						"/root/root_mfa_coverage_pct":          nil,
 					},
 					VulnPath: {
 						"/scanners/0/coverage_pct":          75,

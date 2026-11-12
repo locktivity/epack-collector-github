@@ -80,11 +80,15 @@ one repository. The rotation values count the deploy keys created more than
 rotation values are left out with an `unsupported` gap when the
 organization has approved any fine-grained token.
 
+A GitHub organization has no built-in root account. So
+`root.root_accounts_present` and `root.root_access_keys_present` are false
+and `root.root_mfa_coverage_pct` is null. From the audit level the root
+counts are 0.
+
 Some values have no data in GitHub, so they are always left out with an
 `unsupported` gap:
 
 - when each member last signed in
-- a root account, since an organization has none
 - the severity of secret scanning alerts
 
 GitHub reports whether an organization requires SAML single sign-on only to

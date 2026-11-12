@@ -22,6 +22,7 @@ type AccessPosture struct {
 	SignIn        AccessSignIn        `json:"sign_in,omitzero"`
 	Members       AccessMembers       `json:"members,omitzero"`
 	Admins        AccessAdmins        `json:"admins,omitzero"`
+	Root          AccessRoot          `json:"root,omitzero"`
 	Credentials   AccessCredentials   `json:"credentials,omitzero"`
 	ConnectedApps AccessConnectedApps `json:"connected_apps,omitzero"`
 }
@@ -61,6 +62,17 @@ type AccessAdmins struct {
 	LocalAdminCount          *int         `json:"local_admin_count,omitempty"`
 	LocalMFAAdminCount       *int         `json:"local_mfa_admin_count,omitempty"`
 	LocalAdminMFACoveragePct Reading[int] `json:"local_admin_mfa_coverage_pct,omitzero"`
+}
+
+// AccessRoot is the organization's built-in root accounts. A GitHub
+// organization has none, so the present flags are false and the MFA
+// coverage is null. The counts are 0 from the audit level.
+type AccessRoot struct {
+	RootAccountsPresent   *bool        `json:"root_accounts_present,omitempty"`
+	RootAccountCount      *int         `json:"root_account_count,omitempty"`
+	RootMFAAccountCount   *int         `json:"root_mfa_account_count,omitempty"`
+	RootMFACoveragePct    Reading[int] `json:"root_mfa_coverage_pct,omitzero"`
+	RootAccessKeysPresent *bool        `json:"root_access_keys_present,omitempty"`
 }
 
 // AccessCredentials is the fine-grained personal access tokens approved for
@@ -414,7 +426,15 @@ func (c *Collector) toAccessPosture(posture *OrgPosture, sec *github.OrgSecurity
 		LocalMFAAdminCount:       w.count("/admins/local_mfa_admin_count", p.adminMFA),
 		LocalAdminMFACoveragePct: w.pct("/admins/local_admin_mfa_coverage_pct", p.adminMFA, p.admins, componentsdk.RoundDown),
 	}
-	w.gaps.unsupported(AccessPath, "A GitHub organization has no root account.", "/root")
+
+	none := known(0)
+	a.Root = AccessRoot{
+		RootAccountsPresent:   w.flag("/root/root_accounts_present", known(false)),
+		RootAccountCount:      w.count("/root/root_account_count", none),
+		RootMFAAccountCount:   w.count("/root/root_mfa_account_count", none),
+		RootMFACoveragePct:    w.pct("/root/root_mfa_coverage_pct", none, none, componentsdk.RoundDown),
+		RootAccessKeysPresent: w.flag("/root/root_access_keys_present", known(false)),
+	}
 
 	a.Credentials = c.accessCredentials(w, m)
 

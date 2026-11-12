@@ -236,6 +236,31 @@ func TestAccessInactiveMembersAreUnsupported(t *testing.T) {
 	}
 }
 
+// A GitHub organization has no built-in root account, so the root flags
+// are false at every level and no root value has a gap.
+func TestAccessHasNoRootAccounts(t *testing.T) {
+	for _, level := range []componentsdk.Level{componentsdk.LevelTrust, componentsdk.LevelAudit} {
+		a, gaps := accessAt(t, level, richMock())
+		wantFlag(t, "root_accounts_present", a.Root.RootAccountsPresent, false)
+		wantFlag(t, "root_access_keys_present", a.Root.RootAccessKeysPresent, false)
+		wantNull(t, "root_mfa_coverage_pct", a.Root.RootMFACoveragePct)
+		for _, g := range gaps {
+			if g.Path == AccessPath && strings.HasPrefix(g.Pointer, "/root") {
+				t.Errorf("%s: a %s gap at %s", level, g.Code, g.Pointer)
+			}
+		}
+		counts := []*int{a.Root.RootAccountCount, a.Root.RootMFAAccountCount}
+		for _, n := range counts {
+			switch {
+			case level == componentsdk.LevelTrust && n != nil:
+				t.Errorf("trust: a root count of %d, which a trust run does not write", *n)
+			case level == componentsdk.LevelAudit && (n == nil || *n != 0):
+				t.Errorf("audit: root counts %v and %v, want 0", a.Root.RootAccountCount, a.Root.RootMFAAccountCount)
+			}
+		}
+	}
+}
+
 func TestAccessMembersLeftOutWhenTheMemberListFails(t *testing.T) {
 	mock := richMock()
 	mock.membershipErr = componentsdk.CodeError(componentsdk.CodePermissionDenied, github.ErrPermissionDenied)
