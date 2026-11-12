@@ -22,6 +22,14 @@ The collector also writes three files in epack's normalized formats:
 
 A value GitHub has no data for, such as when a member last signed in, is left out with an `unsupported` gap. A value GitHub reports that the collector does not read, such as whether the organization requires SAML single sign-on, is left out with a `not_read` gap. You can leave any of these files out with the `collect` config key. The calls that feed only that file are then skipped.
 
+## Not Collected
+
+GitHub offers the following through its API, and the collector does not read them.
+
+- **Credentials authorized for SAML single sign-on.** For an organization that uses SAML single sign-on, GitHub lists the personal access tokens, SSH keys and OAuth app tokens that members have authorized for it. The credentials the collector counts are fine-grained personal access tokens and deploy keys.
+- **IP allow list.** GitHub's GraphQL API returns whether the organization has an IP allow list enabled, and the allowed IP addresses.
+- **GitHub Actions workflow permissions.** GitHub reports the default permissions of the `GITHUB_TOKEN` in the organization's workflows, and whether GitHub Actions can approve pull requests.
+
 ## Use Cases
 
 - **Third-party risk assessments**: Provide evidence of your GitHub security posture to customers and auditors
