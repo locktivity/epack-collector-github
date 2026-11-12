@@ -1257,6 +1257,9 @@
             "role": "input",
             "line": "internal/collector/repo_cache.go:17"
           }
+        ],
+        "gaps": [
+          "internal/collector/access.go:567"
         ]
       },
       "/credentials/never_expiring_credential_count": {
@@ -4621,6 +4624,9 @@
         ]
       },
       "/apps/per_installation/*/permissions/actions": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -4674,9 +4680,15 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/administration": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -4730,6 +4742,9 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/contents": {
@@ -4795,6 +4810,9 @@
         ]
       },
       "/apps/per_installation/*/permissions/members": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -4848,6 +4866,9 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/metadata": {
@@ -4913,6 +4934,9 @@
         ]
       },
       "/apps/per_installation/*/permissions/organization_administration": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -4966,9 +4990,74 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/organization_hooks": {
+        "operations": [
+          "github.org_installations.list"
+        ],
+        "code": [
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:288"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:294"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:298"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/surface_collectors.go:586"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:587"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/surface_collectors.go:592"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/surface_collectors.go:597"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:1103"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:1104"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1105"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1109"
+          },
+          {
+            "role": "condition",
+            "line": "internal/github/surfaces.go:1120"
+          },
+          {
+            "role": "input",
+            "line": "internal/github/surfaces.go:1127"
+          }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
+        ]
+      },
+      "/apps/per_installation/*/permissions/organization_personal_access_tokens": {
         "code": [
           {
             "role": "condition",
@@ -5025,6 +5114,9 @@
         ]
       },
       "/apps/per_installation/*/permissions/organization_secrets": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -5078,9 +5170,15 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/organization_self_hosted_runners": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -5134,6 +5232,9 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/pull_requests": {
@@ -5199,6 +5300,9 @@
         ]
       },
       "/apps/per_installation/*/permissions/repository_hooks": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -5252,9 +5356,15 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/secret_scanning_alerts": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -5308,9 +5418,15 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/security_events": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -5364,9 +5480,15 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/permissions/vulnerability_alerts": {
+        "operations": [
+          "github.org_installations.list"
+        ],
         "code": [
           {
             "role": "condition",
@@ -5420,6 +5542,9 @@
             "role": "input",
             "line": "internal/github/surfaces.go:1127"
           }
+        ],
+        "gaps": [
+          "internal/collector/surface_collectors.go:588"
         ]
       },
       "/apps/per_installation/*/repository_selection": {
@@ -12379,6 +12504,10 @@
         ]
       },
       "/repositories/per_repo/*/effective_branch_protection/supplied_by/linear_history/*": {
+        "operations": [
+          "github.branch_rules.list",
+          "github.repositories.list"
+        ],
         "code": [
           {
             "role": "input",
@@ -12460,6 +12589,10 @@
             "role": "input",
             "line": "internal/github/rulesets.go:120"
           }
+        ],
+        "gaps": [
+          "internal/collector/branch_protection_gaps.go:148",
+          "internal/collector/surface_collectors.go:44"
         ]
       },
       "/repositories/per_repo/*/effective_branch_protection/supplied_by/pull_request_required/*": {
@@ -12831,6 +12964,7 @@
         "gaps": [
           "internal/collector/branch_protection_gaps.go:139",
           "internal/collector/branch_protection_gaps.go:144",
+          "internal/collector/branch_protection_gaps.go:148",
           "internal/collector/surface_collectors.go:44"
         ]
       },
@@ -13206,7 +13340,8 @@
           }
         ],
         "gaps": [
-          "internal/collector/branch_protection_gaps.go:163"
+          "internal/collector/branch_protection_gaps.go:163",
+          "internal/collector/branch_protection_gaps.go:165"
         ]
       },
       "/repositories/per_repo/*/rulesets/*/bypass_actors/*/actor_id": {
@@ -13583,6 +13718,7 @@
         "gaps": [
           "internal/collector/branch_protection_gaps.go:152",
           "internal/collector/branch_protection_gaps.go:163",
+          "internal/collector/branch_protection_gaps.go:165",
           "internal/collector/surface_collectors.go:44"
         ]
       },
@@ -14190,6 +14326,34 @@
           {
             "role": "assign",
             "line": "internal/collector/posture.go:544"
+          }
+        ]
+      },
+      "/scope/exclude_patterns": {
+        "code": [
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:475"
+          },
+          {
+            "role": "condition",
+            "line": "internal/collector/collector.go:476"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/collector.go:477"
+          },
+          {
+            "role": "assign",
+            "line": "internal/collector/collector.go:482"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:30"
+          },
+          {
+            "role": "input",
+            "line": "internal/collector/handler.go:38"
           }
         ]
       },
@@ -21808,6 +21972,7 @@
     "internal/collector/branch_protection_gaps.go:152": "\t\tc.gaps.leaveOut(err, base+\"/rulesets\")",
     "internal/collector/branch_protection_gaps.go:157": "\t\tc.gaps.leaveOut(m.unknownProtectionReason(key, prot, true), effective+\"/admin_enforcement\")",
     "internal/collector/branch_protection_gaps.go:163": "\t\t\tc.gaps.leaveOut(m.rulesetErrs[rs.id], ruleset+\"/name\", ruleset+\"/enforcement\", ruleset+\"/bypass_allowed\", ruleset+\"/bypass_actors\")",
+    "internal/collector/branch_protection_gaps.go:165": "\t\t\tc.gaps.leaveOut(errBypassHidden, ruleset+\"/bypass_allowed\", ruleset+\"/bypass_actors\")",
     "internal/collector/collector.go:37": "func (c *Collector) now() time.Time {",
     "internal/collector/collector.go:38": "\tif c.config.Now != nil {",
     "internal/collector/collector.go:39": "\t\treturn c.config.Now()",

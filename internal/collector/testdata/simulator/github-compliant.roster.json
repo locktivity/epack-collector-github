@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "vendor": "github",
+  "source": "terraform/, checklist.md and the organization's hand-set state, as expectations.yaml's notes describe them. The organization is named by the recordings' test-org, since its login stays out of this repository.",
+  "providers": {"vcs-posture": "github", "access-posture": "github", "vuln-scanning": "github"},
+  "accounts": {
+    "owner": {"kind": "member", "enabled": true, "roles": ["admin"], "mfa": "two_factor", "logins": "password"}
+  },
+  "unsettled": {"owner": ["signed_in"]},
+  "apps": {
+    "collector": {"enabled": true, "publisher": "this_organization", "registered": "checklist.md step 6, in this organization"}
+  },
+  "vcs": {
+    "organization": "test-org",
+    "two_factor_requirement": true,
+    "repositories": {
+      "classic-protected": {
+        "protections": {
+          "classic": {"enforcement": "active", "enforce_admins": true, "rules": {
+            "required_pull_request_reviews": {"approvals": 1, "dismiss_stale_reviews": true, "require_code_owner_reviews": true},
+            "required_status_checks": {"checks": ["build"], "strict": true},
+            "required_signatures": {},
+            "required_linear_history": {},
+            "block_force_pushes": {},
+            "block_deletions": {}
+          }}
+        }
+      },
+      "ruleset-protected": {
+        "protections": {
+          "ruleset:protect-default-branch": {"enforcement": "active", "rules": {
+            "pull_request": {"approvals": 1, "dismiss_stale_reviews_on_push": true},
+            "required_status_checks": {"checks": ["build"]},
+            "required_signatures": {},
+            "deletion": {},
+            "non_fast_forward": {}
+          }}
+        }
+      },
+      "archived-unprotected": {"archived": true}
+    }
+  },
+  "scanning": {
+    "resources": {
+      "classic-protected": {"type": "repository", "scans": {"Dependabot alerts": "enabled", "Code scanning": "configured", "Secret scanning": "enabled"}},
+      "ruleset-protected": {"type": "repository", "scans": {"Dependabot alerts": "enabled", "Code scanning": "configured", "Secret scanning": "enabled"}},
+      "archived-unprotected": {"type": "repository", "scans": {"Dependabot alerts": "disabled", "Code scanning": "not-configured", "Secret scanning": "disabled"}}
+    }
+  },
+  "terms": {
+    "account_kinds": {"member": "member", "outside_collaborator": "guest"},
+    "roles": {"admin": "admin", "member": "none"},
+    "mfa_methods": {"two_factor": "mfa"},
+    "login_methods": {"password": "local", "saml": "sso"},
+    "app_publishers": {"this_organization": "organization", "other_account": "third_party"},
+    "vcs_enforcements": {"active": "enforced", "evaluate": "report_only", "disabled": "off"},
+    "vcs_rules": {
+      "required_pull_request_reviews": "pull_request",
+      "pull_request": "pull_request",
+      "required_status_checks": "status_checks",
+      "required_signatures": "signed_commits",
+      "required_linear_history": "other",
+      "block_force_pushes": "other",
+      "block_deletions": "other",
+      "deletion": "other",
+      "non_fast_forward": "other"
+    },
+    "vuln_scanners": {
+      "Dependabot alerts": {"name": "dependabot", "categories": {"repository": "dependencies"}},
+      "Code scanning": {"name": "code_scanning", "categories": {"repository": "code"}},
+      "Secret scanning": {"name": "secret_scanning", "categories": {"repository": "secrets"}}
+    },
+    "vuln_scan_statuses": {"enabled": "scanned", "disabled": "not_scanned", "configured": "scanned", "not-configured": "not_scanned"},
+    "vuln_severities": {"critical": "critical", "high": "high", "medium": "medium", "low": "low"},
+    "vuln_finding_states": {"open": "open", "fixed": "closed", "dismissed": "closed"}
+  }
+}
+
