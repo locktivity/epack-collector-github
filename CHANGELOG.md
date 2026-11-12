@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.4.4
 
 - The collector is built on Go 1.26.11.
 - `artifacts/github.access-posture.json` has `root` now. A GitHub organization has no built-in root account, so `root_accounts_present` and `root_access_keys_present` are false and `root_mfa_coverage_pct` is null. From the audit level, `root_account_count` and `root_mfa_account_count` are 0. Before, `root` was left out with an `unsupported` gap. A profile test that applies only when `root.root_accounts_present` is true no longer applies to GitHub.
