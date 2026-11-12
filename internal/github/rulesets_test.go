@@ -67,8 +67,20 @@ func TestGetBranchRules(t *testing.T) {
 		!pr.PullRequest.DismissStaleReviewsOnPush || !pr.PullRequest.RequireCodeOwnerReview {
 		t.Errorf("pull_request rule parse wrong: %+v", pr.PullRequest)
 	}
-	if checks := rules[2]; checks.Type != RuleTypeRequiredStatusChecks || checks.RulesetSourceType != "Repository" || checks.RulesetID != 10 {
+	if checks := rules[2]; checks.Type != RuleTypeRequiredStatusChecks || checks.RulesetSourceType != "Repository" || checks.RulesetID != 10 || checks.RequiredChecks != 1 {
 		t.Errorf("required_status_checks rule parse wrong: %+v", checks)
+	}
+}
+
+func TestParseBranchRuleCountsTheRequiredChecks(t *testing.T) {
+	for raw, want := range map[string]int{
+		`{"type":"required_status_checks","parameters":{"required_status_checks":[]}}`:                                0,
+		`{"type":"required_status_checks","parameters":{"required_status_checks":[{"context":"a"},{"context":"b"}]}}`: 2,
+	} {
+		rule, err := parseBranchRule([]byte(raw))
+		if err != nil || rule.RequiredChecks != want {
+			t.Errorf("%s: required checks = %d, err %v; want %d", raw, rule.RequiredChecks, err, want)
+		}
 	}
 }
 

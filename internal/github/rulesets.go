@@ -43,6 +43,9 @@ type BranchRule struct {
 	RulesetSource     string // owner/repo for a repository ruleset, the owner login otherwise
 	RulesetID         int64
 	PullRequest       *PullRequestRuleParameters // set for pull_request rules only
+	// RequiredChecks counts the checks a required_status_checks rule names.
+	// GitHub's rule takes no effect until it names one.
+	RequiredChecks int
 }
 
 // PullRequestRuleParameters are the pull_request rule settings the collector reads.
@@ -127,6 +130,15 @@ func parseBranchRule(raw json.RawMessage) (BranchRule, error) {
 			return BranchRule{}, fmt.Errorf("decoding pull_request rule parameters: %w", err)
 		}
 		rule.PullRequest = &params
+	}
+	if r.Type == RuleTypeRequiredStatusChecks {
+		var params struct {
+			RequiredStatusChecks []json.RawMessage `json:"required_status_checks"`
+		}
+		if err := json.Unmarshal(r.Parameters, &params); err != nil {
+			return BranchRule{}, fmt.Errorf("decoding required_status_checks rule parameters: %w", err)
+		}
+		rule.RequiredChecks = len(params.RequiredStatusChecks)
 	}
 	return rule, nil
 }

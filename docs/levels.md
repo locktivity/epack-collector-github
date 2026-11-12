@@ -133,7 +133,15 @@ A rule counts as in place on a repository when the default branch's classic
 branch protection rule or an active repository, organization, or enterprise
 ruleset supplies it. Rulesets in evaluate mode do not count, because they only
 report what they would have blocked. Approving reviews count when at least one
-approval is required.
+approval is required. A ruleset's status checks rule counts when it names at
+least one check, since GitHub's rule has no effect until it does.
+
+GitHub returns a repository's classic branch protection rule only to a caller
+with admin rights on the repository, Administration read for a GitHub App, and
+returns none, with no error, to others. It hides the repository's
+`security_and_analysis` block from the same callers. When that block is hidden
+and no classic rule came back, a rule no active ruleset supplies is left out
+with a `permission_denied` gap, rather than counted as not in place.
 
 A percentage is `null` when the rule could not be determined for at least one
 repository, for example when GitHub refused the request for a repository's

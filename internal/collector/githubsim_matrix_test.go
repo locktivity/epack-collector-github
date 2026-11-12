@@ -271,9 +271,6 @@ var simMatrixAlone = map[string]simulate.Differences{
 	"repo.protection=classic, status checks naming none": simulate.Same(simulate.Bug,
 		"repositoriesQuery reads requiresStatusChecks and not the checks the rule names, and branch_protection.go supplyClassic counts the rule, so a branch that requires no check counts as requiring status checks; whether GitHub keeps a classic rule that names no check is unconfirmed",
 		"/branch_protection/status_checks_pct", "/branch_protection/status_checks_repository_count"),
-	"repo.protection=ruleset, status checks naming none": simulate.Same(simulate.Bug,
-		"branch_protection.go supplyRule counts a required_status_checks rule whatever checks it names, and GitHub says the rule takes no effect until it names one",
-		"/branch_protection/status_checks_pct", "/branch_protection/status_checks_repository_count"),
 	"collector.permissions=without Administration": simHiddenClassic.With(simulate.Same(simulate.Gap,
 		"permission_denied: client.go FetchSecuritySettings and checkDefaultSetup, since GitHub shows security_and_analysis and code scanning default setup only with Administration",
 		"vuln-scanning:/scanners/0/enabled", "vuln-scanning:/scanners/2/enabled")),
@@ -305,9 +302,7 @@ var simMatrixTogether = []simulate.Together{
 		Match: func(c []string) bool {
 			return simulate.Any(c, "collector.permissions=without Administration") && slices.ContainsFunc(c, func(s string) bool { return strings.HasPrefix(s, "repo.protection=classic") })
 		},
-		Differences: simHiddenClassic.With(simulate.Same(simulate.Bug, simHiddenClassic["/branch_protection/pr_required_pct"].Note,
-			"/branch_protection/status_checks_pct", "/branch_protection/status_checks_repository_count",
-			"/branch_protection/signed_commits_pct", "/branch_protection/signed_commits_repository_count")),
+		Differences: simHiddenClassic,
 	},
 	{
 		Match: func(c []string) bool {
