@@ -60,3 +60,12 @@ sdk-test: build
 
 sdk-run: build
 	epack sdk run ./$(BINARY_NAME)
+
+# The surface check: every read operation of the vendor's API description has
+# a verdict in docs/surface.yaml, and the Not Collected section and
+# docs/coverage.md match them. It runs at its own epack version, since the
+# command may be newer than the epack go.mod pins.
+SURFACE_EPACK_VERSION ?= v0.12.2
+.PHONY: surface
+surface:
+	go run -tags components github.com/locktivity/epack/cmd/epack@$(SURFACE_EPACK_VERSION) sdk surface --check
