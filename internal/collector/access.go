@@ -3,6 +3,7 @@ package collector
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -76,10 +77,11 @@ type AccessRoot struct {
 }
 
 // AccessCredentials is the fine-grained personal access tokens approved for
-// the organization and the deploy keys of the in-scope repositories.
-// Neither kind is unrestricted. The rotation values cover the deploy keys
-// alone, since a token grant has no creation date. They are left out when
-// there is a grant.
+// the organization and the deploy keys of the in-scope repositories that can
+// still be used: a token that expired and a deploy key GitHub disabled are
+// left out. Neither kind is unrestricted. The rotation values cover the
+// deploy keys alone, since a token grant has no creation date. They are left
+// out when there is a grant.
 type AccessCredentials struct {
 	CredentialsPresent             *bool        `json:"credentials_present,omitempty"`
 	CredentialCount                *int         `json:"credential_count,omitempty"`
@@ -487,17 +489,18 @@ func activeInstallations(installs []github.Installation, total int) (have bool, 
 }
 
 // accessCredentials counts the fine-grained personal access tokens approved
-// for the organization and the deploy keys of the in-scope repositories.
+// for the organization and the deploy keys of the in-scope repositories,
+// leaving out the tokens that expired and the keys GitHub disabled.
 func (c *Collector) accessCredentials(w writer, m *metricsAggregator) AccessCredentials {
 	l := &m.lists
-	grants := known(l.grants)
+	grants := known(slices.DeleteFunc(slices.Clone(l.grants), func(g github.PATGrant) bool { return g.Expired }))
 	switch err := readErr(l.grantsRead, l.grantsErr); {
 	case err != nil:
 		grants = unknown[[]github.PATGrant](err, 0)
 	case l.grantsMore:
 		grants = unknown[[]github.PATGrant](errGrantsCut, 0)
 	}
-	keys := known(l.keys.keys)
+	keys := known(slices.DeleteFunc(slices.Clone(l.keys.keys), func(k github.DeployKey) bool { return k.Disabled }))
 	switch {
 	case m.reposErr != nil:
 		keys = unknown[[]github.DeployKey](m.reposErr, 0)
@@ -561,7 +564,7 @@ func (c *Collector) accessCredentials(w writer, m *metricsAggregator) AccessCred
 	if rotationOverdue.err == nil && len(grants.value) > 0 {
 		rotationOverdue = unknown[int](errGrantCreationUnreported, len(grants.value))
 	}
-	present := anyAbove(grants.err == nil && len(grants.value) > 0 || len(l.keys.keys) > 0, total)
+	present := anyAbove(grants.err == nil && len(grants.value) > 0 || slices.ContainsFunc(l.keys.keys, func(k github.DeployKey) bool { return !k.Disabled }), total)
 
 	return AccessCredentials{
 		CredentialsPresent:             w.flag("/credentials/credentials_present", present),

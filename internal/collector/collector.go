@@ -165,6 +165,7 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 
 	c.fetchBranchRules(steps.next("branch_rules", "Branch protection and rulesets"), metrics)
 	c.fetchSecuritySettings(steps.next("security_settings", "Security settings"), metrics)
+	metrics.markHiddenClassic()
 
 	c.populatePosture(posture, orgSecurity, metrics, includePatterns, level)
 
@@ -398,6 +399,24 @@ func (c *Collector) fetchSecuritySettings(ctx context.Context, metrics *metricsA
 			continue
 		}
 		metrics.repos.recordSettings(owner, name, settings)
+	}
+}
+
+// markHiddenClassic marks each included repository whose classic branch
+// protection GitHub may have hidden. GitHub hides both security_and_analysis
+// and the classic protection from a caller without admin rights on the
+// repository, so one whose block came back hidden, with no classic rule,
+// may still have one.
+func (m *metricsAggregator) markHiddenClassic() {
+	for _, repo := range m.repos.included {
+		owner, name := repo.Owner.Login, repo.Name
+		s := m.repos.settingsFor(owner, name)
+		if s == nil || !errors.Is(s.AnalysisErr, github.ErrAnalysisHidden) || repo.DefaultBranchRef.BranchProtectionRule != nil {
+			continue
+		}
+		prot := m.repos.protectionFor(repo)
+		prot.hideClassic()
+		m.repos.recordProtection(owner, name, prot)
 	}
 }
 

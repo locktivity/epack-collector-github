@@ -254,6 +254,40 @@ func TestListOrgPATsKeepsAccessLevels(t *testing.T) {
 	}
 }
 
+// GitHub lists a token that expired, until its grant is revoked.
+func TestListOrgPATsMarksExpiredTokens(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":5,"token_expired":false,"token_expires_at":"2099-01-01T00:00:00Z"},{"id":6,"token_expired":true,"token_expires_at":"2026-01-01T00:00:00Z"}]`))
+	}))
+	defer server.Close()
+
+	grants, _, err := NewClientWithHTTP(server.Client(), server.URL).ListOrgPATs(context.Background(), "org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(grants) != 2 || grants[0].Expired || !grants[1].Expired {
+		t.Errorf("grants = %+v, want the second one expired", grants)
+	}
+}
+
+// GitHub disables every deploy key when the organization stops allowing
+// them, and lists each with enabled false. An answer without the field is
+// from before GitHub added it.
+func TestListRepoDeployKeysMarksDisabledKeys(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`[{"id":1,"read_only":true,"enabled":true},{"id":2,"read_only":true,"enabled":false},{"id":3,"read_only":true}]`))
+	}))
+	defer server.Close()
+
+	keys, _, err := NewClientWithHTTP(server.Client(), server.URL).ListRepoDeployKeys(context.Background(), "owner", "repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(keys) != 3 || keys[0].Disabled || !keys[1].Disabled || keys[2].Disabled {
+		t.Errorf("keys = %+v, want only the second one disabled", keys)
+	}
+}
+
 func TestGetPagedTotalNeedsTheListAndTheTotal(t *testing.T) {
 	for _, body := range []string{`{"total_count":1}`, `{"runners":[]}`, `{"total_count":1,"runners":null}`, `{"total_count":null,"runners":[]}`, `null`} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

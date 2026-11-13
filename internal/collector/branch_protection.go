@@ -63,14 +63,17 @@ type appliedRuleset struct {
 // repoProtection is a repository's effective default-branch protection: its
 // classic branch protection rule combined with the rules of active rulesets.
 // When rulesKnown is false the ruleset rules could not be read, so a rule that
-// classic protection does not supply is unknown rather than absent.
+// classic protection does not supply is unknown rather than absent. When
+// classicHidden is true, GitHub may have hidden a classic rule, so a rule no
+// ruleset supplies is unknown.
 type repoProtection struct {
-	classic    *github.BranchProtectionRule
-	rulesKnown bool
-	supplied   map[string][]ruleSource
-	approvals  int
-	rulesets   []appliedRuleset
-	admin      *bool
+	classic       *github.BranchProtectionRule
+	rulesKnown    bool
+	classicHidden bool
+	supplied      map[string][]ruleSource
+	approvals     int
+	rulesets      []appliedRuleset
+	admin         *bool
 }
 
 // evaluateProtection combines a repository's classic branch protection rule
@@ -92,6 +95,17 @@ func evaluateProtection(classic *github.BranchProtectionRule, rules []github.Bra
 	}
 	p.admin = p.adminEnforcement()
 	return p
+}
+
+// known reports whether every mechanism that could supply a rule was read.
+func (p *repoProtection) known() bool { return p.rulesKnown && !p.classicHidden }
+
+// hideClassic marks a missing classic rule as one GitHub may have hidden.
+// GitHub's GraphQL API returns no classic rule, and no error, to a caller
+// without admin rights on the repository.
+func (p *repoProtection) hideClassic() {
+	p.classicHidden = true
+	p.admin = p.adminEnforcement()
 }
 
 func (p *repoProtection) supplyClassic(bp *github.BranchProtectionRule) {
@@ -138,7 +152,9 @@ func (p *repoProtection) supplyRule(rule github.BranchRule) {
 			}
 		}
 	case github.RuleTypeRequiredStatusChecks:
-		p.supply(ruleStatusChecks, src)
+		if rule.RequiredChecks > 0 {
+			p.supply(ruleStatusChecks, src)
+		}
 	case github.RuleTypeRequiredSignatures:
 		p.supply(ruleSignedCommits, src)
 	case github.RuleTypeNonFastForward:
@@ -192,12 +208,12 @@ func (p *repoProtection) recordRuleset(rule github.BranchRule, detail *github.Ru
 }
 
 // state is true when any mechanism supplies the rule, unknown when none does
-// but the ruleset rules could not be read, and false otherwise.
+// but a mechanism could not be read, and false otherwise.
 func (p *repoProtection) state(rule string) *bool {
 	if len(p.supplied[rule]) > 0 {
 		return ptr(true)
 	}
-	if !p.rulesKnown {
+	if !p.known() {
 		return nil
 	}
 	return ptr(false)
@@ -214,14 +230,14 @@ func (p *repoProtection) protected() *bool {
 			return ptr(true)
 		}
 	}
-	if !p.rulesKnown {
+	if !p.known() {
 		return nil
 	}
 	return ptr(false)
 }
 
 func (p *repoProtection) approvalCount() *int {
-	if !p.rulesKnown {
+	if !p.known() {
 		return nil
 	}
 	return ptr(p.approvals)
@@ -232,7 +248,7 @@ func (p *repoProtection) approvalCount() *int {
 // supplying it applies to them. With no rules, a classic rule's own admin
 // setting decides, and an unprotected branch counts as not enforced.
 func (p *repoProtection) adminEnforcement() *bool {
-	if !p.rulesKnown {
+	if !p.known() {
 		return nil
 	}
 	var perRule []*bool

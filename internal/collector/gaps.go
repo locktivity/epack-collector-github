@@ -40,6 +40,8 @@ var (
 		errors.New("GitHub returns a ruleset's bypass list only to callers with write access to the ruleset"))
 	errRepositoryCountHidden = componentsdk.CodeError(componentsdk.CodePermissionDenied,
 		errors.New("GitHub returns owned_private_repos only to organization owners"))
+	errClassicHidden = componentsdk.CodeError(componentsdk.CodePermissionDenied,
+		errors.New("GitHub returns a repository's classic branch protection only to callers with admin rights on it, and returns none, with no error, to others"))
 )
 
 // gapLog records each value the collector leaves out in the run's recorder.

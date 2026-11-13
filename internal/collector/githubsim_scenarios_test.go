@@ -188,10 +188,12 @@ var simUncompared = map[string]string{}
 
 // simHiddenClassic are the differences when GitHub hides the classic
 // protections, as it does from an App without Administration.
-var simHiddenClassic = simulate.Same(simulate.Bug,
-	"GitHub's GraphQL branchProtectionRule is null, with no error, for a caller without admin access, and branch_protection.go evaluateProtection reads a nil classic rule as none, so classic-pr-required counts as unprotected with no gap",
+var simHiddenClassic = simulate.Same(simulate.Gap,
+	"permission_denied: collector.go markHiddenClassic, since GitHub hides security_and_analysis and the classic protection, with no error, from a caller without admin rights, so a rule no ruleset supplies is unknown",
 	"/branch_protection/pr_required_pct", "/branch_protection/pr_required_repository_count",
-	"/branch_protection/approving_reviews_pct", "/branch_protection/approving_reviews_repository_count")
+	"/branch_protection/approving_reviews_pct", "/branch_protection/approving_reviews_repository_count",
+	"/branch_protection/status_checks_pct", "/branch_protection/status_checks_repository_count",
+	"/branch_protection/signed_commits_pct", "/branch_protection/signed_commits_repository_count")
 
 // simArchived are the differences an archived repository makes.
 var simArchived = simulate.Same(simulate.Definition,
