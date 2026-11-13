@@ -14,6 +14,7 @@ const (
 	PermActions                 = "actions"
 	PermAdministration          = "administration"
 	PermContents                = "contents"
+	PermCustomOrgRoles          = "organization_custom_org_roles"
 	PermDependabotAlerts        = "vulnerability_alerts"
 	PermMembers                 = "members"
 	PermMetadata                = "metadata"
@@ -63,6 +64,8 @@ var OperationPermissions = map[string]string{
 	"github.outside_collaborators_2fa_disabled.list": PermMembers,
 	"github.org_invitations.list":                    PermMembers,
 	"github.saml_identities.list":                    PermMembers,
+	"github.org_roles.list":                          PermCustomOrgRoles,
+	"github.org_role_users.list":                     PermMembers,
 }
 
 // ReadPermission is the permission the call named op needs, as name:read,

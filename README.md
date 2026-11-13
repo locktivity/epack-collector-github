@@ -10,7 +10,7 @@ See [docs/](docs/) for detailed documentation.
 - **Access Control**: Organization-level 2FA enforcement status
 - **Branch Protection Rules**: Per-rule coverage from classic branch protection rules and rulesets (PR requirements, reviews, status checks, signed commits, admin enforcement, force pushes, deletions, linear history)
 - **Security Features**: Per-feature coverage (vulnerability alerts, code scanning, secret scanning, push protection, Dependabot)
-- **Access**: The two-factor requirement, SAML single sign-on, members, owners and their two-factor authentication, fine-grained tokens, deploy keys, and installed GitHub Apps
+- **Access**: The two-factor requirement, SAML single sign-on, members, admins and their two-factor authentication, fine-grained tokens, deploy keys, and installed GitHub Apps
 - **Vulnerability scanning**: Dependabot, code scanning, and secret scanning coverage, with open alerts by severity and the overdue ones
 
 At `audit` and `internal` levels the collector also gathers per-repo
@@ -102,9 +102,13 @@ exits 2 with `config_invalid`, and GitHub failing during the sign-in exits 4.
 
 ## Required GitHub App permissions
 
-`trust`-level collection reads members, fine-grained tokens, deploy keys,
-installed Apps, and open alerts for the access and vulnerability files. The
-tokens need the organization Personal access tokens permission (read).
+`trust`-level collection reads members, organization roles, fine-grained
+tokens, deploy keys, installed Apps, and open alerts for the access and
+vulnerability files. The tokens need the organization Personal access tokens
+permission (read). The organization roles, which can make a member an admin,
+need the organization Custom organization roles permission (read). Without it,
+the access file's admin counts and percentages are left out with a
+`permission_denied` gap.
 `audit` and `internal` add more surfaces, each gated by its own
 read-only permission. A missing permission skips just that surface, so you can
 grant incrementally. The collector result records a gap with the permission to

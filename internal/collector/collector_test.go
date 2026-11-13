@@ -308,6 +308,13 @@ type mockGitHubClient struct {
 	sso               *github.OrgSSO
 	ssoErr            error
 	ssoReads          int
+	orgRoles          []github.OrgRole
+	orgRolesErr       error
+	orgRolesReads     int
+	roleUsers         map[int64][]string // key: role ID
+	roleUsersMore     bool               // every role's holder list reached the fetch cap
+	roleUsersErr      error
+	roleUsersReads    []int64
 	codeowners        map[string]codeownersFixture // key: "owner/repo"
 	codeownersErr     error
 	orgHooks          []github.Hook
@@ -460,6 +467,22 @@ func (m *mockGitHubClient) GetOrgRosters(ctx context.Context, org string) (*gith
 		return &rosters, nil
 	}
 	return &github.OrgMembership{}, nil
+}
+
+func (m *mockGitHubClient) ListOrgRoles(ctx context.Context, org string) ([]github.OrgRole, error) {
+	m.orgRolesReads++
+	if m.orgRolesErr != nil {
+		return nil, m.orgRolesErr
+	}
+	return m.orgRoles, nil
+}
+
+func (m *mockGitHubClient) ListOrgRoleUsers(ctx context.Context, org string, roleID int64) ([]string, bool, error) {
+	m.roleUsersReads = append(m.roleUsersReads, roleID)
+	if m.roleUsersErr != nil {
+		return nil, false, m.roleUsersErr
+	}
+	return m.roleUsers[roleID], m.roleUsersMore, nil
 }
 
 func (m *mockGitHubClient) FetchOrgSSO(ctx context.Context, org string) (*github.OrgSSO, error) {

@@ -50,12 +50,14 @@ level, they hold present flags and percentages and leave out the counts.
   the repository counts.
 - **`artifacts/github.access-posture.json`**: the two-factor requirement,
   SAML single sign-on, and present flags and percentages for members,
-  owners, credentials, and installed Apps. From the audit level it adds the
+  admins, credentials, and installed Apps. From the audit level it adds the
   counts behind them. Its members are the organization's members and
-  outside collaborators, and its admins are the owners. Its credentials are
-  the fine-grained personal access tokens approved for the organization and
-  the deploy keys of the in-scope repositories, less the tokens that expired
-  and the deploy keys GitHub disabled.
+  outside collaborators. Its admins are the owners and the members who hold
+  an organization role whose base role is admin, such as All-repository
+  admin, or every member when the members' base permission is admin. Its
+  credentials are the fine-grained personal access tokens approved for the
+  organization and the deploy keys of the in-scope repositories, less the
+  tokens that expired and the deploy keys GitHub disabled.
 - **`artifacts/github.vuln-scanning.json`**: one entry each for Dependabot,
   code scanning, and secret scanning. Each has the scanner's coverage of the
   in-scope repositories. The Dependabot and code scanning entries also say
@@ -98,7 +100,8 @@ gap.
 
 To read these files at trust, the collector lists the members, owners,
 outside collaborators, the members and outside collaborators without
-two-factor authentication, deploy keys, installed Apps, fine-grained token
+two-factor authentication, the organization roles and the members who hold
+each one based on admin, deploy keys, installed Apps, fine-grained token
 grants, SAML identities, and the open code scanning and Dependabot alerts.
 Leaving a kind out of the `collect` config key skips the lists that feed
 only its file.
@@ -298,7 +301,7 @@ schema's `x-epack-null` saying why, and the rows read are flagged `truncated`:
 
 | List | Read cap |
 |---|---|
-| Members, owners, outside collaborators, and the members and outside collaborators without two-factor authentication | 50,000 logins per list |
+| Members, owners, outside collaborators, the members and outside collaborators without two-factor authentication, and the holders of each organization role based on admin | 50,000 logins per list |
 | SAML identities | 50,000 |
 | Webhooks | 200 per list: the organization's, and each repository's |
 | Deploy keys | 1,000 per repository |

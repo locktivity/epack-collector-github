@@ -207,6 +207,10 @@ func TestListsAtTheCapSayTheyMayHoldMore(t *testing.T) {
 			grants, more, err := c.ListOrgPATs(ctx, "org")
 			return len(grants), more, err
 		}},
+		{"organization role holders", `{"login":"someone","assignment":"direct"}`, MemberFetchCap, func(c *Client) (int, bool, error) {
+			logins, more, err := c.ListOrgRoleUsers(ctx, "org", 8136)
+			return len(logins), more, err
+		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -297,6 +301,47 @@ func TestGetPagedTotalNeedsTheListAndTheTotal(t *testing.T) {
 		}))
 		client := NewClientWithHTTP(server.Client(), server.URL)
 		_, _, err := client.ListOrgRunners(context.Background(), "org")
+		server.Close()
+		if got := componentsdk.Classify(err); got != componentsdk.CodeInvalidResponse {
+			t.Errorf("%s: Classify(%v) = %s, want invalid_response", body, err, got)
+		}
+	}
+}
+
+// A role with a null base_role, or none, grants no repository role.
+func TestListOrgRolesReadsEachBaseRole(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/orgs/org/organization-roles" {
+			t.Errorf("unexpected request: %s", r.URL)
+		}
+		_, _ = w.Write([]byte(`{"total_count":3,"roles":[{"id":8136,"name":"all_repo_admin","source":"Predefined","base_role":"admin"},` +
+			`{"id":1001,"name":"Auditor","source":"Organization","base_role":null},{"id":1002,"name":"Custom Role Manager"}]}`))
+	}))
+	defer server.Close()
+
+	roles, err := NewClientWithHTTP(server.Client(), server.URL).ListOrgRoles(context.Background(), "org")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []OrgRole{{ID: 8136, BaseRole: "admin"}, {ID: 1001}, {ID: 1002}}
+	if !slices.Equal(roles, want) {
+		t.Errorf("roles = %+v, want %+v", roles, want)
+	}
+}
+
+// GitHub's list of roles has no pages, so an answer with fewer roles than
+// its total_count, or a role with no id, is invalid.
+func TestListOrgRolesNeedsEveryRole(t *testing.T) {
+	for _, body := range []string{
+		`{"total_count":2,"roles":[{"id":1,"base_role":"read"}]}`,
+		`{"total_count":1,"roles":[{"name":"Auditor","base_role":null}]}`,
+		`{"total_count":1,"roles":[]}`,
+		`{"roles":[]}`,
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(body))
+		}))
+		_, err := NewClientWithHTTP(server.Client(), server.URL).ListOrgRoles(context.Background(), "org")
 		server.Close()
 		if got := componentsdk.Classify(err); got != componentsdk.CodeInvalidResponse {
 			t.Errorf("%s: Classify(%v) = %s, want invalid_response", body, err, got)

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Below the admin base permission, the access file's admins are the organization's owners and the members who hold an organization role whose base role is admin, such as All-repository admin or a custom role based on admin, directly or through a team. Each counts once. The collector lists the roles from `GET /orgs/{org}/organization-roles`, which needs the GitHub App's organization Custom organization roles permission (read), and the holders of each role based on admin with the members permission. Without the new permission, `admin_count`, `admin_share_pct`, `local_admin_count`, `local_mfa_admin_count` and `local_admin_mfa_coverage_pct` are left out with a `permission_denied` gap that names it, and the owners still make `admins_present` and `local_admins_present` true. Through v0.4.7 these values were left out with a `not_read` gap whenever the base permission was below admin.
+
 ## v0.4.7
 
 - A list is left out with an `invalid_response` gap when GitHub answers it with an item that lacks a field its REST reference requires. That covers an open alert with no `number`, a code scanning alert with no `rule`, a Dependabot alert with no severity, a webhook with no `id`, `active` or `events`, a deploy key with no `id` or `read_only`, a self-hosted runner with no `id` or `busy`, an installed App with no `app_id` or `suspended_at`, a fine-grained token grant with no `id`, `token_expired`, `token_expires_at` or `token_last_used_at`, and a member, owner or outside collaborator with no `login`. Through v0.4.6 such an item counted with a false, zero or empty value, and a person with no login dropped out of the counts.

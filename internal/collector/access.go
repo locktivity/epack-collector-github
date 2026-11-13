@@ -54,7 +54,9 @@ type AccessMembers struct {
 	LocalMFACoveragePct    Reading[int] `json:"local_mfa_coverage_pct,omitzero"`
 }
 
-// AccessAdmins is the organization's owners.
+// AccessAdmins is the organization's owners, and the members who hold an
+// organization role based on admin. With the admin base permission, every
+// member is an admin.
 type AccessAdmins struct {
 	AdminsPresent            *bool        `json:"admins_present,omitempty"`
 	AdminCount               *int         `json:"admin_count,omitempty"`
@@ -133,12 +135,8 @@ var (
 		fmt.Errorf("a repository has more than %d deploy keys, and only the first %d were read", github.DeployKeyFetchCap, github.DeployKeyFetchCap))
 	errInstallationsCut = componentsdk.CodeError(componentsdk.CodeTooLarge,
 		fmt.Errorf("only the first %d GitHub App installations were read", github.InventoryFetchCap))
-	// errOrgRolesNotRead is why the admin values are left out unless the
-	// members' base permission is admin.
-	errOrgRolesNotRead = componentsdk.CodeError(componentsdk.CodeNotRead,
-		errors.New("GitHub's organization roles API lists the members and teams given a role such as All-repository admin, "+
-			"or a custom role that can administer repositories. Reading it needs the Custom organization roles read permission, "+
-			"which the collector's GitHub App does not request"))
+	errRoleHoldersCut = componentsdk.CodeError(componentsdk.CodeTooLarge,
+		fmt.Errorf("only the first %d holders of an organization role were read", github.MemberFetchCap))
 	// errGrantCreationUnreported is why the rotation values are left out
 	// when the organization has approved a fine-grained token.
 	errGrantCreationUnreported = componentsdk.CodeError(componentsdk.CodeUnsupported,
@@ -281,11 +279,11 @@ type people struct {
 // countPeople counts the people in ms, read with err. basePermission is the
 // members' base permission on every repository. When it is admin, every
 // member can change who has access to every repository, so every member is
-// an admin. Otherwise a member can still be an admin through an
-// organization role, which the collector does not read, so the admin count
-// is left out unless there are no members. The owners still make
-// admins_present true.
-func countPeople(ms *github.OrgMembership, err error, basePermission string) people {
+// an admin. Otherwise the admins are the owners and roleAdmins, the holders
+// of an organization role based on admin, each counted once if they are a
+// member. When the holders could not be read, the admin count is left out
+// unless there are no members. The owners still make admins_present true.
+func countPeople(ms *github.OrgMembership, err error, basePermission string, roleAdmins measure[[]string]) people {
 	var p people
 	if err != nil {
 		p.members, p.external, p.localMFA, p.admins, p.adminMFA = unknown[int](err, 0), unknown[int](err, 0), unknown[int](err, 0), unknown[int](err, 0), unknown[int](err, 0)
@@ -332,8 +330,18 @@ func countPeople(ms *github.OrgMembership, err error, basePermission string) peo
 		p.admins = known(0)
 	case basePermission == "":
 		p.admins = unknown[int](errOrgSettingsHidden, 0)
+	case roleAdmins.err != nil:
+		p.admins = unknownAs[int](roleAdmins)
+	case orgMembers.err != nil:
+		p.admins = orgMembers
 	default:
-		p.admins = unknown[int](errOrgRolesNotRead, 0)
+		adminSet = map[string]bool{}
+		for _, login := range append(slices.Clone(ms.Admins), roleAdmins.value...) {
+			if memberSet[login] {
+				adminSet[login] = true
+			}
+		}
+		p.admins = known(len(adminSet))
 	}
 	p.adminsPresent = anyAbove(ms.AdminsErr == nil && owners, p.admins)
 
@@ -409,7 +417,11 @@ func (c *Collector) toAccessPosture(posture *OrgPosture, sec *github.OrgSecurity
 		SystemType:    "code_host",
 	}
 	l := &m.lists
-	p := countPeople(l.membership, readErr(l.membershipRead, l.membershipErr), sec.DefaultRepositoryPermission)
+	roleAdmins := known(l.roleAdmins)
+	if err := readErr(l.roleAdminsRead, l.roleAdminsErr); err != nil {
+		roleAdmins = unknown[[]string](err, 0)
+	}
+	p := countPeople(l.membership, readErr(l.membershipRead, l.membershipErr), sec.DefaultRepositoryPermission, roleAdmins)
 	p.addSSO(l.sso, readErr(l.ssoRead, l.ssoErr))
 
 	a.SignIn = AccessSignIn{

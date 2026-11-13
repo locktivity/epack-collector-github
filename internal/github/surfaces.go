@@ -141,8 +141,8 @@ func checkItems(items []json.RawMessage, check func(json.RawMessage) error) erro
 	return nil
 }
 
-// InventoryFetchCap bounds how many runners, Actions secrets, or App
-// installations one list reads.
+// InventoryFetchCap bounds how many runners, Actions secrets, App
+// installations, or organization roles one list reads.
 const InventoryFetchCap = 10000
 
 // getPagedTotal follows Link rel="next" pagination over a list whose pages
@@ -681,6 +681,50 @@ func (c *Client) twoFactorDisabled(ctx context.Context, op, path string) (map[st
 		set[l] = true
 	}
 	return set, nil
+}
+
+// OrgRole is one of an organization's roles. BaseRole is the repository
+// role it grants on every repository, such as admin, or "" for a role with
+// none.
+type OrgRole struct {
+	ID       int64
+	BaseRole string
+}
+
+// ListOrgRoles lists the organization's roles: GitHub's predefined ones,
+// such as All-repository admin, and the custom roles of the organization and
+// its enterprise. GitHub's reference gives the list no pages, and its
+// total_count counts every role, so an answer that holds fewer roles is
+// invalid. Requires organization_custom_org_roles:read.
+func (c *Client) ListOrgRoles(ctx context.Context, org string) ([]OrgRole, error) {
+	path := fmt.Sprintf("/orgs/%s/organization-roles", org)
+	raw, total, err := c.getPagedTotal(ctx, "github.org_roles.list", path, "roles", InventoryFetchCap, itemCheck("a role", []string{"id"}))
+	if err != nil {
+		return nil, err
+	}
+	if total > len(raw) {
+		return nil, invalidResponse("%s response holds %d roles, and its total_count is %d", path, len(raw), total)
+	}
+	out := make([]OrgRole, 0, len(raw))
+	for _, item := range raw {
+		var r struct {
+			ID       int64  `json:"id"`
+			BaseRole string `json:"base_role"`
+		}
+		if err := json.Unmarshal(item, &r); err != nil {
+			return nil, fmt.Errorf("%s: decoding role: %w", path, err)
+		}
+		out = append(out, OrgRole{ID: r.ID, BaseRole: r.BaseRole})
+	}
+	return out, nil
+}
+
+// ListOrgRoleUsers lists the logins of the members who hold an organization
+// role, up to MemberFetchCap, and whether the list reached it. GitHub lists
+// a member who holds the role through a team too, with assignment indirect
+// or mixed. Requires members:read.
+func (c *Client) ListOrgRoleUsers(ctx context.Context, org string, roleID int64) ([]string, bool, error) {
+	return c.getAllLogins(ctx, "github.org_role_users.list", fmt.Sprintf("/orgs/%s/organization-roles/%d/users?per_page=100", org, roleID))
 }
 
 // getMemberNames fetches member display names via GraphQL, the only API that

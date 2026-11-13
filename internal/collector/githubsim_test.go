@@ -33,7 +33,9 @@ import (
 //
 // The vcs block is the organization, which must be the kit's. An account of
 // kind member is a member, listed among the owners when it holds the admin
-// role, and one of kind outside_collaborator an outside collaborator. An
+// role, and one of kind outside_collaborator an outside collaborator. A
+// member holds one of the organization roles GitHub predefines when its
+// roles name it, and through each group that names it, which is a team. An
 // account that is not enabled is an invitation not yet accepted. An account
 // has two-factor authentication when one of its methods maps to MFA, and a
 // linked SAML identity when one of its logins maps to SSO and the
@@ -186,6 +188,7 @@ func (s *githubSim) responses() []collectortest.Response {
 		}
 	}
 	s.people()
+	s.orgRoles()
 	s.installations()
 	s.tokens()
 	s.surfaces()
@@ -741,13 +744,6 @@ func (s *githubSim) deployKeys(repo roster.Repository) {
 // names, and SAML identities.
 func (s *githubSim) people() {
 	var members, owners, collaborators, membersOff, collaboratorsOff, invited, names, identities []any
-	user := func(a roster.Account) any {
-		item := s.rec.Like("github.org_members.list", "")
-		login := s.login(a)
-		item["login"], item["id"], item["node_id"] = login, simInt("user", a.Key), "node-user-"+a.Key
-		item["url"], item["html_url"] = kitAPI+"/users/"+login, "https://github.com/"+login
-		return item
-	}
 	hasMFA := func(a roster.Account) bool { return s.r.MFAClass(a) != roster.MFANone }
 	sso := func(a roster.Account) bool {
 		return slices.ContainsFunc(a.Logins, func(l string) bool { return s.r.Terms.LoginMethods[l] == roster.LoginSSO })
@@ -763,16 +759,16 @@ func (s *githubSim) people() {
 			invited = append(invited, map[string]any{
 				"id": simInt("invitation", a.Key), "node_id": "node-invitation-" + a.Key, "login": s.login(a), "email": nil, "role": "direct_member",
 				"created_at": s.at(1), "failed_at": nil, "failed_reason": nil, "team_count": 0, "invitation_source": "member",
-				"inviter": user(s.r.Accounts[0]), "invitation_teams_url": s.orgURL("/invitations/" + strconv.FormatInt(simInt("invitation", a.Key), 10) + "/teams"),
+				"inviter": s.user(s.r.Accounts[0]), "invitation_teams_url": s.orgURL("/invitations/" + strconv.FormatInt(simInt("invitation", a.Key), 10) + "/teams"),
 			})
 		case s.r.Terms.AccountKinds[a.Kind] == roster.KindMember:
-			members = append(members, user(a))
+			members = append(members, s.user(a))
 			names = append(names, map[string]any{"login": s.login(a), "name": nil})
 			if slices.ContainsFunc(a.Roles, func(role string) bool { return role == "admin" }) {
-				owners = append(owners, user(a))
+				owners = append(owners, s.user(a))
 			}
 			if !hasMFA(a) {
-				membersOff = append(membersOff, user(a))
+				membersOff = append(membersOff, s.user(a))
 			}
 			if s.r.VCS.SingleSignOn && sso(a) {
 				var record any
@@ -786,9 +782,9 @@ func (s *githubSim) people() {
 				})
 			}
 		case s.r.Terms.AccountKinds[a.Kind] == roster.KindGuest:
-			collaborators = append(collaborators, user(a))
+			collaborators = append(collaborators, s.user(a))
 			if !hasMFA(a) {
-				collaboratorsOff = append(collaboratorsOff, user(a))
+				collaboratorsOff = append(collaboratorsOff, s.user(a))
 			}
 			profile := map[string]any{"login": s.login(a), "id": simInt("user", a.Key), "node_id": "node-user-" + a.Key, "type": "User", "site_admin": false,
 				"name": nil, "company": nil, "blog": "", "location": nil, "email": nil, "bio": nil, "public_repos": 0, "followers": 0, "following": 0,
@@ -813,6 +809,80 @@ func (s *githubSim) people() {
 		}
 	}
 	s.graphQL("github.saml_identities.list", reads("members"), "organization/samlIdentityProvider/externalIdentities", identities)
+}
+
+// user renders an account as GitHub lists a user.
+func (s *githubSim) user(a roster.Account) map[string]any {
+	item := s.rec.Like("github.org_members.list", "")
+	login := s.login(a)
+	item["login"], item["id"], item["node_id"] = login, simInt("user", a.Key), "node-user-"+a.Key
+	item["url"], item["html_url"] = kitAPI+"/users/"+login, "https://github.com/"+login
+	return item
+}
+
+// simOrgRoles are the organization roles GitHub predefines that grant a
+// repository role on every repository, by name, with that role. GitHub's
+// changelog of 2024-07-10 added them, and every organization has them.
+var simOrgRoles = []struct{ name, baseRole string }{
+	{"all_repo_read", "read"},
+	{"all_repo_triage", "triage"},
+	{"all_repo_write", "write"},
+	{"all_repo_maintain", "maintain"},
+	{"all_repo_admin", "admin"},
+}
+
+// orgRoles answers the organization's roles, which are the ones GitHub
+// predefines, and the members who hold each. GitHub's reference gives the
+// roles no pages. A role's holders are the members it was assigned to,
+// directly or through a team, with how each holds it.
+func (s *githubSim) orgRoles() {
+	var roles []any
+	for _, role := range simOrgRoles {
+		id := simInt("organization role", role.name)
+		roles = append(roles, map[string]any{
+			"id": id, "name": role.name, "description": nil, "permissions": []any{}, "organization": nil,
+			"source": "Predefined", "base_role": role.baseRole, "created_at": "2024-07-10T00:00:00Z", "updated_at": "2024-07-10T00:00:00Z",
+		})
+		var holders []any
+		for _, a := range s.r.Accounts {
+			direct := slices.Contains(a.Roles, role.name)
+			var teams []any
+			for _, g := range s.r.Groups {
+				if slices.Contains(g.Members, a.Key) && slices.Contains(g.Roles, role.name) {
+					teams = append(teams, s.team(g))
+				}
+			}
+			switch {
+			case !a.Enabled, !direct && teams == nil:
+				continue
+			case s.r.Terms.AccountKinds[a.Kind] != roster.KindMember:
+				panic("githubSim: " + a.Key + " holds " + role.name + ", and only members hold organization roles")
+			}
+			item := s.user(a)
+			item["assignment"], item["inherited_from"] = "mixed", nonNil(teams)
+			switch {
+			case teams == nil:
+				item["assignment"] = "direct"
+			case !direct:
+				item["assignment"] = "indirect"
+			}
+			holders = append(holders, item)
+		}
+		s.t.List("github.org_role_users.list", s.orgURL(fmt.Sprintf("/organization-roles/%d/users?per_page=100", id)), reads("members"), simLinks{Size: simPageSize}, holders)
+	}
+	s.t.Get("github.org_roles.list", s.orgURL("/organization-roles"), reads("organization_custom_org_roles"), map[string]any{"total_count": len(roles), "roles": roles})
+}
+
+// team renders a group as GitHub lists a team.
+func (s *githubSim) team(g roster.Group) map[string]any {
+	slug := strings.ReplaceAll(g.Key, "_", "-")
+	id := simInt("team", g.Key)
+	u := fmt.Sprintf("%s/organizations/1/team/%d", kitAPI, id)
+	return map[string]any{
+		"id": id, "node_id": "node-team-" + g.Key, "name": g.Key, "slug": slug, "description": nil,
+		"privacy": "closed", "notification_setting": "notifications_enabled", "permission": "pull", "type": "organization",
+		"url": u, "members_url": u + "/members{/member}", "repositories_url": u + "/repos", "html_url": "https://github.com/orgs/" + kitOrg + "/teams/" + slug,
+	}
 }
 
 // installations answers the GitHub Apps installed on the organization.

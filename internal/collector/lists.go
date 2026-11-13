@@ -24,6 +24,12 @@ type sharedLists struct {
 	membershipRead bool
 	withNames      bool
 
+	// roleAdmins is the logins that hold an organization role based on
+	// admin, or roleAdminsErr why they could not all be read.
+	roleAdmins     []string
+	roleAdminsErr  error
+	roleAdminsRead bool
+
 	keys     deployKeyList
 	keysRead bool
 
@@ -83,6 +89,39 @@ func (c *Collector) readMembership(ctx context.Context, m *metricsAggregator, wi
 	}
 	l.membershipRead, l.withNames = true, withNames
 	return l.membership, l.membershipErr
+}
+
+// readRoleAdmins lists the members who hold an organization role whose
+// base role is admin, which makes them admins of every repository, once. It
+// reads nothing when basePermission already makes every member an admin, when
+// GitHub withheld it, or when the member list could not be read, since the
+// roles then change no value.
+func (c *Collector) readRoleAdmins(ctx context.Context, m *metricsAggregator, basePermission string) {
+	l := &m.lists
+	if l.roleAdminsRead || basePermission == "admin" || basePermission == "" || l.membershipErr != nil {
+		return
+	}
+	l.roleAdminsRead = true
+	roles, err := c.client.ListOrgRoles(ctx, c.config.Organization)
+	if err != nil {
+		l.roleAdminsErr = err
+		return
+	}
+	for _, role := range roles {
+		if role.BaseRole != "admin" {
+			continue
+		}
+		logins, more, err := c.client.ListOrgRoleUsers(ctx, c.config.Organization, role.ID)
+		switch {
+		case err != nil:
+			l.roleAdmins, l.roleAdminsErr = nil, err
+			return
+		case more:
+			l.roleAdmins, l.roleAdminsErr = nil, errRoleHoldersCut
+			return
+		}
+		l.roleAdmins = append(l.roleAdmins, logins...)
+	}
 }
 
 // readDeployKeys lists the deploy keys of each included repository, once.

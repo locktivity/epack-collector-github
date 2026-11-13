@@ -508,6 +508,8 @@ func kitAuditResponses() []collectortest.Response {
 		{URL: kitOrgURL("/members?filter=2fa_disabled&per_page=100"), Body: `[{"login":"bob"}]`},
 		{URL: kitCollaboratorsTwoFactorURL, Body: `[]`},
 		{URL: kitOrgURL("/invitations?per_page=100"), Body: `[{"id":1,"login":"dana"}]`},
+		kitOrgRolesResponse(kitOrgRoles()...),
+		kitRoleHoldersResponse(kitAdminRoleID, kitRoleHolder("bob", "direct")),
 		{URL: kitAPI + "/users/carol", Body: `{"login":"carol","name":"Carol Chen"}`},
 		{Operation: "github.member_names.list", Method: http.MethodPost, URL: kitGraphQL, Body: kitJSON(map[string]any{"data": map[string]any{"organization": map[string]any{
 			"membersWithRole": map[string]any{
@@ -599,11 +601,70 @@ func kitEmptyTenantResponses() []collectortest.Response {
 		{URL: kitOrgURL("/outside_collaborators?per_page=100"), Body: `[]`},
 		{URL: kitOrgURL("/members?filter=2fa_disabled&per_page=100"), Body: `[]`},
 		{URL: kitOrgURL("/invitations?per_page=100"), Body: `[]`},
+		kitOrgRolesResponse(kitOrgRoles()...),
+		kitRoleHoldersResponse(kitAdminRoleID),
 		{Operation: "github.member_names.list", Method: http.MethodPost, URL: kitGraphQL, Body: kitJSON(map[string]any{"data": map[string]any{"organization": map[string]any{
 			"membersWithRole": map[string]any{"nodes": []any{}, "pageInfo": map[string]any{"hasNextPage": false, "endCursor": nil}},
 		}}})},
 		kitNoSAMLResponse(),
 	}
+}
+
+// kitAdminRoleID is the ID of All-repository admin, the one role of
+// kitOrgRoles based on admin.
+const kitAdminRoleID = 8136
+
+// kitOrgRole is an organization role as GitHub lists it. A role GitHub
+// predefines belongs to no organization, and a custom one to the kit's.
+// baseRole is nil for a role with no repository role.
+func kitOrgRole(id int, name, source string, baseRole any) map[string]any {
+	var org any
+	if source != "Predefined" {
+		org = map[string]any{"login": kitOrg, "id": 1, "type": "Organization"}
+	}
+	return map[string]any{
+		"id": id, "name": name, "description": nil, "permissions": []any{}, "organization": org, "source": source, "base_role": baseRole,
+		"created_at": "2024-07-10T00:00:00Z", "updated_at": "2024-07-10T00:00:00Z",
+	}
+}
+
+// kitOrgRoles are the clean run's organization roles: GitHub's
+// All-repository admin and All-repository write, and a custom Auditor role
+// with no repository role, like the example in GitHub's reference.
+func kitOrgRoles() []any {
+	auditor := kitOrgRole(1001, "Auditor", "Organization", nil)
+	auditor["permissions"] = []any{"read_audit_logs"}
+	return []any{
+		kitOrgRole(kitAdminRoleID, "all_repo_admin", "Predefined", "admin"),
+		kitOrgRole(8134, "all_repo_write", "Predefined", "write"),
+		auditor,
+	}
+}
+
+// kitOrgRolesResponse answers the list of the organization's roles with
+// roles.
+func kitOrgRolesResponse(roles ...any) collectortest.Response {
+	return collectortest.Response{URL: kitOrgURL("/organization-roles"), Body: kitJSON(map[string]any{"total_count": len(roles), "roles": roles})}
+}
+
+// kitRoleHoldersResponse answers the list of the members who hold the role
+// with ID id.
+func kitRoleHoldersResponse(id int, holders ...any) collectortest.Response {
+	return collectortest.Response{URL: kitOrgURL(fmt.Sprintf("/organization-roles/%d/users?per_page=100", id)), Body: kitJSON(nonNil(holders))}
+}
+
+// kitRoleHolder is a member who holds a role, as assignment says: direct,
+// through the teams in teams (indirect), or both (mixed).
+func kitRoleHolder(login, assignment string, teams ...string) map[string]any {
+	inherited := []any{}
+	for _, slug := range teams {
+		inherited = append(inherited, map[string]any{
+			"id": 7, "node_id": "node-team-" + slug, "slug": slug, "name": slug, "description": nil, "permission": "pull", "type": "organization",
+			"url": kitAPI + "/organizations/1/team/7", "html_url": "https://github.com/orgs/" + kitOrg + "/teams/" + slug,
+			"members_url": kitAPI + "/organizations/1/team/7/members{/member}", "repositories_url": kitAPI + "/organizations/1/team/7/repos",
+		})
+	}
+	return map[string]any{"login": login, "type": "User", "site_admin": false, "assignment": assignment, "inherited_from": inherited}
 }
 
 // kitWithSAML replaces the clean run's SAML read with answer.
@@ -631,6 +692,33 @@ func kitNoMembersPermissionResponses() []collectortest.Response {
 			"data":   map[string]any{"organization": map[string]any{"samlIdentityProvider": nil}},
 			"errors": []any{map[string]any{"type": "FORBIDDEN", "message": "Resource not accessible by integration"}},
 		}),
+	})
+}
+
+// kitWriteRoleResponses answer the clean run for an organization where no
+// one holds All-repository admin and bob holds a custom role based on write.
+func kitWriteRoleResponses() []collectortest.Response {
+	responses := replaceResponse(kitResponses(), kitOrgRolesResponse(
+		kitOrgRole(kitAdminRoleID, "all_repo_admin", "Predefined", "admin"),
+		kitOrgRole(1002, "Release managers", "Organization", "write"),
+	))
+	responses = replaceResponse(responses, kitRoleHoldersResponse(kitAdminRoleID))
+	return append(responses, kitRoleHoldersResponse(1002, kitRoleHolder("bob", "direct")))
+}
+
+// kitOrgRolesRefusedResponses answer the clean run as GitHub does for a
+// GitHub App without the Custom organization roles permission.
+func kitOrgRolesRefusedResponses() []collectortest.Response {
+	return replaceResponse(kitResponses(), collectortest.Response{URL: kitOrgURL("/organization-roles"), Status: http.StatusForbidden, Body: kitIntegrationDenied})
+}
+
+// kitRoleHoldersFailedResponses answer the clean run with GitHub failing the
+// list of All-repository admin's holders.
+func kitRoleHoldersFailedResponses() []collectortest.Response {
+	return replaceResponse(kitResponses(), collectortest.Response{
+		URL:    kitOrgURL(fmt.Sprintf("/organization-roles/%d/users?per_page=100", kitAdminRoleID)),
+		Status: http.StatusBadGateway,
+		Body:   `{"message":"Server Error"}`,
 	})
 }
 

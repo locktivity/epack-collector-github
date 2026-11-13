@@ -59,3 +59,34 @@ func TestCallsDeclareTheirPermission(t *testing.T) {
 		t.Errorf("operations = %+v, want github.deploy_keys.list with administration:read", seen)
 	}
 }
+
+// Listing the organization's roles needs Custom organization roles, and
+// listing a role's holders needs Members, as GitHub's "Permissions required
+// for GitHub Apps" lists them.
+func TestOrganizationRoleCallsDeclareTheirPermission(t *testing.T) {
+	var seen []componentsdk.Operation
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		op, _ := componentsdk.OperationOf(req.Context())
+		seen = append(seen, op)
+		body := `[]`
+		if strings.HasSuffix(req.URL.Path, "/organization-roles") {
+			body = `{"total_count":0,"roles":[]}`
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
+	})}
+	c := NewClientWithHTTP(client, "https://api.github.com")
+	if _, err := c.ListOrgRoles(context.Background(), "test-org"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := c.ListOrgRoleUsers(context.Background(), "test-org", 8136); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"github.org_roles.list organization_custom_org_roles:read", "github.org_role_users.list members:read"}
+	var got []string
+	for _, op := range seen {
+		got = append(got, op.Name+" "+op.Permission)
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("operations = %v, want %v", got, want)
+	}
+}
