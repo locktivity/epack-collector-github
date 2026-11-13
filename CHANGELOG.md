@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The collector is built on epack v0.11.1.
+- The credential values in the access file leave out a fine-grained personal access token that expired, which GitHub lists until its grant is revoked, and a deploy key GitHub disabled, as it does when the organization or its enterprise stops allowing deploy keys. Before, both counted.
+- A ruleset's status checks rule counts toward `status_checks_pct` only when it names at least one check, since GitHub's rule has no effect until it does.
+- GitHub returns no classic branch protection rule, and no error, to a caller without admin rights on the repository, such as a GitHub App without Administration. When GitHub also hides the repository's `security_and_analysis` block, which it hides from the same callers, the branch protection values a classic rule could change are left out with a `permission_denied` gap. Before, the repository counted as having no classic rule.
+
 ## v0.4.5
 
 - In the access file, every member counts as an admin when the members' base permission is admin, since each of them can then change who has access to every repository. Outside collaborators do not get the base permission and are not counted.

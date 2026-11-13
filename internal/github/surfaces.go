@@ -897,6 +897,9 @@ type DeployKey struct {
 	CreatedAt   string `json:"created_at,omitempty"`
 	LastUsed    string `json:"last_used,omitempty"`
 	Fingerprint string `json:"fingerprint,omitempty"`
+	// Disabled marks a key GitHub turned off, as it does every deploy key
+	// when the organization or its enterprise stops allowing them.
+	Disabled bool `json:"-"`
 }
 
 // DeployKeyFetchCap bounds how many deploy keys one repository's list reads.
@@ -920,6 +923,7 @@ func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]
 			CreatedAt string `json:"created_at"`
 			LastUsed  string `json:"last_used"`
 			Key       string `json:"key"`
+			Enabled   *bool  `json:"enabled"`
 		}
 		if err := json.Unmarshal(r, &k); err != nil {
 			return nil, false, fmt.Errorf("%s: decoding deploy key: %w", trimQuery(path), err)
@@ -931,6 +935,7 @@ func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]
 			ReadOnly:   k.ReadOnly,
 			CreatedAt:  k.CreatedAt,
 			LastUsed:   k.LastUsed,
+			Disabled:   k.Enabled != nil && !*k.Enabled,
 		}
 		if k.Key != "" {
 			sum := sha256.Sum256([]byte(k.Key))
@@ -1348,6 +1353,9 @@ type PATGrant struct {
 	Permissions []string `json:"permissions,omitempty"`
 	LastUsed    string   `json:"last_used,omitempty"`
 	ExpiresAt   string   `json:"expires_at,omitempty"`
+	// Expired marks a token past its expiry, which GitHub lists until the
+	// grant is revoked.
+	Expired bool `json:"-"`
 }
 
 // TokenGrantFetchCap bounds how many fine-grained token grants the list reads.
@@ -1379,6 +1387,7 @@ func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool,
 			Permissions     map[string]map[string]string `json:"permissions"`
 			TokenLastUsedAt string                       `json:"token_last_used_at"`
 			TokenExpiresAt  string                       `json:"token_expires_at"`
+			TokenExpired    bool                         `json:"token_expired"`
 		}
 		if err := json.Unmarshal(r, &p); err != nil {
 			return nil, false, fmt.Errorf("%s: decoding token grant: %w", trimQuery(path), err)
@@ -1397,6 +1406,7 @@ func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool,
 			Permissions: perms,
 			LastUsed:    p.TokenLastUsedAt,
 			ExpiresAt:   p.TokenExpiresAt,
+			Expired:     p.TokenExpired,
 		})
 	}
 	return out, more, nil

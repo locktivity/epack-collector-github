@@ -78,6 +78,9 @@ func (m *metricsAggregator) unknownProtectionReason(key string, prot *repoProtec
 	if !prot.rulesKnown {
 		return m.branchRulesErrs[key]
 	}
+	if prot.classicHidden {
+		return errClassicHidden
+	}
 	if !admin {
 		return nil
 	}
@@ -124,8 +127,11 @@ func (c *Collector) recordRepoProtectionGaps(i int, row RepoRow, prot *repoProte
 	effective := base + "/effective_branch_protection"
 	key := row.Name
 
-	if !prot.rulesKnown {
-		err := m.branchRulesErrs[key]
+	if prot.classicHidden {
+		c.gaps.leaveOut(errClassicHidden, base+"/branch_protection")
+	}
+	if !prot.known() {
+		err := m.unknownProtectionReason(key, prot, false)
 		for field, value := range effectiveValues(eff) {
 			if value {
 				continue
@@ -149,11 +155,11 @@ func (c *Collector) recordRepoProtectionGaps(i int, row RepoRow, prot *repoProte
 				}
 			}
 		}
-		c.gaps.leaveOut(err, base+"/rulesets")
-		return
-	}
-
-	if eff.AdminEnforcement == nil {
+		if !prot.rulesKnown {
+			c.gaps.leaveOut(err, base+"/rulesets")
+			return
+		}
+	} else if eff.AdminEnforcement == nil {
 		c.gaps.leaveOut(m.unknownProtectionReason(key, prot, true), effective+"/admin_enforcement")
 	}
 	for j, rs := range prot.rulesets {

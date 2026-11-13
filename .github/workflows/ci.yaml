@@ -12,9 +12,12 @@ permissions:
 
 jobs:
   collector:
-    uses: locktivity/epack/.github/workflows/collector-ci.yaml@cf4107a5798b6b442e821e7ddcff50ceaa82e8a0 # v0.10.0
+    uses: locktivity/epack/.github/workflows/collector-ci.yaml@7abb6fd52582dd5f8c79d0a302b6e24b1604fc64 # v0.10.0 plus test-timeout, without the lint cache
     with:
       name: github
+      # The simulated organizations' runs take the race suite past Go's
+      # default of 10 minutes.
+      test-timeout: 30m
       profile-url: ${{ vars.EVIDENCE_PROFILE_URL }}
       conformance-secrets: GITHUB_TOKEN GITHUB_APP_PRIVATE_KEY
       checks: |

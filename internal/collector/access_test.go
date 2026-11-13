@@ -363,6 +363,26 @@ func TestAccessCredentialsNeverExpiring(t *testing.T) {
 	wantPct(t, "write_access_pct", c.WriteAccessPct, 60)
 }
 
+// A token that expired and a deploy key GitHub disabled can't be used, so
+// neither counts.
+func TestAccessCredentialsLeaveOutExpiredTokensAndDisabledKeys(t *testing.T) {
+	mock := richMock()
+	mock.pats = []github.PATGrant{{ID: 1, ExpiresAt: "2026-12-01T00:00:00Z"}, {ID: 2, ExpiresAt: "2026-09-01T00:00:00Z", Expired: true}}
+	mock.deployKeys = map[string][]github.DeployKey{"test-org/repo1": {{ID: 3, ReadOnly: true, CreatedAt: "2026-10-01T00:00:00Z"}, {ID: 4, Disabled: true}}}
+	a, _ := accessAt(t, componentsdk.LevelAudit, mock)
+	if c := a.Credentials.CredentialCount; c == nil || *c != 2 {
+		t.Errorf("credential_count = %v, want 2: grant 1 and key 3", c)
+	}
+	wantPct(t, "never_expiring_pct", a.Credentials.NeverExpiringPct, 50)
+
+	mock = richMock()
+	mock.pats = []github.PATGrant{{ID: 2, Expired: true}}
+	mock.deployKeys = map[string][]github.DeployKey{"test-org/repo1": {{ID: 4, Disabled: true}}}
+	a, _ = accessAt(t, componentsdk.LevelTrust, mock)
+	wantFlag(t, "credentials_present", a.Credentials.CredentialsPresent, false)
+	wantNull(t, "never_expiring_pct", a.Credentials.NeverExpiringPct)
+}
+
 func TestAccessCredentialsWithNoneAreNull(t *testing.T) {
 	mock := richMock()
 	mock.pats, mock.deployKeys = nil, nil

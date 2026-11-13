@@ -151,6 +151,76 @@ func TestEvaluateProtection_ZeroApprovalsIsNotAnApprovingReview(t *testing.T) {
 	}
 }
 
+// GitHub's required_status_checks rule takes no effect until it names a
+// check.
+func TestEvaluateProtection_StatusChecksRuleNamingNoCheckRequiresNone(t *testing.T) {
+	none := orgRule("required_status_checks", 1)
+	named := orgRule("required_status_checks", 1)
+	named.RequiredChecks = 1
+	for name, want := range map[string]struct {
+		rule github.BranchRule
+		want string
+	}{
+		"no check":  {none, "false"},
+		"one check": {named, "true"},
+	} {
+		p := evaluateProtection(nil, []github.BranchRule{want.rule}, true, map[int64]*github.Ruleset{1: activeRuleset(1)})
+		if got := describe(p.toEffective().StatusChecks); got != want.want {
+			t.Errorf("%s: status_checks = %s, want %s", name, got, want.want)
+		}
+	}
+}
+
+// GitHub returns no classic rule, and no error, to a caller without admin
+// rights on the repository, so a rule no ruleset supplies is unknown.
+func TestEvaluateProtection_HiddenClassicRuleLeavesTheOtherRulesUnknown(t *testing.T) {
+	p := evaluateProtection(nil, []github.BranchRule{orgRule("deletion", 1)}, true, map[int64]*github.Ruleset{1: activeRuleset(1)})
+	p.hideClassic()
+	e := p.toEffective()
+	if describe(e.DeletionsBlocked) != "true" || describe(e.Protected) != "true" {
+		t.Errorf("deletions_blocked = %s, protected = %s, want true for both, which the ruleset supplies", describe(e.DeletionsBlocked), describe(e.Protected))
+	}
+	if describe(e.PullRequestRequired) != "unknown" || e.RequiredApprovingReviewCount != nil || describe(e.AdminEnforcement) != "unknown" {
+		t.Errorf("pull_request_required = %s, required_approving_review_count = %v, admin_enforcement = %s, want each unknown",
+			describe(e.PullRequestRequired), e.RequiredApprovingReviewCount, describe(e.AdminEnforcement))
+	}
+
+	bare := evaluateProtection(nil, nil, true, nil)
+	bare.hideClassic()
+	if describe(bare.protected()) != "unknown" {
+		t.Errorf("protected = %s with no ruleset, want unknown", describe(bare.protected()))
+	}
+}
+
+// A repository whose security_and_analysis GitHub hid was read without
+// admin rights, so its classic protection is unknown and the shares it
+// could change are left out with a permission gap. One GitHub showed
+// counts as it is.
+func TestCollect_HiddenSecuritySettingsLeaveTheClassicRuleUnknown(t *testing.T) {
+	classic := &github.BranchProtectionRule{RequiresApprovingReviews: true, RequiredApprovingReviewCount: 1}
+	mock := &mockGitHubClient{
+		orgSecurity:  &github.OrgSecurity{},
+		repositories: []github.Repository{protectedRepo("a", nil), protectedRepo("b", classic)},
+		securitySettings: map[string]*github.SecuritySettings{
+			"test-org/a": {AnalysisErr: github.ErrAnalysisHidden},
+			"test-org/b": {AnalysisErr: github.ErrAnalysisHidden},
+		},
+	}
+	posture, rec := collectRecorded(t, Config{Organization: "test-org"}, mock, componentsdk.LevelAudit)
+
+	if posture.BranchProtectionRules.PullRequestRequired != nil || posture.Posture.BranchProtectionCoverage != nil {
+		t.Errorf("pull_request_required = %v, coverage = %v, want null for both", posture.BranchProtectionRules.PullRequestRequired, posture.Posture.BranchProtectionCoverage)
+	}
+	g := gapOf(rec, "/branch_protection_rules/pull_request_required")
+	if g == nil || g.Code != componentsdk.CodePermissionDenied || g.Unmeasured != 1 {
+		t.Errorf("gap = %+v, want permission_denied with the one repository whose classic rule GitHub may have hidden", g)
+	}
+	normalized := posture.ToVCSPosture()
+	if normalized.BranchProtection.PRRequiredPct.Read {
+		t.Errorf("pr_required_pct = %+v, want it left out", normalized.BranchProtection.PRRequiredPct)
+	}
+}
+
 func TestEvaluateProtection_EmptyClassicRuleKeepsItsAdminSetting(t *testing.T) {
 	classic := &github.BranchProtectionRule{AllowsForcePushes: true, AllowsDeletions: true, IsAdminEnforced: true}
 	p := evaluateProtection(classic, nil, true, nil)
