@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   collector:
-    uses: locktivity/epack/.github/workflows/collector-ci.yaml@0230915f198796725c1468b8e41694de14f168df # v0.12.2 plus test-timeout, without the lint cache
+    uses: locktivity/epack/.github/workflows/collector-ci.yaml@0230915f198796725c1468b8e41694de14f168df # v0.12.2
     with:
       name: github
       # The simulated organizations' runs take the race suite past Go's
