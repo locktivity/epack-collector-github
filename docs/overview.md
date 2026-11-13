@@ -26,9 +26,13 @@ A value GitHub has no data for, such as when a member last signed in, is left ou
 
 GitHub offers the following through its API, and the collector does not read them.
 
-- **Credentials authorized for SAML single sign-on.** For an organization that uses SAML single sign-on, GitHub lists the personal access tokens, SSH keys and OAuth app tokens that members have authorized for it. The credentials the collector counts are fine-grained personal access tokens and deploy keys.
-- **IP allow list.** GitHub's GraphQL API returns whether the organization has an IP allow list enabled, and the allowed IP addresses.
-- **GitHub Actions workflow permissions.** GitHub reports the default permissions of the `GITHUB_TOKEN` in the organization's workflows, and whether GitHub Actions can approve pull requests.
+- **Teams and repository permissions.** Teams, their members and the repositories they can reach, each repository's collaborators and their permission, and custom roles. The collector counts members, administrators and outside collaborators for the organization as a whole.
+- **Actions configuration and other secrets.** Which actions the organization allows, the default permissions of the GITHUB_TOKEN, runner groups, and secrets and variables other than the organization's Actions secrets, which the collector lists by name.
+- **Security settings beyond the alerts.** Code security configurations, requests to dismiss alerts or bypass push protection, custom secret scanning patterns, and protection of branches other than the default branch. The collector reads each repository's open alerts and the rules in force on its default branch.
+- **Single sign-on and the enterprise.** Identities provisioned through SCIM, credentials members have authorized for SAML single sign-on, and settings of the enterprise that owns the organization. The collector reads one organization.
+- **IP allow list.** Whether the organization has an IP allow list enabled, and the allowed addresses. GitHub exposes these through its GraphQL API.
+
+The coverage reference lists what the collector reads of the GitHub API, and everything else the API offers with why it is left out, checked against GitHub's published API description: https://github.com/locktivity/epack-collector-github/blob/main/docs/coverage.md
 
 ## Use Cases
 

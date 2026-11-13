@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Not Collected section of `docs/overview.md` is rendered from `docs/surface.yaml`, which gives a verdict to every read operation of GitHub's published Enterprise Cloud API description that the collector's recordings never call, so the list comes from GitHub's description rather than from memory. A new `docs/coverage.md` lists what the collector reads, by area, every operation it leaves out with the reason, and the three calls the collector makes that the sandbox never exercises.
+
 ## v0.4.7
 
 - A list is left out with an `invalid_response` gap when GitHub answers it with an item that lacks a field its REST reference requires. That covers an open alert with no `number`, a code scanning alert with no `rule`, a Dependabot alert with no severity, a webhook with no `id`, `active` or `events`, a deploy key with no `id` or `read_only`, a self-hosted runner with no `id` or `busy`, an installed App with no `app_id` or `suspended_at`, a fine-grained token grant with no `id`, `token_expired`, `token_expires_at` or `token_last_used_at`, and a member, owner or outside collaborator with no `login`. Through v0.4.6 such an item counted with a false, zero or empty value, and a person with no login dropped out of the counts.
