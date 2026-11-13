@@ -1,0 +1,197 @@
+# The vendor API surface the collector is checked against. `epack sdk
+# surface` matches the recordings to the GitHub REST API description and
+# needs a verdict here for every GET operation the recordings never call.
+# The Not Collected section of docs/overview.md is rendered from the
+# not_collected items, in this order.
+vendor: GitHub
+spec:
+  source: https://github.com/github/rest-api-description
+  path: descriptions/ghec/ghec.json
+  revision: bd6df26d2a01
+  sha256: 695f4fc8b9f6de0c55d17bc94d74db27e37470b99720c6a9128b1c8873ccb31e
+scope:
+  methods: [get]
+
+# What the overview's Not Collected section says. Each headline folds one
+# or more not_collected items into a sentence a buyer needs; the coverage
+# reference holds every item.
+overview:
+  - title: Teams and repository permissions
+    says: >-
+      Teams, their members and the repositories they can reach, each
+      repository's collaborators and their permission, and custom roles. The
+      collector counts members, administrators and outside collaborators for
+      the organization as a whole.
+    items: [Teams, Repository collaborators and roles]
+  - title: Actions configuration and other secrets
+    says: >-
+      Which actions the organization allows, the default permissions of the
+      GITHUB_TOKEN, runner groups, and secrets and variables other than the
+      organization's Actions secrets, which the collector lists by name.
+    items: [Actions policies and runner configuration, Secrets and variables beyond the organization's Actions secrets]
+  - title: Security settings beyond the alerts
+    says: >-
+      Code security configurations, requests to dismiss alerts or bypass push
+      protection, custom secret scanning patterns, and protection of branches
+      other than the default branch. The collector reads each repository's
+      open alerts and the rules in force on its default branch.
+    items: [Code security configurations, Alert management and scanning settings, Rulesets and protection beyond the default branch]
+  - title: Single sign-on and the enterprise
+    says: >-
+      Identities provisioned through SCIM, credentials members have authorized
+      for SAML single sign-on, and settings of the enterprise that owns the
+      organization. The collector reads one organization.
+    items: ["Credentials authorized for SAML single sign-on, and provisioned identities", Enterprise settings]
+  - title: IP allow list
+    items: [IP allow list]
+
+not_collected:
+  - title: Actions policies and runner configuration
+    says: >-
+      Which actions and reusable workflows the organization allows, the default
+      permissions of the GITHUB_TOKEN in workflows, whether Actions can approve
+      pull requests, policies for workflows from forks, artifact and log
+      retention, self-hosted runner groups and the repositories they serve, the
+      OpenID Connect subject claim settings, and private network configurations
+      for hosted runners. The collector lists the organization's and each
+      repository's self-hosted runners.
+    categories: [actions/permissions, actions/policies, actions/oidc, actions/self-hosted-runner-groups, orgs/network-configurations]
+  - title: Secrets and variables beyond the organization's Actions secrets
+    says: >-
+      Repository and environment Actions secrets and variables, organization
+      Actions variables, Codespaces and Dependabot secrets, Copilot coding agent
+      secrets and variables, and private registry configurations. The collector
+      lists the organization's Actions secrets by name.
+    categories: [actions/secrets, actions/variables, codespaces/organization-secrets, codespaces/repository-secrets, codespaces/secrets, dependabot/secrets, agents/secrets, agents/variables, private-registries/organization-configurations]
+  - title: Teams
+    says: >-
+      Teams, their members and maintainers, the repositories each team can reach
+      and with what permission, and the identity provider groups connected to
+      teams. The collector counts members, administrators and outside
+      collaborators for the organization as a whole.
+    categories: [teams/teams, teams/members, teams/external-groups, teams/team-sync]
+    operations: [repos/list-teams]
+  - title: Repository collaborators and roles
+    says: >-
+      Each repository's collaborators and their permission, pending repository
+      invitations, custom repository roles, and the organization roles not
+      based on admin with who holds them. The collector reads organization
+      members, administrators, outside collaborators, pending organization
+      invitations, and the holders of each organization role based on admin.
+    categories: [collaborators/collaborators, collaborators/invitations, orgs/custom-roles, orgs/organization-roles]
+  - title: Code security configurations
+    says: >-
+      The organization's code security configurations, the repositories each
+      one applies to, and the default configuration for new repositories. The
+      collector reads each repository's code scanning default setup and its
+      open alerts.
+    categories: [code-security/configurations]
+  - title: Rulesets and protection beyond the default branch
+    says: >-
+      Protection of branches other than the default branch, the organization's
+      rulesets as a list, rule suite evaluations, and requests to bypass push
+      rules. The collector reads the rules in force on each repository's
+      default branch and the rulesets behind them.
+    categories: [branches/branch-protection, branches/branches, repos/rules, repos/rule-suites, orgs/rules, orgs/rule-suites, repos/bypass-requests, orgs/bypass-requests]
+  - title: Alert management and scanning settings
+    says: >-
+      Requests to dismiss alerts or bypass push protection and who decided
+      them, custom secret scanning patterns and push protection settings,
+      security campaigns, Dependabot's access to private repositories and its
+      runner settings, and whether private vulnerability reporting is enabled.
+      The collector reads each repository's open code scanning, secret scanning
+      and Dependabot alerts, and whether Dependabot alerts, security updates,
+      secret scanning and push protection are on.
+    categories: [dependabot/alert-dismissal-requests, code-scanning/alert-dismissal-requests, secret-scanning/alert-dismissal-requests, secret-scanning/delegated-bypass, secret-scanning/push-protection, secret-scanning/custom-patterns, dependabot/repository-access, dependabot/runner-settings, campaigns/campaigns]
+    operations: [repos/check-private-vulnerability-reporting]
+  - title: Credentials authorized for SAML single sign-on, and provisioned identities
+    says: >-
+      For an organization that uses SAML single sign-on, the identities
+      provisioned through SCIM with their identity provider attributes, and the
+      personal access tokens, SSH keys and OAuth app tokens that members have
+      authorized for single sign-on. The credentials the collector counts are
+      fine-grained personal access tokens and deploy keys.
+    categories: [scim/scim]
+    operations: [orgs/list-saml-sso-authorizations]
+  - title: Personal access token requests and repository access
+    says: >-
+      Pending requests for fine-grained personal access tokens, and the
+      repositories each granted token can reach. The collector lists the
+      granted tokens.
+    categories: [orgs/personal-access-tokens]
+  - title: Artifact attestations, immutable releases and custom properties
+    says: >-
+      Artifact attestations and artifact metadata, whether releases are
+      immutable, and the custom properties defined for the organization and
+      set on each repository, which rulesets can target.
+    categories: [orgs/attestations, repos/attestations, users/attestations, orgs/artifact-metadata, orgs/custom-properties, orgs/custom-properties-for-orgs, repos/custom-properties]
+    operations: [orgs/get-immutable-releases-settings, orgs/get-immutable-releases-settings-repositories, repos/check-immutable-releases]
+  - title: Members' public keys
+    says: Members' public SSH keys, GPG keys and SSH signing keys.
+    categories: [users/keys, users/gpg-keys, users/ssh-signing-keys]
+  - title: Pages
+    says: >-
+      Whether a repository publishes a GitHub Pages site, with its visibility,
+      custom domain and HTTPS enforcement.
+    categories: [pages/pages]
+  - title: Repository security advisories
+    says: >-
+      Security advisories published for a repository, and the vulnerability
+      reports it received privately.
+    categories: [security-advisories/repository-advisories]
+  - title: Enterprise settings
+    says: >-
+      Settings of the enterprise that owns the organization: enterprise roles
+      and who holds them, the enterprise audit log and its streaming, SCIM
+      provisioning, the token inventory, custom properties, network
+      configurations, AI controls and licensing. The collector reads one
+      organization.
+    categories: [enterprise-admin, enterprise-teams, announcement-banners/enterprises, server-statistics]
+  - title: IP allow list
+    says: >-
+      Whether the organization has an IP allow list enabled, and the allowed
+      addresses. GitHub exposes these through its GraphQL API.
+
+irrelevant:
+  - reason: Workflow execution data and runner detail, not configuration
+    categories: [actions/artifacts, actions/cache, actions/concurrency-groups, actions/workflow-jobs, actions/workflow-runs, actions/workflows, actions/hosted-runners, actions/self-hosted-runners, checks/runs, checks/suites]
+  - reason: Code, issues, pull requests, projects and other content
+    categories: [commits, repos/contents, git, issues, pulls, projects, gists, reactions, releases, repos/forks, repos/issue-types, orgs/issue-fields, orgs/issue-types, users/issue-fields, users/issue-types, search, metrics, migrations, packages, repos/autolinks, codes-of-conduct, licenses, gitignore, emojis, meta, rate-limit, activity, interactions, dependency-graph, code-quality]
+  - reason: Social and profile data
+    categories: [orgs/blocking, users/blocking, users/followers, users/social-accounts, users/emails, users/users]
+  - reason: Copilot and AI agents, which are usage rather than security posture
+    categories: [copilot, copilot-spaces, agent-automations, agent-tasks, pulls/agent-merge]
+  - reason: Billing and usage
+    categories: [billing, orgs/api-insights]
+  - reason: The collector's own GitHub App, and the marketplace
+    categories: [apps]
+  - reason: Detail of, or another view on, what the collector already reads
+    categories: [orgs/webhooks, repos/webhooks, deploy-keys, deployments/environments, deployments/deployments, deployments/statuses, deployments/branch-policies, deployments/protection-rules, orgs/members, orgs/orgs, repos/repos, code-scanning/code-scanning, dependabot/alerts, secret-scanning/secret-scanning, codespaces/codespaces, codespaces/machines, codespaces/organizations, announcement-banners/organizations, security-advisories/global-advisories]
+
+# Calls the collector makes only when the organization has something the
+# sandbox lacks, so no recording holds them.
+reads:
+  - operations: [repos/list-deployment-branch-policies]
+    collector: github.environment_branch_policies.list
+    when: an environment limits deployments to selected branches
+  - operations: [repos/get-all-deployment-protection-rules]
+    collector: github.environment_protection_rules.list
+    when: an environment has a custom deployment protection rule
+  - operations: [users/get-by-username]
+    collector: github.users.get
+    when: a member's display name is not in the GraphQL result
+  - operations: []
+    collector: github.saml_identities.list
+    when: the organization uses SAML single sign-on; a GraphQL query, outside the REST description
+  - operations: [orgs/list-org-roles]
+    collector: github.org_roles.list
+    when: the members' base permission is below admin; the recordings predate this read
+  - operations: [orgs/list-org-role-users]
+    collector: github.org_role_users.list
+    when: an organization role is based on admin; the recordings predate this read
+
+unmatched:
+  - operation: github.repositories.list
+    reason: A GraphQL query, which the REST API description does not cover.
+  - operation: github.member_names.list
+    reason: A GraphQL query, which the REST API description does not cover.
