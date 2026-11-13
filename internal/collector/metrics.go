@@ -118,14 +118,17 @@ func (m *metricsAggregator) featureValue(repo github.Repository, f feature) (*bo
 	if s.AnalysisErr != nil {
 		return nil, s.AnalysisErr
 	}
+	value, err := s.DependabotSecurityUpdates, s.DependabotSecurityUpdatesErr
 	switch f {
 	case featureSecretScanning:
-		return ptr(s.SecretScanning), nil
+		value, err = s.SecretScanning, s.SecretScanningErr
 	case featureSecretScanningPushProtection:
-		return ptr(s.SecretScanningPushProtection), nil
-	default:
-		return ptr(s.DependabotSecurityUpdates), nil
+		value, err = s.SecretScanningPushProtection, s.SecretScanningPushProtectionErr
 	}
+	if err != nil {
+		return nil, err
+	}
+	return ptr(value), nil
 }
 
 // rollup is a percentage over the in-scope repositories and the count of

@@ -704,8 +704,8 @@ func TestFetchRepositories_Pagination(t *testing.T) {
 					"organization": map[string]interface{}{
 						"repositories": map[string]interface{}{
 							"nodes": []map[string]interface{}{
-								{"name": "repo1", "owner": map[string]interface{}{"login": "org"}},
-								{"name": "repo2", "owner": map[string]interface{}{"login": "org"}},
+								repositoryNode(map[string]interface{}{"name": "repo1"}),
+								repositoryNode(map[string]interface{}{"name": "repo2"}),
 							},
 							"pageInfo": map[string]interface{}{
 								"hasNextPage": true,
@@ -725,7 +725,7 @@ func TestFetchRepositories_Pagination(t *testing.T) {
 					"organization": map[string]interface{}{
 						"repositories": map[string]interface{}{
 							"nodes": []map[string]interface{}{
-								{"name": "repo3", "owner": map[string]interface{}{"login": "org"}},
+								repositoryNode(map[string]interface{}{"name": "repo3"}),
 							},
 							"pageInfo": map[string]interface{}{
 								"hasNextPage": false,
@@ -761,6 +761,22 @@ func TestFetchRepositories_Pagination(t *testing.T) {
 	if len(allRepos) != 3 {
 		t.Errorf("Expected 3 repos, got %d", len(allRepos))
 	}
+}
+
+// repositoryNode is a node of the repositories query with every field the
+// query selects, as GitHub answers it, and fields set over the defaults.
+func repositoryNode(fields map[string]interface{}) map[string]interface{} {
+	node := map[string]interface{}{
+		"name": "repo", "owner": map[string]interface{}{"login": "org"}, "isArchived": false, "isTemplate": false,
+		"visibility": "PRIVATE", "defaultBranchRef": nil, "hasVulnerabilityAlertsEnabled": false,
+		"createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-01T00:00:00Z", "pushedAt": nil, "diskUsage": 0,
+		"stargazerCount": 0, "description": nil, "primaryLanguage": nil, "licenseInfo": nil,
+		"repositoryTopics": map[string]interface{}{"nodes": []interface{}{}},
+	}
+	for k, v := range fields {
+		node[k] = v
+	}
+	return node
 }
 
 func TestFetchOrgSecurity_RateLimitError(t *testing.T) {
@@ -832,24 +848,26 @@ func TestFetchRepositories_BranchProtection(t *testing.T) {
 				"organization": map[string]interface{}{
 					"repositories": map[string]interface{}{
 						"nodes": []map[string]interface{}{
-							{
-								"name":       "protected-repo",
-								"owner":      map[string]interface{}{"login": "org"},
-								"isArchived": false,
+							repositoryNode(map[string]interface{}{
+								"name": "protected-repo",
 								"defaultBranchRef": map[string]interface{}{
 									"name": "main",
 									"branchProtectionRule": map[string]interface{}{
-										"requiresApprovingReviews":     true,
-										"requiredApprovingReviewCount": 2,
-										"dismissesStaleReviews":        true,
-										"requiresCodeOwnerReviews":     true,
-										"requiresStatusChecks":         true,
-										"requiresCommitSignatures":     false,
-										"isAdminEnforced":              true,
+										"requiresApprovingReviews":       true,
+										"requiredApprovingReviewCount":   2,
+										"dismissesStaleReviews":          true,
+										"requiresCodeOwnerReviews":       true,
+										"requiresStatusChecks":           true,
+										"requiresCommitSignatures":       false,
+										"isAdminEnforced":                true,
+										"requiresLinearHistory":          false,
+										"allowsForcePushes":              false,
+										"allowsDeletions":                false,
+										"requiresConversationResolution": false,
 									},
 								},
 								"hasVulnerabilityAlertsEnabled": true,
-							},
+							}),
 						},
 						"pageInfo": map[string]interface{}{
 							"hasNextPage": false,

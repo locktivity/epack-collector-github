@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -219,11 +220,14 @@ func kitSecurityOutageResponses() []collectortest.Response {
 
 func kitSuite() collectortest.Suite {
 	return collectortest.Suite{
-		Spec:    Spec("test", "collectortest"),
-		Run:     Run,
-		Config:  kitConfig(),
-		Secrets: kitSecrets(),
-		Clock:   kitClock,
+		Spec:        Spec("test", "collectortest"),
+		Run:         Run,
+		Config:      kitConfig(),
+		Secrets:     kitSecrets(),
+		Clock:       kitClock,
+		FieldFaults: true,
+		Populations: kitPopulations(),
+		Omissions:   kitOmissions(),
 		Scenarios: []collectortest.Scenario{
 			{
 				Name:      "clean",
@@ -364,7 +368,7 @@ func kitSuite() collectortest.Suite {
 			},
 			{
 				Name:      "admin base permission",
-				Responses: replaceResponse(kitResponses(), kitOrgBasePermissionResponse("admin")),
+				Responses: kitOrgBasePermission(kitResponses(), "admin"),
 				// Every member can change who has access to every
 				// repository, so alice and bob are admins. The outside
 				// collaborator carol is not. bob has no two-factor
@@ -457,6 +461,63 @@ func kitSuite() collectortest.Suite {
 	}
 }
 
+// kitRecorded says why an empty list is an answer when the sandbox
+// recording holds it empty.
+func kitRecorded(none string) string {
+	return none + "; the github-noncompliant sandbox recording lists none."
+}
+
+// kitPopulations are the lists of the clean run's answers that GitHub sends
+// empty when there are none.
+func kitPopulations() []collectortest.Population {
+	return []collectortest.Population{
+		{Operation: "github.audit_log.list", List: "/", Reason: "The audit log lists the events that match the collector's created:>= phrase, so a week with no security events lists none: https://docs.github.com/enterprise-cloud@latest/rest/orgs/orgs#get-the-audit-log-for-an-organization"},
+		{Operation: "github.branch_rules.list", List: "/", Reason: "GitHub lists the rules of active rulesets only, so a branch none applies to lists none; the github-compliant sandbox recording lists none for classic-protected."},
+		{Operation: "github.branch_rules.list", List: "/*/parameters/required_status_checks", Reason: "A status checks rule can name no checks, and then has no effect, as the v0.4.6 CHANGELOG entry says."},
+		{Operation: "github.code_scanning_alerts.list", List: "/", Reason: kitRecorded("A repository with no open code scanning alerts lists none")},
+		{Operation: "github.code_scanning_analyses.list", List: "/", Reason: "The list holds the repository's code scanning analyses, so one with none lists none. GitHub also answers 404 then, as the github-noncompliant sandbox recording shows."},
+		{Operation: "github.dependabot_alerts.list", List: "/", Reason: kitRecorded("A repository with no open Dependabot alerts lists none")},
+		{Operation: "github.deploy_keys.list", List: "/", Reason: kitRecorded("A repository with no deploy keys lists none")},
+		{Operation: "github.environments.list", List: "/environments/*/protection_rules", Reason: "An environment with no protection rules lists none: https://docs.github.com/rest/deployments/environments#list-environments"},
+		{Operation: "github.org_hooks.list", List: "/", Reason: kitRecorded("An organization with no webhooks lists none")},
+		{Operation: "github.org_hooks.list", List: "/*/events", Reason: "GitHub's hook schema requires events and sets no minimum, and a webhook with no events is sent for none: https://docs.github.com/rest/orgs/webhooks#list-organization-webhooks"},
+		{Operation: "github.repo_hooks.list", List: "/", Reason: kitRecorded("A repository with no webhooks lists none")},
+		{Operation: "github.repo_hooks.list", List: "/*/events", Reason: "GitHub's hook schema requires events and sets no minimum, and a webhook with no events is sent for none: https://docs.github.com/rest/repos/webhooks#list-repository-webhooks"},
+		{Operation: "github.org_admins.list", List: "/", Reason: "An organization can have no owners, and an enterprise owner can then become its owner: https://github.blog/news-insights/product-news/improved-management-github-enterprise-owners/"},
+		{Operation: "github.org_invitations.list", List: "/", Reason: kitRecorded("An organization with no pending invitations lists none")},
+		{Operation: "github.org_members.list", List: "/", Reason: "An organization with no owners can list no members, since the GitHub App the collector signs in as is not a member: https://github.blog/news-insights/product-news/improved-management-github-enterprise-owners/"},
+		{Operation: "github.org_members_2fa_disabled.list", List: "/", Reason: kitRecorded("An organization whose members all have two-factor authentication lists none")},
+		{Operation: "github.outside_collaborators.list", List: "/", Reason: kitRecorded("An organization with no outside collaborators lists none")},
+		{Operation: "github.org_personal_access_tokens.list", List: "/", Reason: "An organization that has approved no fine-grained token lists none: https://docs.github.com/rest/orgs/personal-access-tokens#list-fine-grained-personal-access-tokens-with-access-to-organization-resources"},
+		{Operation: "github.repositories.list", List: "/data/organization/repositories/nodes", Reason: "An organization with no repositories lists none: Organization.repositories in https://docs.github.com/graphql/reference/repos"},
+		{Operation: "github.rulesets.get", List: "/bypass_actors", Reason: "A ruleset whose bypass list is empty lets no one bypass it. GitHub returns the list only to a caller with write access to the ruleset: https://docs.github.com/rest/repos/rules#get-a-repository-ruleset"},
+		{Operation: "github.saml_identities.list", List: "/data/organization/samlIdentityProvider/externalIdentities/nodes", Reason: "externalIdentities lists the identities the provider holds for members, so a provider no member has signed in through or been provisioned by lists none: OrganizationIdentityProvider in https://docs.github.com/graphql/reference/objects"},
+		{Operation: "github.secret_scanning_alerts.list", List: "/", Reason: kitRecorded("A repository with no open secret scanning alerts lists none")},
+	}
+}
+
+// kitOmissions are the fields of the clean run's answers that GitHub sends
+// as null, or leaves out, to mean a value.
+func kitOmissions() []collectortest.Omission {
+	const nodes = "/data/organization/repositories/nodes/*"
+	const identities = "/data/organization/samlIdentityProvider/externalIdentities/nodes/*"
+	return []collectortest.Omission{
+		{Operation: "github.code_scanning_alerts.list", Field: "/*/rule/security_severity_level", Reason: "A rule that is not a security query has no security_severity_level, which is optional and \"string or null\" in https://docs.github.com/rest/code-scanning/code-scanning#list-code-scanning-alerts-for-a-repository, and the v0.4.0 CHANGELOG entry leaves its alerts uncounted."},
+		{Operation: "github.deploy_keys.list", Field: "/*/last_used", Reason: "last_used is optional and \"string or null\" in https://docs.github.com/rest/deploy-keys/deploy-keys#list-deploy-keys, and a key that has not been used has none."},
+		{Operation: "github.org_hooks.list", Field: "/*/last_response/code", Reason: "\"last response may return null if there have not been any deliveries within 30 days\": https://docs.github.com/rest/repos/webhooks#list-repository-webhooks"},
+		{Operation: "github.org_installations.list", Field: "/installations/*/suspended_at", Reason: "suspended_at is \"string or null\" in https://docs.github.com/rest/orgs/orgs#list-app-installations-for-an-organization, and null for an installation that is not suspended."},
+		{Operation: "github.org_personal_access_tokens.list", Field: "/*/token_expires_at", Reason: "token_expires_at is \"string or null\" in https://docs.github.com/rest/orgs/personal-access-tokens#list-fine-grained-personal-access-tokens-with-access-to-organization-resources, and null for a token with no expiry."},
+		{Operation: "github.environments.list", Field: "/environments/*/protection_rules", Reason: "protection_rules is optional in https://docs.github.com/rest/deployments/environments#list-environments, and an environment without it has no protection rules."},
+		{Operation: "github.repositories.list", Field: nodes + "/defaultBranchRef", Reason: "defaultBranchRef is a nullable Ref in https://docs.github.com/graphql/reference/repos, and a repository with no commits has no default branch to protect."},
+		{Operation: "github.repositories.list", Field: nodes + "/defaultBranchRef/branchProtectionRule", Reason: "A default branch with no classic rule has a null branchProtectionRule; the github-compliant sandbox recording shows it for ruleset-protected."},
+		{Operation: "github.repositories.list", Field: nodes + "/defaultBranchRef/branchProtectionRule/requiredApprovingReviewCount", Reason: "requiredApprovingReviewCount is a nullable Int in https://docs.github.com/graphql/reference/branches; the github-noncompliant sandbox recording holds null for classic rules that require no approvals."},
+		{Operation: "github.rulesets.get", Field: "/bypass_actors/*/actor_id", Reason: "\"If actor_type is OrganizationAdmin, actor_id is ignored\", and a DeployKey's is null: bypass_actors in https://docs.github.com/rest/repos/rules#create-a-repository-ruleset"},
+		{Operation: "github.saml_identities.list", Field: "/data/organization/samlIdentityProvider", Reason: "An organization without a SAML identity provider, as on any plan below GitHub Enterprise Cloud, has a null samlIdentityProvider, as the v0.4.0 CHANGELOG entry says."},
+		{Operation: "github.saml_identities.list", Field: identities + "/samlIdentity", Reason: "An external identity with no linked SAML identity has a null samlIdentity, and the member is not counted as signing in through SSO, as the v0.4.0 CHANGELOG entry says."},
+		{Operation: "github.saml_identities.list", Field: identities + "/scimIdentity", Reason: "An external identity with no SCIM record has a null scimIdentity; the query selects it only to show whether the record exists."},
+	}
+}
+
 // kitSelectedDetail pins a run on every fixture repository but kitOutsider.
 // GitHub lists kitOutsider, which is public, and nothing answers a call about
 // it. The coverage is over GitHub's count of all six repositories.
@@ -493,6 +554,11 @@ func TestCollectorKitSelectedRepositories(t *testing.T) {
 	// COLLECTORTEST_OUT.
 	s.Name = "github-selected"
 	s.Scenarios = []collectortest.Scenario{kitSelectedScenario()}
+	// The one repository with code scanning analyses is kitOutsider, which
+	// the App is not installed on.
+	s.Populations = slices.DeleteFunc(s.Populations, func(p collectortest.Population) bool {
+		return p.Operation == "github.code_scanning_analyses.list"
+	})
 	collectortest.Run(t, s)
 }
 

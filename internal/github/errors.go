@@ -195,6 +195,57 @@ func invalidResponse(format string, args ...any) error {
 	return componentsdk.CodeError(componentsdk.CodeInvalidResponse, fmt.Errorf(format, args...))
 }
 
+// missingField returns the first of fields that item leaves out, or holds
+// as null when nullable is false, or "" when it holds them all. Each field
+// is a path of keys joined by /, such as "security_vulnerability/severity".
+func missingField(item any, nullable bool, fields ...string) string {
+	for _, field := range fields {
+		v, ok := item, true
+		for _, key := range strings.Split(field, "/") {
+			m, isObject := v.(map[string]any)
+			if !isObject {
+				ok = false
+				break
+			}
+			if v, ok = m[key]; !ok {
+				break
+			}
+		}
+		if !ok || (v == nil && !nullable) {
+			return field
+		}
+	}
+	return ""
+}
+
+// itemCheck returns a check that a list item, named what, holds a value at
+// each of required and holds each of nullable, which GitHub sends as null
+// to mean a value. A field GitHub always sends that is missing makes the
+// item unreadable, since reading it as false, zero, or empty would be a
+// guess.
+func itemCheck(what string, required []string, nullable ...string) func(json.RawMessage) error {
+	return func(raw json.RawMessage) error {
+		var item any
+		if err := json.Unmarshal(raw, &item); err != nil {
+			return invalidResponse("lists %s that is not JSON", what)
+		}
+		if field := missingField(item, false, required...); field != "" {
+			return invalidResponse("lists %s with no %s", what, field)
+		}
+		if field := missingField(item, true, nullable...); field != "" {
+			return invalidResponse("lists %s with no %s", what, field)
+		}
+		return nil
+	}
+}
+
+// emptyPage is the error for a page of a list that holds no items while
+// fewer than the list's total_count have been read. Read as the end of the
+// list, it would count fewer items than GitHub says there are.
+func emptyPage(path, key string, total int) error {
+	return invalidResponse("%s response holds no %s, and its total_count is %d", path, key, total)
+}
+
 // installationTokenError turns a failed installation token exchange into an
 // error with the exchange's status, which ghinstallation reports only as text.
 func installationTokenError(err error) error {

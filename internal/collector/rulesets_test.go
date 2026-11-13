@@ -24,6 +24,22 @@ type fixtureRepo struct {
 	rulesStatus int
 }
 
+// fixtureClassicRule is a classic branch protection rule as GitHub's GraphQL
+// API answers it, with every field the collector selects: those set, and
+// the rest off, with no approval count.
+func fixtureClassicRule(set map[string]any) map[string]any {
+	rule := map[string]any{
+		"requiresApprovingReviews": false, "requiredApprovingReviewCount": nil, "dismissesStaleReviews": false,
+		"requiresCodeOwnerReviews": false, "requiresStatusChecks": false, "requiresCommitSignatures": false,
+		"isAdminEnforced": false, "requiresLinearHistory": false, "allowsForcePushes": false,
+		"allowsDeletions": false, "requiresConversationResolution": false,
+	}
+	for k, v := range set {
+		rule[k] = v
+	}
+	return rule
+}
+
 // collectFixtureOrg runs a collection through the real GitHub client against
 // a server that answers with the testdata/rulesets fixtures. Endpoints the
 // fixtures don't cover return 404.
@@ -41,12 +57,20 @@ func collectFixtureOrgRecorded(t *testing.T, level componentsdk.Level, repos ...
 	nodes := make([]map[string]any, 0, len(repos))
 	for _, r := range repos {
 		byName[r.name] = r
+		var classic any
+		if r.classic != nil {
+			classic = fixtureClassicRule(r.classic)
+		}
 		nodes = append(nodes, map[string]any{
 			"name":                          r.name,
 			"owner":                         map[string]any{"login": "test-org"},
+			"isArchived":                    false,
+			"isTemplate":                    false,
 			"visibility":                    "PRIVATE",
-			"defaultBranchRef":              map[string]any{"name": "main", "branchProtectionRule": r.classic},
+			"defaultBranchRef":              map[string]any{"name": "main", "branchProtectionRule": classic},
 			"hasVulnerabilityAlertsEnabled": true,
+			"diskUsage":                     1,
+			"stargazerCount":                0,
 		})
 	}
 	noMorePages := map[string]any{"hasNextPage": false, "endCursor": ""}
@@ -64,7 +88,10 @@ func collectFixtureOrgRecorded(t *testing.T, level componentsdk.Level, repos ...
 		writeFixtureJSON(t, w, map[string]any{"login": "test-org", "two_factor_requirement_enabled": true})
 	})
 	mux.HandleFunc("GET /repos/test-org/{repo}", func(w http.ResponseWriter, r *http.Request) {
-		writeFixtureJSON(t, w, map[string]any{"name": r.PathValue("repo"), "security_and_analysis": map[string]any{}})
+		disabled := map[string]any{"status": "disabled"}
+		writeFixtureJSON(t, w, map[string]any{"name": r.PathValue("repo"), "security_and_analysis": map[string]any{
+			"secret_scanning": disabled, "secret_scanning_push_protection": disabled, "dependabot_security_updates": disabled,
+		}})
 	})
 	mux.HandleFunc("GET /repos/test-org/{repo}/rules/branches/main", func(w http.ResponseWriter, r *http.Request) {
 		if got := r.URL.Query().Get("per_page"); got != "100" {

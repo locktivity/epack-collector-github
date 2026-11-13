@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/locktivity/epack/componentsdk"
@@ -74,17 +75,11 @@ func (c *Client) GetBranchRules(ctx context.Context, owner, repo, branch string)
 		if page == BranchRulesPageCap {
 			return nil, fmt.Errorf("%s: more than %d pages of rules", path, BranchRulesPageCap)
 		}
-		items, link, err := c.getRulesPage(ctx, next, path)
+		page, link, err := c.getRulesPage(ctx, next, path)
 		if err != nil {
 			return nil, err
 		}
-		for _, raw := range items {
-			rule, err := parseBranchRule(raw)
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", path, err)
-			}
-			rules = append(rules, rule)
-		}
+		rules = append(rules, page...)
 		next = ""
 		if m := linkNextRe.FindStringSubmatch(link); m != nil {
 			next = m[1]
@@ -93,7 +88,9 @@ func (c *Client) GetBranchRules(ctx context.Context, owner, repo, branch string)
 	return rules, nil
 }
 
-func (c *Client) getRulesPage(ctx context.Context, pageURL, path string) ([]json.RawMessage, string, error) {
+// getRulesPage reads one page of a branch's rules and the page's Link
+// header. A rule it cannot read makes the page invalid.
+func (c *Client) getRulesPage(ctx context.Context, pageURL, path string) ([]BranchRule, string, error) {
 	resp, err := c.do(ctx, componentsdk.Operation{Name: "github.branch_rules.list"}, http.MethodGet, pageURL, nil)
 	if err != nil {
 		return nil, "", err
@@ -104,12 +101,24 @@ func (c *Client) getRulesPage(ctx context.Context, pageURL, path string) ([]json
 	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
 		return nil, "", componentsdk.ResponseError(resp, fmt.Errorf("%s: decoding rules: %w", path, err))
 	}
-	return items, resp.Header.Get("Link"), nil
+	rules := make([]BranchRule, 0, len(items))
+	for _, raw := range items {
+		rule, err := parseBranchRule(raw)
+		if err != nil {
+			return nil, "", componentsdk.ResponseError(resp, fmt.Errorf("%s: %w", path, err))
+		}
+		rules = append(rules, rule)
+	}
+	return rules, resp.Header.Get("Link"), nil
 }
 
+// parseBranchRule reads one rule. GitHub's ruleset schemas require a rule's
+// type, each pull_request parameter the collector reads, and a
+// required_status_checks rule's list of checks. A rule without them would
+// read as protection the branch does not have.
 func parseBranchRule(raw json.RawMessage) (BranchRule, error) {
 	var r struct {
-		Type              string          `json:"type"`
+		Type              *string         `json:"type"`
 		RulesetSourceType string          `json:"ruleset_source_type"`
 		RulesetSource     string          `json:"ruleset_source"`
 		RulesetID         int64           `json:"ruleset_id"`
@@ -118,27 +127,48 @@ func parseBranchRule(raw json.RawMessage) (BranchRule, error) {
 	if err := json.Unmarshal(raw, &r); err != nil {
 		return BranchRule{}, fmt.Errorf("decoding rule: %w", err)
 	}
+	if r.Type == nil {
+		return BranchRule{}, invalidResponse("a rule has no type")
+	}
 	rule := BranchRule{
-		Type:              r.Type,
+		Type:              *r.Type,
 		RulesetSourceType: r.RulesetSourceType,
 		RulesetSource:     r.RulesetSource,
 		RulesetID:         r.RulesetID,
 	}
-	if r.Type == RuleTypePullRequest {
-		var params PullRequestRuleParameters
-		if err := json.Unmarshal(r.Parameters, &params); err != nil {
-			return BranchRule{}, fmt.Errorf("decoding pull_request rule parameters: %w", err)
-		}
-		rule.PullRequest = &params
-	}
-	if r.Type == RuleTypeRequiredStatusChecks {
+	switch rule.Type {
+	case RuleTypePullRequest:
 		var params struct {
-			RequiredStatusChecks []json.RawMessage `json:"required_status_checks"`
+			RequiredApprovingReviewCount *int  `json:"required_approving_review_count"`
+			DismissStaleReviewsOnPush    *bool `json:"dismiss_stale_reviews_on_push"`
+			RequireCodeOwnerReview       *bool `json:"require_code_owner_review"`
 		}
-		if err := json.Unmarshal(r.Parameters, &params); err != nil {
-			return BranchRule{}, fmt.Errorf("decoding required_status_checks rule parameters: %w", err)
+		if len(r.Parameters) > 0 {
+			if err := json.Unmarshal(r.Parameters, &params); err != nil {
+				return BranchRule{}, fmt.Errorf("decoding pull_request rule parameters: %w", err)
+			}
 		}
-		rule.RequiredChecks = len(params.RequiredStatusChecks)
+		if params.RequiredApprovingReviewCount == nil || params.DismissStaleReviewsOnPush == nil || params.RequireCodeOwnerReview == nil {
+			return BranchRule{}, invalidResponse("a pull_request rule has no required_approving_review_count, dismiss_stale_reviews_on_push, or require_code_owner_review")
+		}
+		rule.PullRequest = &PullRequestRuleParameters{
+			RequiredApprovingReviewCount: *params.RequiredApprovingReviewCount,
+			DismissStaleReviewsOnPush:    *params.DismissStaleReviewsOnPush,
+			RequireCodeOwnerReview:       *params.RequireCodeOwnerReview,
+		}
+	case RuleTypeRequiredStatusChecks:
+		var params struct {
+			RequiredStatusChecks *[]json.RawMessage `json:"required_status_checks"`
+		}
+		if len(r.Parameters) > 0 {
+			if err := json.Unmarshal(r.Parameters, &params); err != nil {
+				return BranchRule{}, fmt.Errorf("decoding required_status_checks rule parameters: %w", err)
+			}
+		}
+		if params.RequiredStatusChecks == nil {
+			return BranchRule{}, invalidResponse("a required_status_checks rule has no required_status_checks")
+		}
+		rule.RequiredChecks = len(*params.RequiredStatusChecks)
 	}
 	return rule, nil
 }
@@ -175,6 +205,25 @@ type BypassActor struct {
 	BypassMode string
 }
 
+// actorsWithIDs are the bypass actor types GitHub's ruleset schema requires
+// an actor_id for. It ignores the ID of an OrganizationAdmin and sends null
+// for a DeployKey.
+var actorsWithIDs = []string{BypassActorIntegration, BypassActorRepositoryRole, BypassActorTeam, BypassActorUser}
+
+// checkBypassActor returns an invalid_response error for a bypass actor with
+// no actor_type, which GitHub's schema requires, or with no actor_id where
+// the schema requires one. Without its type, an actor could be the
+// organization admins, who would then read as held to the ruleset.
+func checkBypassActor(actorType string, actorID *int64) error {
+	switch {
+	case actorType == "":
+		return invalidResponse("lists a bypass actor with no actor_type")
+	case actorID == nil && slices.Contains(actorsWithIDs, actorType):
+		return invalidResponse("lists a %s bypass actor with no actor_id", actorType)
+	}
+	return nil
+}
+
 // GetRepoRuleset fetches a ruleset through the repository endpoint with
 // includes_parents=true, which also returns organization and enterprise
 // rulesets that apply to the repository. The organization endpoint needs
@@ -193,11 +242,19 @@ func (c *Client) GetRepoRuleset(ctx context.Context, owner, repo string, ruleset
 		} `json:"bypass_actors"`
 	}
 	path := fmt.Sprintf("/repos/%s/%s/rulesets/%d?includes_parents=true", owner, repo, rulesetID)
-	if err := c.getJSON(ctx, "github.rulesets.get", path, &body); err != nil {
+	resp, err := c.getJSONResponse(ctx, "github.rulesets.get", path, &body)
+	if err != nil {
 		return nil, err
 	}
 	if body.ID == 0 || body.Enforcement == "" {
-		return nil, invalidResponse("%s response has no id or enforcement", trimQuery(path))
+		return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no id or enforcement", trimQuery(path)))
+	}
+	if body.BypassActors != nil {
+		for _, a := range *body.BypassActors {
+			if err := checkBypassActor(a.ActorType, a.ActorID); err != nil {
+				return nil, componentsdk.ResponseError(resp, fmt.Errorf("%s response %w", trimQuery(path), err))
+			}
+		}
 	}
 
 	rs := &Ruleset{
