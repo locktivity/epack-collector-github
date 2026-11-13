@@ -160,7 +160,7 @@ irrelevant:
   - reason: Social and profile data
     categories: [orgs/blocking, users/blocking, users/followers, users/social-accounts, users/emails, users/users]
   - reason: Copilot and AI agents, which are usage rather than security posture
-    categories: [copilot, copilot-spaces, agent-automations, agent-tasks, pulls/agent-merge]
+    categories: [copilot, copilot-spaces, agent-automations, agent-tasks]
   - reason: Billing and usage
     categories: [billing, orgs/api-insights]
   - reason: The collector's own GitHub App, and the marketplace
