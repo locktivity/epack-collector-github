@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.8
+
 - Below the admin base permission, the access file's admins are the organization's owners and the members who hold an organization role whose base role is admin, such as All-repository admin or a custom role based on admin, directly or through a team. Each counts once. The collector lists the roles from `GET /orgs/{org}/organization-roles`, which needs the GitHub App's organization Custom organization roles permission (read), and the holders of each role based on admin with the members permission. Without the new permission, `admin_count`, `admin_share_pct`, `local_admin_count`, `local_mfa_admin_count` and `local_admin_mfa_coverage_pct` are left out with a `permission_denied` gap that names it, and the owners still make `admins_present` and `local_admins_present` true. Through v0.4.7 these values were left out with a `not_read` gap whenever the base permission was below admin.
 - The Not Collected section of `docs/overview.md` is rendered from `docs/surface.yaml`, which gives a verdict to every read operation of GitHub's published Enterprise Cloud API description that the collector's recordings never call, so the list comes from GitHub's description rather than from memory. A new `docs/coverage.md` lists what the collector reads, by area, every operation it leaves out with the reason, and the three calls the collector makes that the sandbox never exercises.
 
