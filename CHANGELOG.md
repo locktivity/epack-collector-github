@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.8
+
 - The Not Collected section of `docs/overview.md` is rendered from `docs/surface.yaml`, which gives a verdict to every read operation of GitHub's published Enterprise Cloud API description that the collector's recordings never call, so the list comes from GitHub's description rather than from memory. A new `docs/coverage.md` lists what the collector reads, by area, every operation it leaves out with the reason, and the three calls the collector makes that the sandbox never exercises.
 
 ## v0.4.7
