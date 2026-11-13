@@ -102,8 +102,8 @@ func TestInventoryListsFollowPagination(t *testing.T) {
 		{
 			name:   "org runners",
 			path:   "/orgs/org/actions/runners",
-			first:  `{"total_count":2,"runners":[{"id":1,"name":"a","labels":[{"name":"self-hosted"}]}]}`,
-			second: `{"total_count":2,"runners":[{"id":2,"name":"b"}]}`,
+			first:  `{"total_count":2,"runners":[{"id":1,"name":"a","busy":false,"labels":[{"name":"self-hosted"}]}]}`,
+			second: `{"total_count":2,"runners":[{"id":2,"name":"b","busy":true}]}`,
 			list: func(c *Client) (int, int, error) {
 				runners, total, err := c.ListOrgRunners(ctx, "org")
 				return len(runners), total, err
@@ -112,8 +112,8 @@ func TestInventoryListsFollowPagination(t *testing.T) {
 		{
 			name:   "repo runners",
 			path:   "/repos/org/repo/actions/runners",
-			first:  `{"total_count":2,"runners":[{"id":1,"name":"a"}]}`,
-			second: `{"total_count":2,"runners":[{"id":2,"name":"b"}]}`,
+			first:  `{"total_count":2,"runners":[{"id":1,"name":"a","busy":false}]}`,
+			second: `{"total_count":2,"runners":[{"id":2,"name":"b","busy":false}]}`,
 			list: func(c *Client) (int, int, error) {
 				runners, total, err := c.ListRepoRunners(ctx, "org", "repo")
 				return len(runners), total, err
@@ -132,8 +132,8 @@ func TestInventoryListsFollowPagination(t *testing.T) {
 		{
 			name:   "installations",
 			path:   "/orgs/org/installations",
-			first:  `{"total_count":2,"installations":[{"app_slug":"a","app_id":1}]}`,
-			second: `{"total_count":2,"installations":[{"app_slug":"b","app_id":2}]}`,
+			first:  `{"total_count":2,"installations":[{"app_slug":"a","app_id":1,"suspended_at":null}]}`,
+			second: `{"total_count":2,"installations":[{"app_slug":"b","app_id":2,"suspended_at":null}]}`,
 			list: func(c *Client) (int, int, error) {
 				installs, total, err := c.ListOrgInstallations(ctx, "org")
 				return len(installs), total, err
@@ -160,7 +160,7 @@ func TestGetPagedTotalStopsAtTheCap(t *testing.T) {
 	server := pagedServer(t, "/orgs/org/actions/runners",
 		`{"total_count":3,"runners":[{"id":1}]}`, `{"total_count":3,"runners":[{"id":2},{"id":3}]}`, &requests)
 	client := NewClientWithHTTP(server.Client(), server.URL)
-	items, total, err := client.getPagedTotal(context.Background(), "github.org_runners.list", "/orgs/org/actions/runners?per_page=100", "runners", 1)
+	items, total, err := client.getPagedTotal(context.Background(), "github.org_runners.list", "/orgs/org/actions/runners?per_page=100", "runners", 1, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,19 +191,19 @@ func TestListsAtTheCapSayTheyMayHoldMore(t *testing.T) {
 		fetchCap int
 		list     func(*Client) (int, bool, error)
 	}{
-		{"org webhooks", `{"id":1}`, HookFetchCap, func(c *Client) (int, bool, error) {
+		{"org webhooks", `{"id":1,"active":true,"events":["push"]}`, HookFetchCap, func(c *Client) (int, bool, error) {
 			hooks, more, err := c.ListOrgHooks(ctx, "org")
 			return len(hooks), more, err
 		}},
-		{"repo webhooks", `{"id":1}`, HookFetchCap, func(c *Client) (int, bool, error) {
+		{"repo webhooks", `{"id":1,"active":true,"events":["push"]}`, HookFetchCap, func(c *Client) (int, bool, error) {
 			hooks, more, err := c.ListRepoHooks(ctx, "org", "repo")
 			return len(hooks), more, err
 		}},
-		{"deploy keys", `{"id":1}`, DeployKeyFetchCap, func(c *Client) (int, bool, error) {
+		{"deploy keys", `{"id":1,"read_only":true}`, DeployKeyFetchCap, func(c *Client) (int, bool, error) {
 			keys, more, err := c.ListRepoDeployKeys(ctx, "org", "repo")
 			return len(keys), more, err
 		}},
-		{"token grants", `{"id":1}`, TokenGrantFetchCap, func(c *Client) (int, bool, error) {
+		{"token grants", `{"id":1,"token_expired":false,"token_expires_at":null,"token_last_used_at":null}`, TokenGrantFetchCap, func(c *Client) (int, bool, error) {
 			grants, more, err := c.ListOrgPATs(ctx, "org")
 			return len(grants), more, err
 		}},
@@ -241,7 +241,8 @@ func TestGetOrgMembershipMarksRostersAtTheCap(t *testing.T) {
 
 func TestListOrgPATsKeepsAccessLevels(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`[{"id":5,"owner":{"login":"alice"},"token_name":"ci","permissions":{"organization":{"members":"read"},"repository":{"contents":"write","metadata":"read"}}}]`))
+		_, _ = w.Write([]byte(`[{"id":5,"owner":{"login":"alice"},"token_name":"ci","permissions":{"organization":{"members":"read"},"repository":{"contents":"write","metadata":"read"}},` +
+			`"token_expired":false,"token_expires_at":null,"token_last_used_at":null}]`))
 	}))
 	defer server.Close()
 
@@ -257,7 +258,8 @@ func TestListOrgPATsKeepsAccessLevels(t *testing.T) {
 // GitHub lists a token that expired, until its grant is revoked.
 func TestListOrgPATsMarksExpiredTokens(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`[{"id":5,"token_expired":false,"token_expires_at":"2099-01-01T00:00:00Z"},{"id":6,"token_expired":true,"token_expires_at":"2026-01-01T00:00:00Z"}]`))
+		_, _ = w.Write([]byte(`[{"id":5,"token_expired":false,"token_expires_at":"2099-01-01T00:00:00Z","token_last_used_at":null},` +
+			`{"id":6,"token_expired":true,"token_expires_at":"2026-01-01T00:00:00Z","token_last_used_at":null}]`))
 	}))
 	defer server.Close()
 

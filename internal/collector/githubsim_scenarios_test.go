@@ -446,6 +446,15 @@ func TestSimulatedOrgsKit(t *testing.T) {
 	s.Insensitive = append(slices.Clone(s.Insensitive), "github.repos.get", "github.code_scanning_default_setup.get", "github.rulesets.get", "github.member_names.list")
 	s.Config = simKitConfig()
 	s.Scenarios = scenarios
+	// The first simulated organization's answers hold no alerts, webhooks,
+	// deploy keys, environments, token grants or SAML identities, so of the
+	// kit's declarations only those on its repositories, branch rules,
+	// members and owners apply to them.
+	applies := func(op string) bool {
+		return slices.Contains([]string{"github.repositories.list", "github.branch_rules.list", "github.org_members.list", "github.org_admins.list"}, op)
+	}
+	s.Populations = slices.DeleteFunc(s.Populations, func(p collectortest.Population) bool { return !applies(p.Operation) })
+	s.Omissions = slices.DeleteFunc(s.Omissions, func(o collectortest.Omission) bool { return !applies(o.Operation) })
 	collectortest.Run(t, s)
 }
 

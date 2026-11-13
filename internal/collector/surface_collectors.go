@@ -86,10 +86,12 @@ func (c *Collector) collectRepositories(p *collectionPass) {
 			CreatedAt:     formatTime(r.CreatedAt),
 			UpdatedAt:     formatTime(r.UpdatedAt),
 			PushedAt:      formatTime(r.PushedAt),
-			SizeKB:        r.DiskUsage,
 
 			EffectiveBranchProtection: protection.toEffective(),
 			Rulesets:                  protection.toRulesetRows(),
+		}
+		if r.DiskUsage != nil {
+			row.SizeKB = *r.DiskUsage
 		}
 		if r.PrimaryLanguage != nil {
 			row.PrimaryLanguage = r.PrimaryLanguage.Name
@@ -142,14 +144,25 @@ func (c *Collector) collectRepositories(p *collectionPass) {
 		}
 		return a.PushedAt > b.PushedAt
 	})
+	sizes := map[string]bool{}
+	for _, r := range p.metrics.repos.included {
+		sizes[repoKey(r)] = r.DiskUsage != nil
+	}
 	for i, row := range kept {
 		c.recordRepoProtectionGaps(i, row, protections[row.Name], p.metrics)
+		if !sizes[row.Name] {
+			c.gaps.unsupported(DetailedPath, diskUsageUnreported, rowPointer("/repositories/per_repo", i, "size_kb"))
+		}
 	}
 	repos.PerRepo = kept
 	repos.Truncated = truncated
 	repos.TruncatedDropped = dropped
 	p.posture.Repositories = repos
 }
+
+// diskUsageUnreported is the detail of the gap on a repository's size_kb
+// when GitHub's diskUsage, which its schema lets be null, is null.
+const diskUsageUnreported = "GitHub reports no disk usage for this repository."
 
 // collectCodeowners checks each repo for a CODEOWNERS file. Audit emits
 // presence + path; internal adds a content hash (bytes never emitted).
@@ -490,11 +503,21 @@ func (c *Collector) collectEnvironments(p *collectionPass) {
 		kept[i].ProtectionApps = apps
 	}
 
+	for i := range kept {
+		if kept[i].CanAdminsBypass == nil {
+			c.gaps.unsupported(DetailedPath, adminBypassUnreported, rowPointer("/environments/per_environment", i, "can_admins_bypass"))
+		}
+	}
 	e.PerEnvironment = kept
 	e.Truncated = truncated || fetchDropped > 0
 	e.TruncatedDropped = dropped + fetchDropped
 	p.posture.Environments = e
 }
+
+// adminBypassUnreported is the detail of the gap on an environment's
+// can_admins_bypass when GitHub's answer has none. GitHub's REST reference
+// does not document the field.
+const adminBypassUnreported = "GitHub's answer for this environment does not say whether administrators can bypass its protection rules."
 
 func toEnvironmentRow(repo string, env github.Environment) EnvironmentRow {
 	row := EnvironmentRow{

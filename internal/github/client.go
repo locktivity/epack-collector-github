@@ -217,30 +217,39 @@ func (c *Client) doAccept(ctx context.Context, op componentsdk.Operation, method
 // into out. Errors wrap ErrPermissionDenied and ErrNotFound so callers can
 // branch on expected outcomes.
 func (c *Client) getJSON(ctx context.Context, op, path string, out any) error {
+	_, err := c.getJSONResponse(ctx, op, path, out)
+	return err
+}
+
+// getJSONResponse is getJSON that also returns the response, so an error
+// about what the body holds can name the call with
+// componentsdk.ResponseError.
+func (c *Client) getJSONResponse(ctx context.Context, op, path string, out any) (*http.Response, error) {
 	resp, err := c.do(ctx, componentsdk.Operation{Name: op}, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return componentsdk.ResponseError(resp, fmt.Errorf("%s: decoding response: %w", trimQuery(path), err))
+		return nil, componentsdk.ResponseError(resp, fmt.Errorf("%s: decoding response: %w", trimQuery(path), err))
 	}
-	return nil
+	return resp, nil
 }
 
-// graphQL runs a named query. GraphQL queries are reads sent with POST, so
-// they are marked safe to retry.
-func (c *Client) graphQL(ctx context.Context, op, query string, variables map[string]any, data any) error {
+// graphQL runs a named query and returns its response, so an error about
+// what the data holds can name the call. GraphQL queries are reads sent with
+// POST, so they are marked safe to retry.
+func (c *Client) graphQL(ctx context.Context, op, query string, variables map[string]any, data any) (*http.Response, error) {
 	if c.graphqlURL == "" {
-		return errors.New("graphql client not configured")
+		return nil, errors.New("graphql client not configured")
 	}
 	payload, err := json.Marshal(map[string]any{"query": query, "variables": variables})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	resp, err := c.do(ctx, componentsdk.Operation{Name: op, Safe: true}, http.MethodPost, c.graphqlURL, payload)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	var out struct {
@@ -248,41 +257,55 @@ func (c *Client) graphQL(ctx context.Context, op, query string, variables map[st
 		Errors []graphQLError  `json:"errors"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return componentsdk.ResponseError(resp, fmt.Errorf("graphql: decoding response: %w", err))
+		return nil, componentsdk.ResponseError(resp, fmt.Errorf("graphql: decoding response: %w", err))
 	}
 	if len(out.Errors) > 0 {
-		return componentsdk.ResponseError(resp, newGraphQLError(resp, out.Errors))
+		return nil, componentsdk.ResponseError(resp, newGraphQLError(resp, out.Errors))
 	}
 	if len(out.Data) == 0 || string(out.Data) == "null" {
-		return componentsdk.ResponseError(resp, invalidResponse("graphql response has no data"))
+		return nil, componentsdk.ResponseError(resp, invalidResponse("graphql response has no data"))
 	}
 	if err := json.Unmarshal(out.Data, data); err != nil {
-		return componentsdk.ResponseError(resp, fmt.Errorf("graphql: decoding data: %w", err))
+		return nil, componentsdk.ResponseError(resp, fmt.Errorf("graphql: decoding data: %w", err))
 	}
-	return nil
+	return resp, nil
 }
 
 // FetchRepositories fetches all repositories for an organization with pagination.
-// It returns repositories one page at a time via the callback function.
+// It returns repositories one page at a time via the callback function. A
+// node that leaves out a field the query selects, or holds null where
+// GitHub's schema does not allow it, makes the answer invalid.
 func (c *Client) FetchRepositories(ctx context.Context, org string, callback func([]Repository) error) error {
 	var cursor *string
 	for {
 		var data struct {
 			Organization *struct {
 				Repositories *struct {
-					Nodes    *[]Repository
-					PageInfo pageInfo
+					Nodes    *[]json.RawMessage
+					PageInfo *pageInfo
 				}
 			}
 		}
-		if err := c.graphQL(ctx, "github.repositories.list", repositoriesQuery, map[string]any{"org": org, "cursor": cursor}, &data); err != nil {
+		resp, err := c.graphQL(ctx, "github.repositories.list", repositoriesQuery, map[string]any{"org": org, "cursor": cursor}, &data)
+		if err != nil {
 			return err
 		}
-		if data.Organization == nil || data.Organization.Repositories == nil || data.Organization.Repositories.Nodes == nil {
-			return invalidResponse("graphql repositories response has no repository list")
+		if data.Organization == nil || data.Organization.Repositories == nil || data.Organization.Repositories.Nodes == nil || data.Organization.Repositories.PageInfo == nil {
+			return componentsdk.ResponseError(resp, invalidResponse("graphql repositories response has no repository list or pageInfo"))
 		}
 		page := data.Organization.Repositories
-		if err := callback(*page.Nodes); err != nil {
+		repos := make([]Repository, 0, len(*page.Nodes))
+		for _, raw := range *page.Nodes {
+			if err := checkRepositoryNode(raw); err != nil {
+				return componentsdk.ResponseError(resp, err)
+			}
+			var repo Repository
+			if err := json.Unmarshal(raw, &repo); err != nil {
+				return componentsdk.ResponseError(resp, fmt.Errorf("graphql: decoding repository: %w", err))
+			}
+			repos = append(repos, repo)
+		}
+		if err := callback(repos); err != nil {
 			return err
 		}
 		if !page.PageInfo.HasNextPage {
@@ -315,6 +338,7 @@ func (c *Client) FetchInstallationRepositories(ctx context.Context) (*Installati
 		}
 		var page struct {
 			RepositorySelection string `json:"repository_selection"`
+			TotalCount          *int   `json:"total_count"`
 			Repositories        *[]struct {
 				Name string `json:"name"`
 			} `json:"repositories"`
@@ -329,11 +353,16 @@ func (c *Client) FetchInstallationRepositories(ctx context.Context) (*Installati
 			return &InstallationRepositories{Selection: RepositorySelectionAll}, nil
 		case page.RepositorySelection != RepositorySelectionSelected:
 			return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no repository_selection", trimQuery(path)))
-		case page.Repositories == nil:
-			return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no repositories list", trimQuery(path)))
+		case page.Repositories == nil || page.TotalCount == nil:
+			return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no repositories list or total_count", trimQuery(path)))
+		case len(*page.Repositories) == 0 && len(out.Names) < *page.TotalCount:
+			return nil, componentsdk.ResponseError(resp, emptyPage(trimQuery(path), "repositories", *page.TotalCount))
 		}
 		out.Selection = RepositorySelectionSelected
 		for _, r := range *page.Repositories {
+			if r.Name == "" {
+				return nil, componentsdk.ResponseError(resp, invalidResponse("%s response lists a repository with no name", trimQuery(path)))
+			}
 			out.Names[strings.ToLower(r.Name)] = true
 		}
 		next = ""
@@ -511,8 +540,12 @@ type SecuritySettings struct {
 	DependabotSecurityUpdates    bool
 	// AnalysisErr is why the three settings above are unknown, such as
 	// GitHub leaving out security_and_analysis for a caller without admin
-	// rights. Nil means they hold GitHub's answer.
-	AnalysisErr error
+	// rights. Nil means they hold GitHub's answer, unless the setting's own
+	// error below says why GitHub's block has none for it.
+	AnalysisErr                     error
+	SecretScanningErr               error
+	SecretScanningPushProtectionErr error
+	DependabotSecurityUpdatesErr    error
 
 	CodeScanningEnabled          bool
 	CodeScanningPermissionDenied bool
@@ -527,37 +560,31 @@ type SecuritySettings struct {
 func (c *Client) FetchSecuritySettings(ctx context.Context, owner, repo string) (*SecuritySettings, error) {
 	path := fmt.Sprintf("/repos/%s/%s", owner, repo)
 	var result struct {
-		Name                string `json:"name"`
-		SecurityAndAnalysis *struct {
-			SecretScanning *struct {
-				Status string `json:"status"`
-			} `json:"secret_scanning"`
-			SecretScanningPushProtection *struct {
-				Status string `json:"status"`
-			} `json:"secret_scanning_push_protection"`
-			DependabotSecurityUpdates *struct {
-				Status string `json:"status"`
-			} `json:"dependabot_security_updates"`
-		} `json:"security_and_analysis"`
+		Name                string                    `json:"name"`
+		SecurityAndAnalysis map[string]*securityState `json:"security_and_analysis"`
 	}
-	if err := c.getJSON(ctx, "github.repos.get", path, &result); err != nil {
+	resp, err := c.getJSONResponse(ctx, "github.repos.get", path, &result)
+	if err != nil {
 		return nil, fmt.Errorf("security settings for %s/%s: %w", owner, repo, err)
 	}
 	if result.Name == "" {
-		return nil, invalidResponse("%s response has no name", path)
+		return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no name", path))
 	}
 
 	settings := &SecuritySettings{}
 	if sa := result.SecurityAndAnalysis; sa != nil {
-		if sa.SecretScanning != nil {
-			settings.SecretScanning = sa.SecretScanning.Status == StatusEnabled
+		// GitHub's schema makes each setting in the block optional, so one
+		// it leaves out is unknown rather than disabled.
+		status := func(name string) (bool, error) {
+			state := sa[name]
+			if state == nil || state.Status == nil {
+				return false, componentsdk.ResponseError(resp, invalidResponse("%s response's security_and_analysis has no %s status", path, name))
+			}
+			return *state.Status == StatusEnabled, nil
 		}
-		if sa.SecretScanningPushProtection != nil {
-			settings.SecretScanningPushProtection = sa.SecretScanningPushProtection.Status == StatusEnabled
-		}
-		if sa.DependabotSecurityUpdates != nil {
-			settings.DependabotSecurityUpdates = sa.DependabotSecurityUpdates.Status == StatusEnabled
-		}
+		settings.SecretScanning, settings.SecretScanningErr = status("secret_scanning")
+		settings.SecretScanningPushProtection, settings.SecretScanningPushProtectionErr = status("secret_scanning_push_protection")
+		settings.DependabotSecurityUpdates, settings.DependabotSecurityUpdatesErr = status("dependabot_security_updates")
 	} else {
 		settings.AnalysisErr = ErrAnalysisHidden
 	}
@@ -569,6 +596,11 @@ func (c *Client) FetchSecuritySettings(ctx context.Context, owner, repo string) 
 	settings.CodeScanningErr = csResult.err
 
 	return settings, nil
+}
+
+// securityState is one setting of a repository's security_and_analysis.
+type securityState struct {
+	Status *string `json:"status"`
 }
 
 // codeScanningResult holds the result of checking code scanning status.
@@ -608,11 +640,11 @@ func (c *Client) checkDefaultSetup(ctx context.Context, owner, repo string) code
 	var result struct {
 		State *string `json:"state"`
 	}
-	err := c.getJSON(ctx, "github.code_scanning_default_setup.get", path, &result)
+	resp, err := c.getJSONResponse(ctx, "github.code_scanning_default_setup.get", path, &result)
 	var apiErr *APIError
 	switch {
 	case err == nil && result.State == nil:
-		return codeScanningResult{err: invalidResponse("%s response has no state", path)}
+		return codeScanningResult{err: componentsdk.ResponseError(resp, invalidResponse("%s response has no state", path))}
 	case err == nil:
 		return codeScanningResult{enabled: *result.State == StateConfigured}
 	case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound:

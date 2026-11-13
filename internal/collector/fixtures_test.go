@@ -130,17 +130,25 @@ func kitTokenResponseFor(selection string) collectortest.Response {
 	}
 }
 
-// kitOrgResponse answers both the sign-in and the org settings read.
+// kitOrgResponse answers the sign-in. The org settings read of the same URL
+// has its own answer, kitOrgSettingsResponse, so a change the kit makes to
+// one leaves the other as GitHub sent it.
 func kitOrgResponse(twoFactor bool) collectortest.Response {
-	return collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(kitOrgBody(twoFactor))}
+	return collectortest.Response{Operation: "github.orgs.get", URL: kitOrgURL(""), Body: kitJSON(kitOrgBody(twoFactor))}
 }
 
-// kitOrgBasePermissionResponse is kitOrgResponse with the members' base
-// permission set to base.
-func kitOrgBasePermissionResponse(base string) collectortest.Response {
+// kitOrgSettingsResponse answers the org settings read with body.
+func kitOrgSettingsResponse(body map[string]any) collectortest.Response {
+	return collectortest.Response{Operation: "github.org_settings.get", URL: kitOrgURL(""), Body: kitJSON(body)}
+}
+
+// kitOrgBasePermission replaces both answers of the organization with ones
+// that set the members' base permission to base.
+func kitOrgBasePermission(responses []collectortest.Response, base string) []collectortest.Response {
 	body := kitOrgBody(true)
 	body["default_repository_permission"] = base
-	return collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(body)}
+	responses = replaceResponse(responses, collectortest.Response{Operation: "github.orgs.get", URL: kitOrgURL(""), Body: kitJSON(body)})
+	return replaceResponse(responses, kitOrgSettingsResponse(body))
 }
 
 func kitOrgBody(twoFactor bool) map[string]any {
@@ -179,7 +187,7 @@ func kitSelectedResponses(ownedPrivate *int) []collectortest.Response {
 	if ownedPrivate != nil {
 		org["owned_private_repos"] = *ownedPrivate
 	}
-	responses = replaceResponse(responses, collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(org)})
+	responses = replaceResponse(responses, collectortest.Response{Operation: "github.orgs.get", URL: kitOrgURL(""), Body: kitJSON(org)})
 	var installed []any
 	for _, name := range kitRepos {
 		if name != kitOutsider {
@@ -378,6 +386,7 @@ func kitAuditResponses() []collectortest.Response {
 	noRunners := `{"total_count":0,"runners":[]}`
 
 	responses := []collectortest.Response{
+		kitOrgSettingsResponse(kitOrgBody(true)),
 		{URL: kitAlertListURL("repo-ruleset", "secret-scanning"), Body: kitJSON([]any{map[string]any{
 			"number": 3, "secret_type": "aws_access_key_id", "state": "open", "created_at": "2026-05-01T00:00:00Z",
 		}})},
@@ -480,7 +489,7 @@ func kitAuditResponses() []collectortest.Response {
 			map[string]any{"action": "issues.opened", "actor": "bob", "created_at": 1760000200000},
 		})},
 		{URL: kitOrgURL("/installations?per_page=100"), Header: kitNextPage("/organizations/1/installations"), Body: kitJSON(map[string]any{"total_count": 2, "installations": []any{map[string]any{
-			"app_slug": "dependabot", "app_id": 99, "permissions": map[string]any{"metadata": "read"},
+			"app_slug": "dependabot", "app_id": 99, "permissions": map[string]any{"metadata": "read"}, "suspended_at": nil,
 			"created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-02T00:00:00Z", "repository_selection": "all", "events": []any{"push"},
 		}}})},
 		{URL: kitAPI + "/organizations/1/installations?per_page=100&page=2", Body: kitJSON(map[string]any{"total_count": 2, "installations": []any{map[string]any{
@@ -489,8 +498,8 @@ func kitAuditResponses() []collectortest.Response {
 		}}})},
 		{URL: kitOrgURL("/personal-access-tokens?per_page=100"), Body: kitJSON([]any{map[string]any{
 			"id": 5, "owner": map[string]any{"login": "alice"}, "token_name": "ci-token",
-			"permissions":      map[string]any{"organization": map[string]any{"members": "read"}, "repository": map[string]any{"contents": "read"}},
-			"token_expires_at": "2026-12-01T00:00:00Z",
+			"permissions":   map[string]any{"organization": map[string]any{"members": "read"}, "repository": map[string]any{"contents": "read"}},
+			"token_expired": false, "token_expires_at": "2026-12-01T00:00:00Z", "token_last_used_at": nil,
 		}})},
 
 		{URL: kitOrgURL("/members?per_page=100"), Body: `[{"login":"alice"},{"login":"bob"}]`},
@@ -577,6 +586,7 @@ func kitEmptyTenantResponses() []collectortest.Response {
 	return []collectortest.Response{
 		kitTokenResponse(),
 		kitOrgResponse(false),
+		kitOrgSettingsResponse(kitOrgBody(false)),
 		{Operation: "github.repositories.list", Method: http.MethodPost, URL: kitGraphQL, Body: kitRepoPage([]any{}, "")},
 		{URL: kitOrgURL("/hooks?per_page=100"), Body: `[]`},
 		{URL: kitOrgURL("/actions/runners?per_page=100"), Body: `{"total_count":0,"runners":[]}`},
@@ -647,7 +657,8 @@ func kitAlertsRefusedResponses() []collectortest.Response {
 // without admin or owner rights: no two-factor setting, no
 // security_and_analysis block, and no ruleset bypass lists.
 func kitReadOnlyResponses() []collectortest.Response {
-	responses := replaceResponse(kitResponses(), collectortest.Response{URL: kitOrgURL(""), Body: kitJSON(map[string]any{"login": kitOrg})})
+	responses := replaceResponse(kitResponses(), collectortest.Response{Operation: "github.orgs.get", URL: kitOrgURL(""), Body: kitJSON(map[string]any{"login": kitOrg})})
+	responses = replaceResponse(responses, kitOrgSettingsResponse(map[string]any{"login": kitOrg}))
 	for _, repo := range kitIncluded {
 		responses = replaceResponse(responses, collectortest.Response{URL: kitRepoURL(repo, ""), Body: kitJSON(map[string]any{"name": repo})})
 	}
@@ -675,7 +686,10 @@ func kitListsAtTheCapResponses() []collectortest.Response {
 	}
 	grants := make([]any, github.TokenGrantFetchCap)
 	for i := range grants {
-		grants[i] = map[string]any{"id": i + 1, "owner": map[string]any{"login": "alice"}, "permissions": map[string]any{"repository": map[string]any{"contents": "read"}}}
+		grants[i] = map[string]any{
+			"id": i + 1, "owner": map[string]any{"login": "alice"}, "permissions": map[string]any{"repository": map[string]any{"contents": "read"}},
+			"token_expired": false, "token_expires_at": nil, "token_last_used_at": nil,
+		}
 	}
 	responses := kitResponses()
 	for _, r := range []collectortest.Response{

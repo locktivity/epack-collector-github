@@ -1,6 +1,12 @@
 package github
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/locktivity/epack/componentsdk"
+)
 
 // samlIdentitiesQuery fetches the organization's SAML identity provider and
 // the external identities of its members, 100 per page. It reads the login
@@ -32,45 +38,64 @@ type OrgSSO struct {
 // FetchOrgSSO reads the organization's SAML identity provider and counts its
 // members' external identities. The provider is visible to organization
 // owners, to classic tokens with read:org, and to GitHub Apps with the
-// members permission. Any other caller gets a FORBIDDEN error.
+// members permission. Any other caller gets a FORBIDDEN error. GraphQL
+// answers every field the query selects, so a provider, page info, or
+// identity field it leaves out makes the answer invalid. A null provider is
+// an organization without one, and a null samlIdentity or scimIdentity an
+// identity without that record.
 func (c *Client) FetchOrgSSO(ctx context.Context, org string) (*OrgSSO, error) {
 	out := &OrgSSO{NameIDs: map[string]string{}}
 	var cursor *string
 	for read := 0; ; {
 		var data struct {
 			Organization *struct {
-				SAMLIdentityProvider *struct {
-					ExternalIdentities *struct {
-						Nodes *[]struct {
-							SAMLIdentity *struct {
-								NameID string `json:"nameId"`
-							} `json:"samlIdentity"`
-							SCIMIdentity *struct{} `json:"scimIdentity"`
-							User         *struct {
-								Login string `json:"login"`
-							} `json:"user"`
-						}
-						PageInfo pageInfo
-					}
-				} `json:"samlIdentityProvider"`
+				SAMLIdentityProvider json.RawMessage `json:"samlIdentityProvider"`
 			}
 		}
-		if err := c.graphQL(ctx, "github.saml_identities.list", samlIdentitiesQuery, map[string]any{"org": org, "cursor": cursor}, &data); err != nil {
+		resp, err := c.graphQL(ctx, "github.saml_identities.list", samlIdentitiesQuery, map[string]any{"org": org, "cursor": cursor}, &data)
+		if err != nil {
 			return nil, err
 		}
-		if data.Organization == nil {
-			return nil, invalidResponse("graphql SAML response has no organization")
+		if data.Organization == nil || data.Organization.SAMLIdentityProvider == nil {
+			return nil, componentsdk.ResponseError(resp, invalidResponse("graphql SAML response has no organization or samlIdentityProvider"))
 		}
-		provider := data.Organization.SAMLIdentityProvider
-		if provider == nil {
+		if string(data.Organization.SAMLIdentityProvider) == "null" {
 			return out, nil
 		}
+		var provider struct {
+			ExternalIdentities *struct {
+				Nodes    *[]json.RawMessage
+				PageInfo *pageInfo
+			}
+		}
+		if err := json.Unmarshal(data.Organization.SAMLIdentityProvider, &provider); err != nil {
+			return nil, componentsdk.ResponseError(resp, fmt.Errorf("graphql: decoding SAML identity provider: %w", err))
+		}
 		out.Configured = true
-		if provider.ExternalIdentities == nil || provider.ExternalIdentities.Nodes == nil {
-			return nil, invalidResponse("graphql SAML response has no external identity list")
+		if provider.ExternalIdentities == nil || provider.ExternalIdentities.Nodes == nil || provider.ExternalIdentities.PageInfo == nil {
+			return nil, componentsdk.ResponseError(resp, invalidResponse("graphql SAML response has no external identity list or pageInfo"))
 		}
 		page := provider.ExternalIdentities
-		for _, n := range *page.Nodes {
+		for _, raw := range *page.Nodes {
+			var node map[string]any
+			if err := json.Unmarshal(raw, &node); err != nil || node == nil {
+				return nil, componentsdk.ResponseError(resp, invalidResponse("graphql SAML response lists an identity that is not an object"))
+			}
+			if field := missingField(node, true, "samlIdentity", "scimIdentity"); field != "" {
+				return nil, componentsdk.ResponseError(resp, invalidResponse("graphql SAML response lists an identity with no %s", field))
+			}
+			var n struct {
+				SAMLIdentity *struct {
+					NameID string `json:"nameId"`
+				} `json:"samlIdentity"`
+				SCIMIdentity *struct{} `json:"scimIdentity"`
+				User         *struct {
+					Login string `json:"login"`
+				} `json:"user"`
+			}
+			if err := json.Unmarshal(raw, &n); err != nil {
+				return nil, componentsdk.ResponseError(resp, fmt.Errorf("graphql: decoding SAML identity: %w", err))
+			}
 			if n.SAMLIdentity != nil {
 				out.LinkedMembers++
 				if n.User != nil && n.User.Login != "" && n.SAMLIdentity.NameID != "" {

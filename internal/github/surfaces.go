@@ -68,11 +68,12 @@ func (c *Client) GetOrgSettings(ctx context.Context, org string) (*OrgSettings, 
 		DefaultRepositoryPermission  string `json:"default_repository_permission"`
 		MembersCanCreateRepositories *bool  `json:"members_can_create_repositories"`
 	}
-	if err := c.getJSON(ctx, "github.org_settings.get", path, &body); err != nil {
+	resp, err := c.getJSONResponse(ctx, "github.org_settings.get", path, &body)
+	if err != nil {
 		return nil, err
 	}
 	if body.Login == "" {
-		return nil, invalidResponse("%s response has no login", path)
+		return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no login", path))
 	}
 	return &OrgSettings{
 		DefaultRepositoryPermission:  body.DefaultRepositoryPermission,
@@ -88,10 +89,11 @@ const AlertFetchCap = 5001
 var linkNextRe = regexp.MustCompile(`<([^>]+)>;\s*rel="next"`)
 
 // getPagedRaw follows Link rel="next" pagination accumulating raw JSON array
-// elements, stopping at maxItems. Any failure, including on a later page,
-// returns an error and no items. The returned bool reports that the list
-// reached maxItems, so it may hold more.
-func (c *Client) getPagedRaw(ctx context.Context, op, firstPath string, maxItems int) ([]json.RawMessage, bool, error) {
+// elements, stopping at maxItems. check, when set, vets each item, and an
+// item it rejects makes the list invalid. Any failure, including on a later
+// page, returns an error and no items. The returned bool reports that the
+// list reached maxItems, so it may hold more.
+func (c *Client) getPagedRaw(ctx context.Context, op, firstPath string, maxItems int, check func(json.RawMessage) error) ([]json.RawMessage, bool, error) {
 	var all []json.RawMessage
 	next := c.baseURL + firstPath
 
@@ -110,6 +112,9 @@ func (c *Client) getPagedRaw(ctx context.Context, op, firstPath string, maxItems
 		if page == nil {
 			return nil, false, componentsdk.ResponseError(resp, invalidResponse("%s response is not a list", trimQuery(firstPath)))
 		}
+		if err := checkItems(*page, check); err != nil {
+			return nil, false, componentsdk.ResponseError(resp, fmt.Errorf("%s response %w", trimQuery(firstPath), err))
+		}
 		all = append(all, *page...)
 		if len(all) >= maxItems {
 			return all[:maxItems], true, nil
@@ -122,6 +127,20 @@ func (c *Client) getPagedRaw(ctx context.Context, op, firstPath string, maxItems
 	return all, false, nil
 }
 
+// checkItems returns the first error check gives for one of items, or nil
+// when check is nil.
+func checkItems(items []json.RawMessage, check func(json.RawMessage) error) error {
+	if check == nil {
+		return nil
+	}
+	for _, item := range items {
+		if err := check(item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // InventoryFetchCap bounds how many runners, Actions secrets, or App
 // installations one list reads.
 const InventoryFetchCap = 10000
@@ -130,9 +149,10 @@ const InventoryFetchCap = 10000
 // hold their items under key beside total_count, such as
 // {"total_count": 2, "runners": [...]}, stopping at maxItems. It returns the
 // items read and the total GitHub reports, which is larger when maxItems cut
-// the list short. Any failure, including on a later page, returns an error
-// and no items.
-func (c *Client) getPagedTotal(ctx context.Context, op, firstPath, key string, maxItems int) ([]json.RawMessage, int, error) {
+// the list short. check, when set, vets each item as getPagedRaw does. Any
+// failure, including on a later page or a page with no items before the
+// total is read, returns an error and no items.
+func (c *Client) getPagedTotal(ctx context.Context, op, firstPath, key string, maxItems int, check func(json.RawMessage) error) ([]json.RawMessage, int, error) {
 	var all []json.RawMessage
 	total := 0
 	next := c.baseURL + firstPath
@@ -158,6 +178,12 @@ func (c *Client) getPagedTotal(ctx context.Context, op, firstPath, key string, m
 			return nil, 0, componentsdk.ResponseError(resp, invalidResponse("%s response has no total_count", trimQuery(firstPath)))
 		}
 		total = *count
+		if len(items) == 0 && len(all) < total {
+			return nil, 0, componentsdk.ResponseError(resp, emptyPage(trimQuery(firstPath), key, total))
+		}
+		if err := checkItems(items, check); err != nil {
+			return nil, 0, componentsdk.ResponseError(resp, fmt.Errorf("%s response %w", trimQuery(firstPath), err))
+		}
 		all = append(all, items...)
 		if len(all) >= maxItems {
 			return all[:maxItems], total, nil
@@ -170,10 +196,11 @@ func (c *Client) getPagedTotal(ctx context.Context, op, firstPath, key string, m
 	return all, total, nil
 }
 
-// getAlertPages lists one alert type for a repo, stopping at maxItems. A 404
-// means the feature is not enabled for the repository, so it has no alerts.
-func (c *Client) getAlertPages(ctx context.Context, op, path string, maxItems int) ([]json.RawMessage, bool, error) {
-	raw, more, err := c.getPagedRaw(ctx, op, path, maxItems)
+// getAlertPages lists one alert type for a repo, stopping at maxItems, with
+// check vetting each alert. A 404 means the feature is not enabled for the
+// repository, so it has no alerts.
+func (c *Client) getAlertPages(ctx context.Context, op, path string, maxItems int, check func(json.RawMessage) error) ([]json.RawMessage, bool, error) {
+	raw, more, err := c.getPagedRaw(ctx, op, path, maxItems, check)
 	if errors.Is(err, ErrNotFound) {
 		return nil, false, nil
 	}
@@ -223,6 +250,17 @@ type DependabotAlert struct {
 	CreatedAt  string `json:"created_at"`
 }
 
+// The fields of an open alert that GitHub's alert schemas require and the
+// collector reads. An alert's number keys it in the findings, and a
+// Dependabot alert's severity decides what it counts toward. A code scanning
+// rule's security_severity_level is optional, and absent for a rule that is
+// not a security query.
+var (
+	secretAlertCheck     = itemCheck("an alert", []string{"number"})
+	codeAlertCheck       = itemCheck("an alert", []string{"number", "rule"})
+	dependabotAlertCheck = itemCheck("an alert", []string{"number", "security_vulnerability/severity"})
+)
+
 // genericSecretTypes are the secret types that are listed only when a request
 // names them. They are the generic patterns and AI-detected passwords on
 // GitHub's "Supported secret scanning patterns" page.
@@ -243,12 +281,12 @@ func (c *Client) ListSecretScanningAlerts(ctx context.Context, owner, repo strin
 	const op = "github.secret_scanning_alerts.list"
 	path := fmt.Sprintf("/repos/%s/%s/secret-scanning/alerts?state=open&per_page=100&hide_secret=true", owner, repo)
 	genericPath := path + "&secret_type=" + url.QueryEscape(strings.Join(genericSecretTypes, ","))
-	raw, more, err := c.getAlertPages(ctx, op, path, AlertFetchCap)
+	raw, more, err := c.getAlertPages(ctx, op, path, AlertFetchCap, secretAlertCheck)
 	if err != nil {
 		return nil, false, err
 	}
 	if !more {
-		generic, genericMore, err := c.getAlertPages(ctx, op, genericPath, AlertFetchCap-len(raw))
+		generic, genericMore, err := c.getAlertPages(ctx, op, genericPath, AlertFetchCap-len(raw), secretAlertCheck)
 		if err != nil {
 			return nil, false, err
 		}
@@ -257,7 +295,7 @@ func (c *Client) ListSecretScanningAlerts(ctx context.Context, owner, repo strin
 	if more {
 		raw = nil
 		for _, list := range []string{path, genericPath} {
-			oldest, _, err := c.getAlertPages(ctx, op, list+"&direction=asc", AlertFetchCap)
+			oldest, _, err := c.getAlertPages(ctx, op, list+"&direction=asc", AlertFetchCap, secretAlertCheck)
 			if err != nil {
 				return nil, false, err
 			}
@@ -321,12 +359,12 @@ var codeScanningSeverities = []string{"error", "warning", "note"}
 func (c *Client) ListCodeScanningAlerts(ctx context.Context, owner, repo string) ([]CodeScanningAlert, bool, error) {
 	const op = "github.code_scanning_alerts.list"
 	path := fmt.Sprintf("/repos/%s/%s/code-scanning/alerts?state=open&per_page=100", owner, repo)
-	raw, more, err := c.getAlertPages(ctx, op, path, AlertFetchCap)
+	raw, more, err := c.getAlertPages(ctx, op, path, AlertFetchCap, codeAlertCheck)
 	if err != nil {
 		return nil, false, err
 	}
 	if more {
-		if raw, err = c.mostSevereAlerts(ctx, op, path, codeScanningSeverities); err != nil {
+		if raw, err = c.mostSevereAlerts(ctx, op, path, codeScanningSeverities, codeAlertCheck); err != nil {
 			return nil, false, err
 		}
 	}
@@ -334,7 +372,7 @@ func (c *Client) ListCodeScanningAlerts(ctx context.Context, owner, repo string)
 		// The severity filter has no value for an alert whose rule severity
 		// is none or null. Such alerts are read from the whole list, oldest
 		// first, after the alerts already read.
-		if raw, err = c.restOfAlerts(ctx, op, path, raw); err != nil {
+		if raw, err = c.restOfAlerts(ctx, op, path, raw, codeAlertCheck); err != nil {
 			return nil, false, err
 		}
 	}
@@ -384,12 +422,12 @@ func (c *Client) ListCodeScanningAlerts(ctx context.Context, owner, repo string)
 }
 
 // mostSevereAlerts reads a list of alerts again one severity at a time, in
-// the order of severities, each oldest first. It stops at AlertFetchCap
-// alerts.
-func (c *Client) mostSevereAlerts(ctx context.Context, op, path string, severities []string) ([]json.RawMessage, error) {
+// the order of severities, each oldest first, with check vetting each
+// alert. It stops at AlertFetchCap alerts.
+func (c *Client) mostSevereAlerts(ctx context.Context, op, path string, severities []string, check func(json.RawMessage) error) ([]json.RawMessage, error) {
 	var raw []json.RawMessage
 	for _, severity := range severities {
-		page, full, err := c.getAlertPages(ctx, op, path+"&severity="+severity+"&direction=asc", AlertFetchCap-len(raw))
+		page, full, err := c.getAlertPages(ctx, op, path+"&severity="+severity+"&direction=asc", AlertFetchCap-len(raw), check)
 		if err != nil {
 			return nil, err
 		}
@@ -402,13 +440,14 @@ func (c *Client) mostSevereAlerts(ctx context.Context, op, path string, severiti
 }
 
 // restOfAlerts appends to read the oldest alerts of the whole list that are
-// not in it yet. It stops at AlertFetchCap alerts.
-func (c *Client) restOfAlerts(ctx context.Context, op, path string, read []json.RawMessage) ([]json.RawMessage, error) {
+// not in it yet, with check vetting each alert. It stops at AlertFetchCap
+// alerts.
+func (c *Client) restOfAlerts(ctx context.Context, op, path string, read []json.RawMessage, check func(json.RawMessage) error) ([]json.RawMessage, error) {
 	seen := make(map[int]bool, len(read))
 	for _, r := range read {
 		seen[alertNumber(r)] = true
 	}
-	oldest, _, err := c.getAlertPages(ctx, op, path+"&direction=asc", AlertFetchCap)
+	oldest, _, err := c.getAlertPages(ctx, op, path+"&direction=asc", AlertFetchCap, check)
 	if err != nil {
 		return nil, err
 	}
@@ -444,12 +483,12 @@ var dependabotSeverities = []string{"critical", "high", "medium", "low"}
 func (c *Client) ListDependabotAlerts(ctx context.Context, owner, repo string) ([]DependabotAlert, bool, error) {
 	const op = "github.dependabot_alerts.list"
 	path := fmt.Sprintf("/repos/%s/%s/dependabot/alerts?state=open&per_page=100", owner, repo)
-	raw, more, err := c.getAlertPages(ctx, op, path, AlertFetchCap)
+	raw, more, err := c.getAlertPages(ctx, op, path, AlertFetchCap, dependabotAlertCheck)
 	if err != nil {
 		return nil, false, err
 	}
 	if more {
-		if raw, err = c.mostSevereAlerts(ctx, op, path, dependabotSeverities); err != nil {
+		if raw, err = c.mostSevereAlerts(ctx, op, path, dependabotSeverities, dependabotAlertCheck); err != nil {
 			return nil, false, err
 		}
 	}
@@ -491,10 +530,11 @@ func (c *Client) ListDependabotAlerts(ctx context.Context, owner, repo string) (
 // reaches it comes back marked as possibly holding more.
 const MemberFetchCap = 50000
 
-// getAllLogins pages a members-style endpoint and extracts the "login" field.
-// The returned bool reports that the roster reached MemberFetchCap.
+// getAllLogins pages a members-style endpoint and extracts the "login" field,
+// which every user GitHub lists has. The returned bool reports that the
+// roster reached MemberFetchCap.
 func (c *Client) getAllLogins(ctx context.Context, op, firstPath string) ([]string, bool, error) {
-	raw, more, err := c.getPagedRaw(ctx, op, firstPath, MemberFetchCap)
+	raw, more, err := c.getPagedRaw(ctx, op, firstPath, MemberFetchCap, userCheck)
 	if err != nil {
 		return nil, false, err
 	}
@@ -503,11 +543,24 @@ func (c *Client) getAllLogins(ctx context.Context, op, firstPath string) ([]stri
 		var u struct {
 			Login string `json:"login"`
 		}
-		if json.Unmarshal(r, &u) == nil && u.Login != "" {
-			logins = append(logins, u.Login)
+		if err := json.Unmarshal(r, &u); err != nil {
+			return nil, false, fmt.Errorf("%s: decoding user: %w", trimQuery(firstPath), err)
 		}
+		logins = append(logins, u.Login)
 	}
 	return logins, more, nil
+}
+
+// userCheck vets a user in a roster. A user with no login would drop out of
+// every count.
+func userCheck(raw json.RawMessage) error {
+	var u struct {
+		Login string `json:"login"`
+	}
+	if json.Unmarshal(raw, &u) != nil || u.Login == "" {
+		return invalidResponse("lists a user with no login")
+	}
+	return nil
 }
 
 // OrgMembership holds the member rosters needed for the Members surface. Each
@@ -583,7 +636,7 @@ func (c *Client) GetOrgMembership(ctx context.Context, org string) (*OrgMembersh
 		result.UnnamedCollaborators = lookup.unread
 		result.NameLookupErr = lookup.err
 	}
-	if inv, _, ierr := c.getPagedRaw(ctx, "github.org_invitations.list", fmt.Sprintf("/orgs/%s/invitations?per_page=100", org), MemberFetchCap); ierr == nil {
+	if inv, _, ierr := c.getPagedRaw(ctx, "github.org_invitations.list", fmt.Sprintf("/orgs/%s/invitations?per_page=100", org), MemberFetchCap, nil); ierr == nil {
 		result.PendingInvitations = len(inv)
 	} else {
 		result.InvitationsErr = ierr
@@ -646,15 +699,16 @@ func (c *Client) getMemberNames(ctx context.Context, org string) (map[string]str
 						Login string
 						Name  string
 					}
-					PageInfo pageInfo
+					PageInfo *pageInfo
 				}
 			}
 		}
-		if err := c.graphQL(ctx, "github.member_names.list", membersQuery, map[string]any{"org": org, "cursor": cursor}, &data); err != nil {
+		resp, err := c.graphQL(ctx, "github.member_names.list", membersQuery, map[string]any{"org": org, "cursor": cursor}, &data)
+		if err != nil {
 			return nil, err
 		}
-		if data.Organization == nil || data.Organization.MembersWithRole == nil || data.Organization.MembersWithRole.Nodes == nil {
-			return nil, invalidResponse("graphql members response has no member list")
+		if data.Organization == nil || data.Organization.MembersWithRole == nil || data.Organization.MembersWithRole.Nodes == nil || data.Organization.MembersWithRole.PageInfo == nil {
+			return nil, componentsdk.ResponseError(resp, invalidResponse("graphql members response has no member list or pageInfo"))
 		}
 		page := data.Organization.MembersWithRole
 		for _, n := range *page.Nodes {
@@ -832,7 +886,7 @@ type Hook struct {
 const HookFetchCap = 200
 
 func (c *Client) listHooks(ctx context.Context, op, path string) ([]Hook, bool, error) {
-	raw, more, err := c.getPagedRaw(ctx, op, path, HookFetchCap)
+	raw, more, err := c.getPagedRaw(ctx, op, path, HookFetchCap, itemCheck("a webhook", []string{"id", "active", "events"}))
 	if err != nil {
 		return nil, false, err
 	}
@@ -910,7 +964,7 @@ const DeployKeyFetchCap = 1000
 // and whether the list reached it. Requires administration:read.
 func (c *Client) ListRepoDeployKeys(ctx context.Context, owner, repo string) ([]DeployKey, bool, error) {
 	path := fmt.Sprintf("/repos/%s/%s/keys?per_page=100", owner, repo)
-	raw, more, err := c.getPagedRaw(ctx, "github.deploy_keys.list", path, DeployKeyFetchCap)
+	raw, more, err := c.getPagedRaw(ctx, "github.deploy_keys.list", path, DeployKeyFetchCap, itemCheck("a deploy key", []string{"id", "read_only"}))
 	if err != nil {
 		return nil, false, err
 	}
@@ -957,7 +1011,7 @@ type Runner struct {
 }
 
 func (c *Client) listRunners(ctx context.Context, op, path string) ([]Runner, int, error) {
-	raw, total, err := c.getPagedTotal(ctx, op, path, "runners", InventoryFetchCap)
+	raw, total, err := c.getPagedTotal(ctx, op, path, "runners", InventoryFetchCap, itemCheck("a runner", []string{"id", "busy"}))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1004,7 +1058,7 @@ func (c *Client) ListRepoRunners(ctx context.Context, owner, repo string) ([]Run
 // organization_secrets:read.
 func (c *Client) ListOrgActionsSecretNames(ctx context.Context, org string) ([]string, int, error) {
 	path := fmt.Sprintf("/orgs/%s/actions/secrets?per_page=100", org)
-	raw, total, err := c.getPagedTotal(ctx, "github.org_actions_secrets.list", path, "secrets", InventoryFetchCap)
+	raw, total, err := c.getPagedTotal(ctx, "github.org_actions_secrets.list", path, "secrets", InventoryFetchCap, nil)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1049,7 +1103,7 @@ var AuditLogCategories = []string{
 func (c *Client) GetOrgAuditLog(ctx context.Context, org, sinceISO string, maxEvents int) ([]AuditEvent, bool, error) {
 	phrase := "created:>=" + sinceISO
 	path := fmt.Sprintf("/orgs/%s/audit-log?phrase=%s&per_page=100", org, url.QueryEscape(phrase))
-	raw, more, err := c.getPagedRaw(ctx, "github.audit_log.list", path, maxEvents)
+	raw, more, err := c.getPagedRaw(ctx, "github.audit_log.list", path, maxEvents, itemCheck("an event", []string{"action", "created_at"}))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, false, featureUnavailable(err, "the audit log API requires GitHub Enterprise Cloud")
@@ -1106,7 +1160,7 @@ type Installation struct {
 // organization_administration:read.
 func (c *Client) ListOrgInstallations(ctx context.Context, org string) ([]Installation, int, error) {
 	path := fmt.Sprintf("/orgs/%s/installations?per_page=100", org)
-	raw, total, err := c.getPagedTotal(ctx, "github.org_installations.list", path, "installations", InventoryFetchCap)
+	raw, total, err := c.getPagedTotal(ctx, "github.org_installations.list", path, "installations", InventoryFetchCap, itemCheck("an installation", []string{"app_id"}, "suspended_at"))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1190,24 +1244,28 @@ const EnvironmentFetchCap = 1000
 func (c *Client) ListRepoEnvironments(ctx context.Context, owner, repo string) (envs []Environment, total int, err error) {
 	for page := 1; page <= EnvironmentFetchCap/100; page++ {
 		var body struct {
-			TotalCount   int                `json:"total_count"`
+			TotalCount   *int               `json:"total_count"`
 			Environments *[]json.RawMessage `json:"environments"`
 		}
 		path := fmt.Sprintf("/repos/%s/%s/environments?per_page=100&page=%d", owner, repo, page)
-		if err := c.getJSON(ctx, "github.environments.list", path, &body); err != nil {
+		resp, err := c.getJSONResponse(ctx, "github.environments.list", path, &body)
+		if err != nil {
 			if errors.Is(err, ErrNotFound) {
 				return nil, 0, nil
 			}
 			return nil, 0, err
 		}
-		if body.Environments == nil {
-			return nil, 0, invalidResponse("%s response has no environments list", trimQuery(path))
+		switch {
+		case body.Environments == nil || body.TotalCount == nil:
+			return nil, 0, componentsdk.ResponseError(resp, invalidResponse("%s response has no environments list or total_count", trimQuery(path)))
+		case len(*body.Environments) == 0 && len(envs) < *body.TotalCount:
+			return nil, 0, componentsdk.ResponseError(resp, emptyPage(trimQuery(path), "environments", *body.TotalCount))
 		}
-		total = body.TotalCount
+		total = *body.TotalCount
 		for _, raw := range *body.Environments {
-			e, ok := parseEnvironment(raw)
-			if !ok {
-				return nil, 0, invalidResponse("%s response has an environment that does not parse", trimQuery(path))
+			e, err := parseEnvironment(raw)
+			if err != nil {
+				return nil, 0, componentsdk.ResponseError(resp, fmt.Errorf("%s response %w", trimQuery(path), err))
 			}
 			envs = append(envs, e)
 		}
@@ -1218,16 +1276,21 @@ func (c *Client) ListRepoEnvironments(ctx context.Context, owner, repo string) (
 	return envs, total, nil
 }
 
-func parseEnvironment(raw json.RawMessage) (Environment, bool) {
+// parseEnvironment reads one environment. A protection rule with no type,
+// a wait timer rule with no wait_timer, and a required reviewers rule with
+// no prevent_self_review make it unreadable, since each would read as a
+// gate the environment does not have. An environment GitHub lists with no
+// protection_rules has none.
+func parseEnvironment(raw json.RawMessage) (Environment, error) {
 	var e struct {
 		Name            string `json:"name"`
 		CreatedAt       string `json:"created_at"`
 		UpdatedAt       string `json:"updated_at"`
 		CanAdminsBypass *bool  `json:"can_admins_bypass"`
 		ProtectionRules []struct {
-			Type              string `json:"type"`
-			WaitTimer         int    `json:"wait_timer"`
-			PreventSelfReview bool   `json:"prevent_self_review"`
+			Type              *string `json:"type"`
+			WaitTimer         *int    `json:"wait_timer"`
+			PreventSelfReview *bool   `json:"prevent_self_review"`
 			Reviewers         []struct {
 				Type     string `json:"type"`
 				Reviewer struct {
@@ -1243,7 +1306,7 @@ func parseEnvironment(raw json.RawMessage) (Environment, bool) {
 		} `json:"deployment_branch_policy"`
 	}
 	if json.Unmarshal(raw, &e) != nil {
-		return Environment{}, false
+		return Environment{}, invalidResponse("lists an environment that does not parse")
 	}
 
 	env := Environment{
@@ -1262,10 +1325,18 @@ func parseEnvironment(raw json.RawMessage) (Environment, bool) {
 		}
 	}
 	for _, rule := range e.ProtectionRules {
-		switch rule.Type {
+		switch {
+		case rule.Type == nil:
+			return Environment{}, invalidResponse("lists an environment with a protection rule that has no type")
+		case *rule.Type == "required_reviewers" && rule.PreventSelfReview == nil:
+			return Environment{}, invalidResponse("lists an environment with a required reviewers rule that has no prevent_self_review")
+		case *rule.Type == "wait_timer" && rule.WaitTimer == nil:
+			return Environment{}, invalidResponse("lists an environment with a wait timer rule that has no wait_timer")
+		}
+		switch *rule.Type {
 		case "required_reviewers":
 			env.HasRequiredReviewers = true
-			env.PreventSelfReview = rule.PreventSelfReview
+			env.PreventSelfReview = *rule.PreventSelfReview
 			for _, rv := range rule.Reviewers {
 				env.Reviewers = append(env.Reviewers, EnvironmentReviewer{
 					Type:  rv.Type,
@@ -1275,10 +1346,10 @@ func parseEnvironment(raw json.RawMessage) (Environment, bool) {
 				})
 			}
 		case "wait_timer":
-			env.WaitTimerMinutes = rule.WaitTimer
+			env.WaitTimerMinutes = *rule.WaitTimer
 		}
 	}
-	return env, true
+	return env, nil
 }
 
 // ListEnvironmentBranchPolicies returns the branch / tag name patterns allowed
@@ -1289,7 +1360,7 @@ func parseEnvironment(raw json.RawMessage) (Environment, bool) {
 // actions:read.
 func (c *Client) ListEnvironmentBranchPolicies(ctx context.Context, owner, repo, environment string) ([]BranchPolicyPattern, error) {
 	path := fmt.Sprintf("/repos/%s/%s/environments/%s/deployment-branch-policies?per_page=100", owner, repo, url.PathEscape(environment))
-	raw, total, err := c.getPagedTotal(ctx, "github.environment_branch_policies.list", path, "branch_policies", InventoryFetchCap)
+	raw, total, err := c.getPagedTotal(ctx, "github.environment_branch_policies.list", path, "branch_policies", InventoryFetchCap, nil)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, nil
@@ -1326,14 +1397,15 @@ func (c *Client) ListEnvironmentProtectionApps(ctx context.Context, owner, repo,
 		} `json:"custom_deployment_protection_rules"`
 	}
 	path := fmt.Sprintf("/repos/%s/%s/environments/%s/deployment_protection_rules?per_page=100", owner, repo, url.PathEscape(environment))
-	if err := c.getJSON(ctx, "github.environment_protection_rules.list", path, &body); err != nil {
+	resp, err := c.getJSONResponse(ctx, "github.environment_protection_rules.list", path, &body)
+	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
 	if body.Rules == nil {
-		return nil, invalidResponse("%s response has no custom_deployment_protection_rules list", trimQuery(path))
+		return nil, componentsdk.ResponseError(resp, invalidResponse("%s response has no custom_deployment_protection_rules list", trimQuery(path)))
 	}
 	var slugs []string
 	for _, r := range *body.Rules {
@@ -1369,7 +1441,8 @@ const TokenGrantFetchCap = 5000
 // exposed by the API and never emitted.
 func (c *Client) ListOrgPATs(ctx context.Context, org string) ([]PATGrant, bool, error) {
 	path := fmt.Sprintf("/orgs/%s/personal-access-tokens?per_page=100", org)
-	raw, more, err := c.getPagedRaw(ctx, "github.org_personal_access_tokens.list", path, TokenGrantFetchCap)
+	raw, more, err := c.getPagedRaw(ctx, "github.org_personal_access_tokens.list", path, TokenGrantFetchCap,
+		itemCheck("a token grant", []string{"id", "token_expired"}, "token_expires_at", "token_last_used_at"))
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, false, featureUnavailable(err, "the organization has no fine-grained personal access token policy")
