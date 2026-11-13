@@ -1,0 +1,21 @@
+# epack and the collector-ci.yaml pin move across the fleet by wave, not by Dependabot.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      go:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: github.com/locktivity/epack
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: locktivity/epack/.github/workflows/collector-ci.yaml
