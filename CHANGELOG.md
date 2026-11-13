@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.7
+
 - A list is left out with an `invalid_response` gap when GitHub answers it with an item that lacks a field its REST reference requires. That covers an open alert with no `number`, a code scanning alert with no `rule`, a Dependabot alert with no severity, a webhook with no `id`, `active` or `events`, a deploy key with no `id` or `read_only`, a self-hosted runner with no `id` or `busy`, an installed App with no `app_id` or `suspended_at`, a fine-grained token grant with no `id`, `token_expired`, `token_expires_at` or `token_last_used_at`, and a member, owner or outside collaborator with no `login`. Through v0.4.6 such an item counted with a false, zero or empty value, and a person with no login dropped out of the counts.
 - The audit log is left out with an `invalid_response` gap when an event has no `action` or `created_at`. Through v0.4.6 an event with no action dropped out of `count_by_category`, and one with no `created_at` had a timestamp of 0.
 - The runners, the Actions secrets, the installed Apps, the environments and the GitHub App's repositories are left out with an `invalid_response` gap when a page of their list holds none while fewer than its `total_count` have been read. So are the environments when a repository's list has no `total_count`. Through v0.4.6 the rows read were kept and marked as truncated, the GitHub App counted as installed on only the repositories read, and an environment list with no `total_count` counted 0 environments.
