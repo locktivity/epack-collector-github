@@ -8,6 +8,7 @@ spec:
   source: https://github.com/github/rest-api-description
   path: descriptions/ghec/ghec.json
   revision: bd6df26d2a01
+  url: https://raw.githubusercontent.com/github/rest-api-description/bd6df26d2a0104874fe5025a25ebcde356413364/descriptions/ghec/ghec.json
   sha256: 695f4fc8b9f6de0c55d17bc94d74db27e37470b99720c6a9128b1c8873ccb31e
 scope:
   methods: [get]
