@@ -172,7 +172,14 @@ var simUnrecorded = map[string]string{
 	"github.audit_log.list: unrecorded operation":                                                                     "the sandboxes have no GitHub Enterprise Cloud, which the audit log and SAML single sign-on need, so the recordings hold only the 404",
 	"github.outside_collaborators_2fa_disabled.list: unrecorded operation":                                            "the sandboxes have no outside collaborators, so the collector never lists those without two-factor authentication",
 	"github.saml_identities.list: unrecorded operation":                                                               "the sandboxes were recorded before the collector read SAML identities, and kitRecordingAnswers answers github-noncompliant's",
+	"github.org_roles.list: unrecorded operation":                                                                     simRolesUnrecorded,
+	"github.org_role_users.list: unrecorded operation":                                                                simRolesUnrecorded,
+	"github.installation_token.create permissions.organization_custom_org_roles: unrecorded field":                    "the sandboxes' App lacks Custom organization roles",
+	"github.org_installations.list installations[].permissions.organization_custom_org_roles: unrecorded field":       "the sandboxes' App lacks Custom organization roles",
 }
+
+// simRolesUnrecorded is why the recordings hold no organization roles.
+const simRolesUnrecorded = "the sandboxes were recorded before the collector read organization roles, and their App lacks Custom organization roles, which the list of roles needs; the bodies follow GitHub's API reference"
 
 func init() {
 	for _, field := range simOwnerOnly {
@@ -194,6 +201,19 @@ var simHiddenClassic = simulate.Same(simulate.Gap,
 	"/branch_protection/approving_reviews_pct", "/branch_protection/approving_reviews_repository_count",
 	"/branch_protection/status_checks_pct", "/branch_protection/status_checks_repository_count",
 	"/branch_protection/signed_commits_pct", "/branch_protection/signed_commits_repository_count")
+
+// simAdminsWithoutRoles are the differences when the collector app lacks
+// Custom organization roles, as the sandboxes' does, below the admin base
+// permission.
+var simAdminsWithoutRoles = simulate.Same(simulate.Gap,
+	"permission_denied: lists.go readRoleAdmins and access.go countPeople, below the admin base permission, since a member can be an admin through an organization role, and listing the roles needs Custom organization roles, which the sandboxes' App lacks",
+	simAdminPointers...)
+
+// simAdminPointers are the admin values an organization role can change.
+var simAdminPointers = []string{
+	"access-posture:/admins/admin_count", "access-posture:/admins/admin_share_pct", "access-posture:/admins/local_admin_count",
+	"access-posture:/admins/local_mfa_admin_count", "access-posture:/admins/local_admin_mfa_coverage_pct",
+}
 
 // simArchived are the differences an archived repository makes.
 var simArchived = simulate.Same(simulate.Definition,
@@ -220,10 +240,7 @@ var simStanding = simulate.Same(simulate.Definition,
 		"access-posture:/sign_in/sso_required"),
 	simulate.Same(simulate.Gap, "unsupported: access.go toAccessPosture, since member records carry no sign-in time",
 		"access-posture:/members/inactive_member_count", "access-posture:/members/inactive_pct"),
-	simulate.Same(simulate.Gap,
-		"not_read: access.go countPeople, below the admin base permission, since a member can be an admin through an organization role, which the collector does not read; the sandboxes' expectations call it a bug, opened 2026-11-12, and reading the roles needs the Custom organization roles permission",
-		"access-posture:/admins/admin_count", "access-posture:/admins/admin_share_pct", "access-posture:/admins/local_admin_count",
-		"access-posture:/admins/local_mfa_admin_count", "access-posture:/admins/local_admin_mfa_coverage_pct"),
+	simAdminsWithoutRoles,
 	simulate.Same(simulate.Gap, "permission_denied: access.go accessCredentials, when the collector app lacks Personal access tokens, as the sandboxes' does",
 		"access-posture:/credentials/credentials_present", "access-posture:/credentials/credential_count",
 		"access-posture:/credentials/never_expiring_credential_count", "access-posture:/credentials/never_expiring_pct",
@@ -266,6 +283,9 @@ func simScenarios(t testing.TB) []simulate.Scenario {
 		simulate.Scenario{Name: "deploy keys and fine-grained tokens", Roster: validated(t, withCredentials(noncompliant))},
 		simulate.Scenario{Name: "SAML single sign-on with SCIM", Roster: validated(t, withSAML(withPeople(compliant))), Differences: simArchived},
 		simulate.Scenario{Name: "open alerts", Roster: validated(t, withAlerts(noncompliant))},
+		simulate.Scenario{Name: "All-repository admin", Roster: validated(t, withOrgRole(withPeople(noncompliant), "member_no_2fa", "all_repo_admin", ""))},
+		simulate.Scenario{Name: "All-repository admin through a team", Roster: validated(t, withOrgRole(withPeople(noncompliant), "member_no_2fa", "all_repo_admin", "platform"))},
+		simulate.Scenario{Name: "All-repository write", Roster: validated(t, withOrgRole(withPeople(noncompliant), "member_no_2fa", "all_repo_write", ""))},
 		simulate.Scenario{Name: "collector app without Administration", Roster: validated(t, withoutPermission(noncompliant, "administration")), Differences: simHiddenClassic.With(
 			simulate.Same(simulate.Gap, "permission_denied: client.go FetchSecuritySettings and checkDefaultSetup, since GitHub shows security_and_analysis and code scanning default setup only with Administration",
 				"/security_features/code_scanning_pct", "/security_features/secret_scanning_pct",
@@ -312,12 +332,31 @@ func withBasePermission(base *roster.Roster, permission string) *roster.Roster {
 	return r
 }
 
-// withPermission gives the collector app another permission.
-func withPermission(base *roster.Roster, permission string) *roster.Roster {
+// withPermission gives the collector app other permissions.
+func withPermission(base *roster.Roster, permissions ...string) *roster.Roster {
 	r := base.Clone()
 	simulate.OnApp("collector", func(a *roster.App) {
-		simulate.SetExtra(&a.Extra, "permissions", append(slices.Clone(simPermissions), permission))
+		simulate.SetExtra(&a.Extra, "permissions", append(slices.Clone(simPermissions), permissions...))
 	})(r)
+	return r
+}
+
+// withOrgRole gives the collector app Custom organization roles, and the
+// account key one of the organization roles GitHub predefines, through a
+// team when team is set. All-repository admin maps to admin, and the
+// others to none.
+func withOrgRole(base *roster.Roster, key, role, team string) *roster.Roster {
+	r := withPermission(base, "organization_custom_org_roles")
+	r.Terms.Roles = maps.Clone(r.Terms.Roles)
+	for _, predefined := range simOrgRoles {
+		r.Terms.Roles[predefined.name] = roster.RoleNone
+	}
+	r.Terms.Roles["all_repo_admin"] = roster.RoleAdmin
+	if team != "" {
+		r.Groups = append(slices.Clone(r.Groups), roster.Group{Key: team, Members: []string{key}, Roles: []string{role}})
+		return r
+	}
+	simulate.OnAccount(key, func(a *roster.Account) { a.Roles = append(slices.Clone(a.Roles), role) })(r)
 	return r
 }
 

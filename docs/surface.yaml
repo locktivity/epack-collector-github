@@ -74,10 +74,10 @@ not_collected:
   - title: Repository collaborators and roles
     says: >-
       Each repository's collaborators and their permission, pending repository
-      invitations, custom repository roles, and organization roles with the
-      users and teams that hold them. The collector reads organization members,
-      administrators, outside collaborators and pending organization
-      invitations.
+      invitations, custom repository roles, and the organization roles not
+      based on admin with who holds them. The collector reads organization
+      members, administrators, outside collaborators, pending organization
+      invitations, and the holders of each organization role based on admin.
     categories: [collaborators/collaborators, collaborators/invitations, orgs/custom-roles, orgs/organization-roles]
   - title: Code security configurations
     says: >-
@@ -183,6 +183,12 @@ reads:
   - operations: []
     collector: github.saml_identities.list
     when: the organization uses SAML single sign-on; a GraphQL query, outside the REST description
+  - operations: [orgs/list-org-roles]
+    collector: github.org_roles.list
+    when: the members' base permission is below admin; the recordings predate this read
+  - operations: [orgs/list-org-role-users]
+    collector: github.org_role_users.list
+    when: an organization role is based on admin; the recordings predate this read
 
 unmatched:
   - operation: github.repositories.list

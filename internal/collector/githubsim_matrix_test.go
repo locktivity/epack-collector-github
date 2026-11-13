@@ -27,10 +27,11 @@ const simMatrixRepo = "matrix-repo"
 
 // simMatrixBase is github-noncompliant with the matrix's member and
 // repository, the terms its axes use, and a collector app that also holds
-// Personal access tokens, so the credential values are compared.
+// Personal access tokens and Custom organization roles, so the credential
+// and admin values are compared.
 func simMatrixBase(t testing.TB) *roster.Roster {
 	t.Helper()
-	r := withBasePermission(withPermission(simSettled(t, "github-noncompliant"), "organization_personal_access_tokens"), "")
+	r := withBasePermission(withPermission(simSettled(t, "github-noncompliant"), "organization_personal_access_tokens", "organization_custom_org_roles"), "")
 	r.Terms.VCSCredentialPermissions = simCredentialTerms
 	r.Terms.ProvisioningFeatures = map[string]string{"scim_create": roster.ProvisionCreate, "scim_deactivate": roster.ProvisionDeactivate}
 	r.Accounts = append(r.Accounts, roster.Account{
@@ -258,6 +259,7 @@ func simMatrixAxes() []roster.Axis {
 			{Name: "without Members", Change: drop("members")},
 			{Name: "without Organization administration", Change: drop("organization_administration")},
 			{Name: "without Personal access tokens", Change: drop("organization_personal_access_tokens")},
+			{Name: "without Custom organization roles", Change: drop("organization_custom_org_roles")},
 		}},
 	}
 }
@@ -281,10 +283,17 @@ var simMatrixAlone = map[string]simulate.Differences{
 		"access-posture:/members/local_mfa_coverage_pct", "access-posture:/members/local_mfa_member_count",
 		"access-posture:/members/member_count", "access-posture:/members/members_present",
 		"access-posture:/members/sso_coverage_pct", "access-posture:/members/sso_member_count",
-		"access-posture:/sign_in/scim_enabled", "access-posture:/sign_in/sso_configured"),
+		"access-posture:/sign_in/scim_enabled", "access-posture:/sign_in/sso_configured").With(simulate.Same(simulate.Gap,
+		"permission_denied: surfaces.go GetOrgRosters needs Members, and lists.go readRoleAdmins reads no roles without the members",
+		simAdminPointers...)),
 	"collector.permissions=without Organization administration": simulate.Same(simulate.Gap,
 		"permission_denied: GitHub shows two_factor_requirement_enabled and owned_private_repos only with Organization administration, and an App on selected repositories needs GitHub's count of the organization's repositories (collector.go organizationRepositoryCount)",
-		"/org_security/two_factor_required", "/repo_coverage_pct", "/repository_count", "access-posture:/sign_in/mfa_required"),
+		"/org_security/two_factor_required", "/repo_coverage_pct", "/repository_count", "access-posture:/sign_in/mfa_required").With(simulate.Same(simulate.Gap,
+		"permission_denied: access.go countPeople, since GitHub shows default_repository_permission only with Organization administration, and with the admin base permission every member is an admin",
+		simAdminPointers...)),
+	"collector.permissions=without Custom organization roles": simulate.Same(simulate.Gap,
+		"permission_denied: lists.go readRoleAdmins, since listing the organization roles needs Custom organization roles, and a member can be an admin through one",
+		simAdminPointers...),
 }
 
 // simMatrixTogether lists the differences that show only when settings
@@ -347,7 +356,7 @@ func simAlertPointers(v simulate.Verdict, note string) simulate.Differences {
 }
 
 func TestSimulatedMatrix(t *testing.T) {
-	simHarness(t, simStanding).Matrix(t, simMatrixBase(t), simMatrixAxes(), simMatrixAlone, simMatrixTogether)
+	simHarness(t, simMatrixStanding).Matrix(t, simMatrixBase(t), simMatrixAxes(), simMatrixAlone, simMatrixTogether)
 }
 
 // simRules hold whatever the right values are, so they run on random
@@ -412,5 +421,6 @@ func TestSimulatedRules(t *testing.T) {
 }
 
 // simMatrixStanding is simStanding for the matrix, whose rules run on rows
-// of every setting.
-var simMatrixStanding = simStanding
+// of every setting. Its collector app holds Custom organization roles, so
+// the admin values are compared.
+var simMatrixStanding = simStanding.Without(simAdminPointers...)

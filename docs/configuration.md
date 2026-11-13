@@ -40,6 +40,7 @@ collectors:
      - Metadata: Read-only
    - **Organization permissions**:
      - Administration: Read-only
+     - Custom organization roles: Read-only
      - Members: Read-only
      - Personal access tokens: Read-only
 4. Set **Where can this GitHub App be installed?** to "Only on this account"
@@ -81,9 +82,9 @@ collectors:
 Create a classic token with these scopes:
 - `repo` - Repository access (or `public_repo` for public repos only)
 - `read:org` - Members, owners, and SAML single sign-on
-- `admin:org` - (Optional) Read organization settings for 2FA status
+- `admin:org` - (Optional) Read organization settings for 2FA status, and the organization roles
 
-**Note:** Without `admin:org`, the collector will still work but `two_factor_required` will be `null` (unknown) in the output, and `sign_in.mfa_required` is left out of the access file.
+**Note:** Without `admin:org`, the collector will still work but `two_factor_required` will be `null` (unknown) in the output, and `sign_in.mfa_required` and the admin counts and percentages are left out of the access file.
 
 Only a GitHub App can list the organization's fine-grained personal access tokens. With a token, the access file's credential values are left out with a `permission_denied` gap.
 
@@ -154,6 +155,7 @@ For `trust`-level collection (the default), the app needs:
 
 **Organization permissions:**
 - Administration: Read-only (for 2FA settings, and for the organization's repository count when the app is installed on selected repositories)
+- Custom organization roles: Read-only (for the organization roles that make a member an admin in the access file)
 - Members: Read-only (for organization membership)
 - Personal access tokens: Read-only (for the fine-grained tokens in the access file)
 
@@ -167,12 +169,16 @@ A trust run reads these lists only for `artifacts/github.access-posture.json` an
 | Access | SAML identities of the members | `members: read` |
 | Access | Installed GitHub Apps | `organization_administration: read` |
 | Access | The members' base permission, from the organization | `organization_administration: read` |
+| Access | Organization roles | `organization_custom_org_roles: read` |
+| Access | The members who hold an organization role based on admin, directly or through a team | `members: read` |
 | Access | Fine-grained personal access tokens | `organization_personal_access_tokens: read` |
 | Access | Deploy keys of each in-scope repository | `administration: read` |
 | Vulnerability | Code scanning alerts of each in-scope repository | `security_events: read` |
 | Vulnerability | Dependabot alerts of each in-scope repository | `vulnerability_alerts: read` |
 
-With a classic token, the member and SAML lists need `read:org`, and the alert lists need `security_events`. The SAML read needs no extra plan. An organization without GitHub Enterprise Cloud has no SAML identity provider, so `sign_in.sso_configured` is false. To skip a file and its lists, leave its kind out of the `collect` config key:
+Below the admin base permission, the access file's admins are the owners and the members who hold an organization role whose base role is admin, such as All-repository admin, directly or through a team. With the admin base permission every member is an admin, and the collector does not list the roles. Without Custom organization roles, the admin counts and percentages, `admin_count`, `admin_share_pct`, `local_admin_count`, `local_mfa_admin_count` and `local_admin_mfa_coverage_pct`, are left out with a `permission_denied` gap that names it. The owners still make `admins_present` and `local_admins_present` true.
+
+With a classic token, the member and SAML lists need `read:org`, the organization roles need `admin:org`, and the alert lists need `security_events`. The SAML read needs no extra plan. An organization without GitHub Enterprise Cloud has no SAML identity provider, so `sign_in.sso_configured` is false. To skip a file and its lists, leave its kind out of the `collect` config key:
 
 ```yaml
 config:

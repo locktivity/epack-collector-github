@@ -7,7 +7,7 @@ What the collector reads of the GitHub API, and what it leaves out, checked agai
 | In the description | 1577 |
 | Read operations in scope | 777 |
 | Called by the collector | 25 |
-| Not collected | 278, in 15 items |
+| Not collected | 276, in 15 items |
 | Left out as irrelevant | 472 |
 
 ## What the collector reads
@@ -155,15 +155,13 @@ Teams, their members and maintainers, the repositories each team can reach and w
 
 ### Repository collaborators and roles
 
-Each repository's collaborators and their permission, pending repository invitations, custom repository roles, and organization roles with the users and teams that hold them. The collector reads organization members, administrators, outside collaborators and pending organization invitations.
+Each repository's collaborators and their permission, pending repository invitations, custom repository roles, and the organization roles not based on admin with who holds them. The collector reads organization members, administrators, outside collaborators, pending organization invitations, and the holders of each organization role based on admin.
 
 - `orgs/list-custom-repo-roles` (GET /orgs/{org}/custom-repository-roles)
 - `orgs/get-custom-repo-role` (GET /orgs/{org}/custom-repository-roles/{role_id})
 - `orgs/list-organization-fine-grained-permissions` (GET /orgs/{org}/organization-fine-grained-permissions)
-- `orgs/list-org-roles` (GET /orgs/{org}/organization-roles)
 - `orgs/get-org-role` (GET /orgs/{org}/organization-roles/{role_id})
 - `orgs/list-org-role-teams` (GET /orgs/{org}/organization-roles/{role_id}/teams)
-- `orgs/list-org-role-users` (GET /orgs/{org}/organization-roles/{role_id}/users)
 - `orgs/list-repo-fine-grained-permissions` (GET /orgs/{org}/repository-fine-grained-permissions)
 - `repos/list-collaborators` (GET /repos/{owner}/{repo}/collaborators)
 - `repos/check-collaborator` (GET /repos/{owner}/{repo}/collaborators/{username})
@@ -380,6 +378,8 @@ Whether the organization has an IP allow list enabled, and the allowed addresses
 
 The collector makes these calls when the tenant has something the sandbox lacks, so no recording holds them.
 
+- `orgs/list-org-roles` (GET /orgs/{org}/organization-roles): github.org_roles.list, when the members' base permission is below admin; the recordings predate this read.
+- `orgs/list-org-role-users` (GET /orgs/{org}/organization-roles/{role_id}/users): github.org_role_users.list, when an organization role is based on admin; the recordings predate this read.
 - `repos/list-deployment-branch-policies` (GET /repos/{owner}/{repo}/environments/{environment_name}/deployment-branch-policies): github.environment_branch_policies.list, when an environment limits deployments to selected branches.
 - `repos/get-all-deployment-protection-rules` (GET /repos/{owner}/{repo}/environments/{environment_name}/deployment_protection_rules): github.environment_protection_rules.list, when an environment has a custom deployment protection rule.
 - `users/get-by-username` (GET /users/{username}): github.users.get, when a member's display name is not in the GraphQL result.

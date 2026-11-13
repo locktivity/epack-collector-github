@@ -55,6 +55,8 @@ var kitOperations = []string{
 	"github.outside_collaborators_2fa_disabled.list",
 	"github.org_invitations.list",
 	"github.saml_identities.list",
+	"github.org_roles.list",
+	"github.org_role_users.list",
 }
 
 // kitResultPath is where the kit's runs write their collector result.
@@ -105,9 +107,9 @@ func kitTrustStepPins() map[string]any {
 // kitCleanAccess pins the clean run's access-posture values. alice and bob
 // are members, carol an outside collaborator, and alice the one owner. bob
 // has no two-factor authentication. The members' base permission is read,
-// and a member could be an admin through an organization role, which is not
-// read, so the admin counts are left out and alice makes the flags true. Both members have a linked SAML
-// identity. The organization has no root account. It has a fine-grained
+// and bob holds All-repository admin directly, so alice and bob are the
+// admins. Both members have a linked SAML identity. The organization has no
+// root account. It has a fine-grained
 // token that has never been used and expires, and two deploy keys, one of
 // them read-write. The token has no creation date, so the rotation values
 // are left out. Of the two installed Apps, renovate is suspended and does
@@ -128,11 +130,12 @@ func kitCleanAccess() map[string]any {
 		"/members/local_mfa_coverage_pct":              66,
 		"/members/inactive_pct":                        collectortest.Absent,
 		"/admins/admins_present":                       true,
-		"/admins/admin_count":                          collectortest.Absent,
-		"/admins/admin_share_pct":                      collectortest.Absent,
+		"/admins/admin_count":                          2,
+		"/admins/admin_share_pct":                      67,
 		"/admins/local_admins_present":                 true,
-		"/admins/local_mfa_admin_count":                collectortest.Absent,
-		"/admins/local_admin_mfa_coverage_pct":         collectortest.Absent,
+		"/admins/local_admin_count":                    2,
+		"/admins/local_mfa_admin_count":                1,
+		"/admins/local_admin_mfa_coverage_pct":         50,
 		"/root/root_accounts_present":                  false,
 		"/root/root_account_count":                     0,
 		"/root/root_mfa_account_count":                 0,
@@ -149,6 +152,22 @@ func kitCleanAccess() map[string]any {
 		"/credentials/unrestricted_pct":                0,
 		"/credentials/rotation_overdue_pct":            collectortest.Absent,
 		"/connected_apps/app_count":                    1,
+	}
+}
+
+// kitAdminsLeftOut pins the access-posture values of a run that could not
+// read who holds an organization role based on admin. The admin counts and
+// percentages are left out, and the owner alice makes the present flags
+// true.
+func kitAdminsLeftOut() map[string]any {
+	return map[string]any{
+		"/admins/admins_present":               true,
+		"/admins/local_admins_present":         true,
+		"/admins/admin_count":                  collectortest.Absent,
+		"/admins/admin_share_pct":              collectortest.Absent,
+		"/admins/local_admin_count":            collectortest.Absent,
+		"/admins/local_mfa_admin_count":        collectortest.Absent,
+		"/admins/local_admin_mfa_coverage_pct": collectortest.Absent,
 	}
 }
 
@@ -306,7 +325,7 @@ func kitSuite() collectortest.Suite {
 						"/members/members_present":             true,
 						"/members/member_count":                collectortest.Absent,
 						"/admins/local_admins_present":         true,
-						"/admins/local_admin_mfa_coverage_pct": collectortest.Absent,
+						"/admins/local_admin_mfa_coverage_pct": 50,
 						"/admins/admin_count":                  collectortest.Absent,
 						"/credentials/credentials_present":     true,
 						"/credentials/never_expiring_pct":      67,
@@ -381,6 +400,44 @@ func kitSuite() collectortest.Suite {
 					"/admins/local_mfa_admin_count":        1,
 					"/admins/local_admin_mfa_coverage_pct": 50,
 				}},
+			},
+			{
+				Name: "organization role held through a team",
+				Responses: replaceResponse(kitResponses(), kitRoleHoldersResponse(kitAdminRoleID,
+					kitRoleHolder("alice", "mixed", "platform"), kitRoleHolder("bob", "indirect", "platform"))),
+				// bob holds All-repository admin through the platform team,
+				// and alice, an owner, holds it both ways. Each counts once.
+				Expect: map[string]map[string]any{AccessPath: {
+					"/admins/admin_count":                  2,
+					"/admins/local_mfa_admin_count":        1,
+					"/admins/local_admin_mfa_coverage_pct": 50,
+				}},
+			},
+			{
+				Name:      "custom role based on write",
+				Responses: kitWriteRoleResponses(),
+				// No one holds All-repository admin, and bob holds a custom
+				// role based on write, which does not make him an admin. So
+				// alice, the owner, is the one admin.
+				Expect: map[string]map[string]any{AccessPath: {
+					"/admins/admin_count":                  1,
+					"/admins/admin_share_pct":              34,
+					"/admins/local_mfa_admin_count":        1,
+					"/admins/local_admin_mfa_coverage_pct": 100,
+				}},
+			},
+			{
+				Name:      "organization roles refused",
+				Responses: kitOrgRolesRefusedResponses(),
+				// The GitHub App lacks Custom organization roles, so the
+				// admin values are left out, and the owner alice still makes
+				// the present flags true.
+				Expect: map[string]map[string]any{AccessPath: kitAdminsLeftOut()},
+			},
+			{
+				Name:      "organization role holders read fails",
+				Responses: kitRoleHoldersFailedResponses(),
+				Expect:    map[string]map[string]any{AccessPath: kitAdminsLeftOut()},
 			},
 			{
 				Name:      "no fine-grained tokens",
@@ -489,6 +546,7 @@ func kitPopulations() []collectortest.Population {
 		{Operation: "github.org_members_2fa_disabled.list", List: "/", Reason: kitRecorded("An organization whose members all have two-factor authentication lists none")},
 		{Operation: "github.outside_collaborators.list", List: "/", Reason: kitRecorded("An organization with no outside collaborators lists none")},
 		{Operation: "github.org_personal_access_tokens.list", List: "/", Reason: "An organization that has approved no fine-grained token lists none: https://docs.github.com/rest/orgs/personal-access-tokens#list-fine-grained-personal-access-tokens-with-access-to-organization-resources"},
+		{Operation: "github.org_role_users.list", List: "/", Reason: "The list holds the organization members assigned the role, and a member who holds it through a team, so a role no one was assigned lists none: https://docs.github.com/rest/orgs/organization-roles#list-users-that-are-assigned-to-an-organization-role"},
 		{Operation: "github.repositories.list", List: "/data/organization/repositories/nodes", Reason: "An organization with no repositories lists none: Organization.repositories in https://docs.github.com/graphql/reference/repos"},
 		{Operation: "github.rulesets.get", List: "/bypass_actors", Reason: "A ruleset whose bypass list is empty lets no one bypass it. GitHub returns the list only to a caller with write access to the ruleset: https://docs.github.com/rest/repos/rules#get-a-repository-ruleset"},
 		{Operation: "github.saml_identities.list", List: "/data/organization/samlIdentityProvider/externalIdentities/nodes", Reason: "externalIdentities lists the identities the provider holds for members, so a provider no member has signed in through or been provisioned by lists none: OrganizationIdentityProvider in https://docs.github.com/graphql/reference/objects"},
@@ -506,6 +564,7 @@ func kitOmissions() []collectortest.Omission {
 		{Operation: "github.deploy_keys.list", Field: "/*/last_used", Reason: "last_used is optional and \"string or null\" in https://docs.github.com/rest/deploy-keys/deploy-keys#list-deploy-keys, and a key that has not been used has none."},
 		{Operation: "github.org_hooks.list", Field: "/*/last_response/code", Reason: "\"last response may return null if there have not been any deliveries within 30 days\": https://docs.github.com/rest/repos/webhooks#list-repository-webhooks"},
 		{Operation: "github.org_installations.list", Field: "/installations/*/suspended_at", Reason: "suspended_at is \"string or null\" in https://docs.github.com/rest/orgs/orgs#list-app-installations-for-an-organization, and null for an installation that is not suspended."},
+		{Operation: "github.org_roles.list", Field: "/roles/*/base_role", Reason: "base_role, the repository role a role grants on every repository, is optional and \"string or null\" in https://docs.github.com/rest/orgs/organization-roles#get-all-organization-roles-for-an-organization, whose example roles have none, so a role without it makes no one an admin."},
 		{Operation: "github.org_personal_access_tokens.list", Field: "/*/token_expires_at", Reason: "token_expires_at is \"string or null\" in https://docs.github.com/rest/orgs/personal-access-tokens#list-fine-grained-personal-access-tokens-with-access-to-organization-resources, and null for a token with no expiry."},
 		{Operation: "github.environments.list", Field: "/environments/*/protection_rules", Reason: "protection_rules is optional in https://docs.github.com/rest/deployments/environments#list-environments, and an environment without it has no protection rules."},
 		{Operation: "github.repositories.list", Field: nodes + "/defaultBranchRef", Reason: "defaultBranchRef is a nullable Ref in https://docs.github.com/graphql/reference/repos, and a repository with no commits has no default branch to protect."},
@@ -860,6 +919,35 @@ func TestOperationsNameTheirPermission(t *testing.T) {
 		if !found {
 			t.Errorf("%s: no gap from github.org_hooks.list", name)
 		}
+	}
+}
+
+// The admin values left out for want of the organization roles carry the
+// gap of the read that failed. A refused roles list names the permission the
+// GitHub App lacks.
+func TestAdminsLeftOutWithTheRoleReadsGap(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		responses []collectortest.Response
+		operation string
+		code      componentsdk.Code
+		missing   string
+	}{
+		{"roles refused", kitOrgRolesRefusedResponses(), "github.org_roles.list", componentsdk.CodePermissionDenied, "organization_custom_org_roles:read"},
+		{"holders read fails", kitRoleHoldersFailedResponses(), "github.org_role_users.list", componentsdk.CodeVendorError, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res := runKit(t, kitConfig(), kitSecrets(), tc.responses)
+			if res.ExitCode != 0 || res.Result == nil {
+				t.Fatalf("run failed with exit %d: %s", res.ExitCode, res.Stderr)
+			}
+			for _, pointer := range []string{"/admins/admin_count", "/admins/admin_share_pct", "/admins/local_admin_count", "/admins/local_mfa_admin_count", "/admins/local_admin_mfa_coverage_pct"} {
+				g := gapAt(res, AccessPath, pointer)
+				if g == nil || g.Code != tc.code || g.Operation != tc.operation || g.MissingPermission != tc.missing {
+					t.Errorf("gap at %s = %+v, want %s from %s with missing permission %q", pointer, g, tc.code, tc.operation, tc.missing)
+				}
+			}
+		})
 	}
 }
 

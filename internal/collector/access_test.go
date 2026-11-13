@@ -239,36 +239,116 @@ func TestAccessAdminsAreEveryMemberWithTheAdminBasePermission(t *testing.T) {
 	}
 }
 
-// Below the admin base permission, a member can still be an admin through
-// an organization role, which the collector does not read. The admin
-// values are left out with a not_read gap, and the owner still makes the
-// present flags true. When GitHub withholds the base permission, the gap is
-// permission_denied.
-func TestAccessAdminsLeftOutWithoutOrganizationRoles(t *testing.T) {
-	for _, tc := range []struct {
-		base string
-		code componentsdk.Code
-	}{
-		{"read", componentsdk.CodeNotRead},
-		{"write", componentsdk.CodeNotRead},
-		{"", componentsdk.CodePermissionDenied},
-	} {
+// Below the admin base permission, the admins are the owners and the
+// members who hold an organization role based on admin, directly or through
+// a team, each counted once. alice owns the organization, and bob, who has
+// no two-factor authentication, holds All-repository admin. GitHub lists
+// only members as a role's holders, and carol, an outside collaborator, is
+// not counted even if listed. The holders of a role based on write, or on no
+// repository role, are not read.
+func TestAccessAdminsAreTheOwnersAndAdminRoleHolders(t *testing.T) {
+	for _, base := range []string{"read", "write", "none"} {
 		mock := richMock()
-		mock.orgSecurity.DefaultRepositoryPermission = tc.base
+		mock.orgSecurity.DefaultRepositoryPermission = base
+		mock.orgRoles = []github.OrgRole{{ID: 1, BaseRole: "admin"}, {ID: 2, BaseRole: "write"}, {ID: 3}}
+		mock.roleUsers = map[int64][]string{1: {"alice", "bob", "carol"}, 2: {"bob"}, 3: {"bob"}}
 		a, gaps := accessAt(t, componentsdk.LevelAudit, mock)
-		wantFlag(t, "admins_present", a.Admins.AdminsPresent, true)
-		wantFlag(t, "local_admins_present", a.Admins.LocalAdminsPresent, true)
-		if a.Admins.AdminCount != nil || a.Admins.AdminSharePct.Read || a.Admins.LocalMFAAdminCount != nil || a.Admins.LocalAdminMFACoveragePct.Read {
-			t.Errorf("base %q: admins = %+v, want the counts and percentages left out", tc.base, a.Admins)
+		if a.Admins.AdminCount == nil || *a.Admins.AdminCount != 2 || a.Admins.LocalAdminCount == nil || *a.Admins.LocalAdminCount != 2 {
+			t.Errorf("base %q: admins = %+v, want alice and bob", base, a.Admins)
 		}
-		for _, pointer := range []string{"/admins/admin_count", "/admins/admin_share_pct", "/admins/local_admin_count", "/admins/local_mfa_admin_count", "/admins/local_admin_mfa_coverage_pct"} {
-			if g := accessGap(gaps, pointer); g == nil || g.Code != tc.code {
-				t.Errorf("base %q: %s gap = %+v, want %s", tc.base, pointer, g, tc.code)
+		wantPct(t, "admin_share_pct", a.Admins.AdminSharePct, 67) // 2 of 3 people, rounded up
+		if a.Admins.LocalMFAAdminCount == nil || *a.Admins.LocalMFAAdminCount != 1 {
+			t.Errorf("base %q: local_mfa_admin_count = %v, want alice alone", base, a.Admins.LocalMFAAdminCount)
+		}
+		wantPct(t, "local_admin_mfa_coverage_pct", a.Admins.LocalAdminMFACoveragePct, 50)
+		if len(mock.roleUsersReads) != 1 || mock.roleUsersReads[0] != 1 {
+			t.Errorf("base %q: read the holders of roles %v, want only role 1", base, mock.roleUsersReads)
+		}
+		for _, g := range gaps {
+			if g.Path == AccessPath && strings.HasPrefix(g.Pointer, "/admins") {
+				t.Errorf("base %q: a %s gap at %s", base, g.Code, g.Pointer)
 			}
 		}
-		if g := accessGap(gaps, "/admins/admin_count"); tc.code == componentsdk.CodeNotRead && (g == nil || !strings.Contains(g.Detail, "Custom organization roles")) {
-			t.Errorf("base %q: admin_count gap = %+v, want it to name the permission", tc.base, g)
-		}
+	}
+}
+
+// A role whose base role is below admin makes no one an admin, so the owner
+// alice is the one admin.
+func TestAccessAdminsLeaveOutRolesBelowAdmin(t *testing.T) {
+	mock := richMock()
+	mock.orgRoles = []github.OrgRole{{ID: 2, BaseRole: "maintain"}, {ID: 3}}
+	mock.roleUsers = map[int64][]string{2: {"bob"}, 3: {"bob"}}
+	a, _ := accessAt(t, componentsdk.LevelAudit, mock)
+	if a.Admins.AdminCount == nil || *a.Admins.AdminCount != 1 {
+		t.Errorf("admin_count = %v, want alice alone", a.Admins.AdminCount)
+	}
+	wantPct(t, "admin_share_pct", a.Admins.AdminSharePct, 34) // 1 of 3 people, rounded up
+	wantPct(t, "local_admin_mfa_coverage_pct", a.Admins.LocalAdminMFACoveragePct, 100)
+	if len(mock.roleUsersReads) != 0 {
+		t.Errorf("read the holders of roles %v, want none", mock.roleUsersReads)
+	}
+}
+
+// When the roles or a role's holders cannot be read, the admin values are
+// left out with that read's gap, and the owner still makes the present
+// flags true. When GitHub withholds the base permission, the gap is
+// permission_denied and the roles are not read.
+func TestAccessAdminsLeftOutWithoutTheRoleHolders(t *testing.T) {
+	denied := componentsdk.CodeError(componentsdk.CodePermissionDenied, github.ErrPermissionDenied)
+	failed := componentsdk.CodeError(componentsdk.CodeVendorError, errors.New("server error"))
+	for _, tc := range []struct {
+		name  string
+		base  string
+		setup func(*mockGitHubClient)
+		code  componentsdk.Code
+		roles int
+	}{
+		{"roles refused", "read", func(m *mockGitHubClient) { m.orgRolesErr = denied }, componentsdk.CodePermissionDenied, 1},
+		{"holders read fails", "read", func(m *mockGitHubClient) { m.roleUsersErr = failed }, componentsdk.CodeVendorError, 1},
+		{"holders at the cap", "read", func(m *mockGitHubClient) { m.roleUsersMore = true }, componentsdk.CodeTooLarge, 1},
+		{"members at the cap", "read", func(m *mockGitHubClient) { m.membership.MembersMore = true }, componentsdk.CodeTooLarge, 1},
+		{"base permission withheld", "", func(*mockGitHubClient) {}, componentsdk.CodePermissionDenied, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := richMock()
+			mock.orgSecurity.DefaultRepositoryPermission = tc.base
+			mock.orgRoles = []github.OrgRole{{ID: 1, BaseRole: "admin"}}
+			mock.roleUsers = map[int64][]string{1: {"bob"}}
+			tc.setup(mock)
+			a, gaps := accessAt(t, componentsdk.LevelAudit, mock)
+			wantFlag(t, "admins_present", a.Admins.AdminsPresent, true)
+			wantFlag(t, "local_admins_present", a.Admins.LocalAdminsPresent, true)
+			if a.Admins.AdminCount != nil || a.Admins.AdminSharePct.Read || a.Admins.LocalMFAAdminCount != nil || a.Admins.LocalAdminMFACoveragePct.Read {
+				t.Errorf("admins = %+v, want the counts and percentages left out", a.Admins)
+			}
+			for _, pointer := range []string{"/admins/admin_count", "/admins/admin_share_pct", "/admins/local_admin_count", "/admins/local_mfa_admin_count", "/admins/local_admin_mfa_coverage_pct"} {
+				if g := accessGap(gaps, pointer); g == nil || g.Code != tc.code {
+					t.Errorf("%s gap = %+v, want %s", pointer, g, tc.code)
+				}
+			}
+			if mock.orgRolesReads != tc.roles {
+				t.Errorf("read the roles %d times, want %d", mock.orgRolesReads, tc.roles)
+			}
+		})
+	}
+}
+
+// With the admin base permission every member is an admin, so the roles
+// are not read. Nor are they when the run does not write the access file.
+func TestAccessRolesReadOnlyWhenTheyCount(t *testing.T) {
+	mock := richMock()
+	mock.orgSecurity.DefaultRepositoryPermission = "admin"
+	accessAt(t, componentsdk.LevelTrust, mock)
+	if mock.orgRolesReads != 0 {
+		t.Errorf("admin base permission: read the roles %d times, want none", mock.orgRolesReads)
+	}
+	mock = richMock()
+	c := NewWithClient(Config{Organization: "test-org", IncludePatterns: []string{"*"}, CollectVulns: true}, mock)
+	if _, err := c.Collect(t.Context(), componentsdk.LevelAudit); err != nil {
+		t.Fatal(err)
+	}
+	if mock.orgRolesReads != 0 {
+		t.Errorf("no access file: read the roles %d times, want none", mock.orgRolesReads)
 	}
 }
 

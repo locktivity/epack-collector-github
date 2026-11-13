@@ -39,6 +39,8 @@ type GitHubClient interface {
 	ListDependabotAlerts(ctx context.Context, owner, repo string) ([]DependabotAlert, bool, error)
 	GetOrgMembership(ctx context.Context, org string) (*OrgMembership, error)
 	GetOrgRosters(ctx context.Context, org string) (*OrgMembership, error)
+	ListOrgRoles(ctx context.Context, org string) ([]OrgRole, error)
+	ListOrgRoleUsers(ctx context.Context, org string, roleID int64) ([]string, bool, error)
 	FetchOrgSSO(ctx context.Context, org string) (*OrgSSO, error)
 	GetCodeownersInfo(ctx context.Context, owner, repo string, wantHash bool) (present bool, path string, hash string, err error)
 	ListOrgHooks(ctx context.Context, org string) ([]Hook, bool, error)

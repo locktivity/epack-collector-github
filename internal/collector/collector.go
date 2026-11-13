@@ -170,9 +170,9 @@ func (c *Collector) Collect(ctx context.Context, level componentsdk.Level) (*Org
 	c.populatePosture(posture, orgSecurity, metrics, includePatterns, level)
 
 	if !level.AtLeast(componentsdk.LevelAudit) {
-		c.readTrustLists(steps, metrics)
+		c.readTrustLists(steps, metrics, orgSecurity.DefaultRepositoryPermission)
 	}
-	c.collectSurfaces(steps, posture, metrics, level)
+	c.collectSurfaces(steps, posture, metrics, level, orgSecurity.DefaultRepositoryPermission)
 	steps.end()
 
 	if c.config.CollectAccess {
@@ -237,8 +237,9 @@ func readOnly(scopes []string) bool {
 // readTrustLists reads the lists that the access-posture and vuln-scanning
 // artifacts need below the audit level, where the detailed artifact is not
 // written. Each list is read only for an artifact the run writes, as a step
-// of its own.
-func (c *Collector) readTrustLists(steps *stepper, metrics *metricsAggregator) {
+// of its own. basePermission is the members' base permission the sign-in
+// read.
+func (c *Collector) readTrustLists(steps *stepper, metrics *metricsAggregator, basePermission string) {
 	reposRead := metrics.reposErr == nil
 	if c.config.CollectVulns && reposRead {
 		c.readAlerts(steps.next("security_alerts", "Security alerts"), metrics, false)
@@ -251,7 +252,9 @@ func (c *Collector) readTrustLists(steps *stepper, metrics *metricsAggregator) {
 	}
 	_, _, _ = c.readInstallations(steps.next("apps", "Installed Apps"), metrics)
 	_, _, _ = c.readGrants(steps.next("tokens", "Fine-grained personal access tokens"), metrics)
-	_, _ = c.readMembership(steps.next("members", "Members and outside collaborators"), metrics, false)
+	members := steps.next("members", "Members and outside collaborators")
+	_, _ = c.readMembership(members, metrics, false)
+	c.readRoleAdmins(members, metrics, basePermission)
 	_, _ = c.readSSO(steps.next("sso", "SAML single sign-on"), metrics)
 }
 
@@ -284,8 +287,9 @@ func isFeatureUnavailable(err error) bool {
 // as a step of the run. At trust it is a no-op, so trust output is unchanged.
 // augment* methods extend structs that already exist at trust (access
 // control, security features); collect* methods populate the
-// audit/internal-only surfaces.
-func (c *Collector) collectSurfaces(steps *stepper, posture *OrgPosture, metrics *metricsAggregator, level componentsdk.Level) {
+// audit/internal-only surfaces. basePermission is the members' base
+// permission the sign-in read.
+func (c *Collector) collectSurfaces(steps *stepper, posture *OrgPosture, metrics *metricsAggregator, level componentsdk.Level, basePermission string) {
 	if !level.AtLeast(componentsdk.LevelAudit) {
 		return
 	}
@@ -323,6 +327,9 @@ func (c *Collector) collectSurfaces(steps *stepper, posture *OrgPosture, metrics
 	c.collectTokens(p)
 	step("members", "Members and outside collaborators")
 	c.collectMembers(p, activity, activityErr)
+	if c.config.CollectAccess {
+		c.readRoleAdmins(p.ctx, metrics, basePermission)
+	}
 	// The SAML identities feed the detailed member rows and the access file,
 	// so they are read when the run writes either.
 	if c.config.CollectDetails || c.config.CollectAccess {
